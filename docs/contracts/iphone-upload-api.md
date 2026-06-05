@@ -8,10 +8,35 @@ The iPhone app uploads to NexusRelay. It does not call Pixel APIs and it does no
 
 The current backend login endpoint sets HttpOnly cookies and returns a browser-shaped response. The iPhone app should use cookie-based auth for MVP.
 
+All unsafe HTTP requests (POST, PUT, DELETE) require a CSRF request token passed in the `X-NexusRelay-CSRF` header, and the `nexus_csrf` cookie. The token is obtained via the `/api/auth/csrf` endpoint.
+
+Later, the backend should consider introducing a mobile-specific bearer-token auth endpoint (e.g., OAuth2 or API tokens) to eliminate cookie and CSRF complexities for native clients.
+
+### CSRF Token
+
+```http
+GET /api/auth/csrf
+```
+
+Response body:
+
+```json
+{
+  "token": "CfDJ8M..."
+}
+```
+
+Response cookies:
+
+```text
+nexus_csrf=<token>; HttpOnly
+```
+
 ### Login
 
 ```http
 POST /api/auth/login
+X-NexusRelay-CSRF: CfDJ8M...
 Content-Type: application/json
 ```
 
@@ -48,7 +73,8 @@ The app stores cookies/session material in Keychain and attaches them to authent
 
 ```http
 POST /api/auth/refresh
-Cookie: access_token=<jwt>; refresh_token=<refresh-token>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; refresh_token=<refresh-token>; nexus_csrf=<token>
 ```
 
 Expected response:
@@ -107,7 +133,8 @@ Response:
 
 ```http
 POST /api/folders
-Cookie: access_token=<jwt>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; nexus_csrf=<token>
 Content-Type: application/json
 ```
 
@@ -135,7 +162,42 @@ GET /api/folders/{folderId}/media?mediaPageSize=60
 Cookie: access_token=<jwt>
 ```
 
-The iPhone app parses media filenames containing:
+Response body (FolderContentDto):
+
+```json
+{
+  "folder": {
+    "id": "1f16e90d-6ddb-43fc-8e30-61a71e2e5005",
+    "name": "iPhone Uploads"
+  },
+  "subFolders": [],
+  "mediaItems": [
+    {
+      "id": "94aa00ac-219a-4d65-8ff4-11ffc7a042e1",
+      "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
+      "size": 4820131,
+      "mimeType": "image/heic",
+      "status": "Completed"
+    }
+  ],
+  "media": {
+    "items": [
+      {
+        "id": "94aa00ac-219a-4d65-8ff4-11ffc7a042e1",
+        "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
+        "size": 4820131,
+        "mimeType": "image/heic",
+        "status": "Completed"
+      }
+    ],
+    "pageSize": 60,
+    "hasMore": false,
+    "nextCursor": null
+  }
+}
+```
+
+The iPhone app parses media filenames from either `mediaItems` or `media.items` containing:
 
 ```text
 __nr-<16-hex-fingerprint>
@@ -157,7 +219,8 @@ Chunk size = 30 MB
 
 ```http
 POST /api/upload/stream
-Cookie: access_token=<jwt>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; nexus_csrf=<token>
 x-file-name: IMG_1001__nr-a3f91c0d8e74b210.HEIC
 x-folder-id: 1f16e90d-6ddb-43fc-8e30-61a71e2e5005
 x-file-size: 4820131
@@ -165,6 +228,7 @@ Content-Type: image/heic
 
 <file bytes>
 ```
+Note: `x-file-name` should be URL-percent-encoded when sent in headers (e.g. `IMG_1001__nr-a3f91c0d8e74b210.HEIC` is already URL-safe, but others might have spaces or special characters).
 
 Response:
 
@@ -180,7 +244,8 @@ For stream uploads, this response means the backend accepted the upload and star
 
 ```http
 POST /api/upload/init
-Cookie: access_token=<jwt>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; nexus_csrf=<token>
 Content-Type: application/json
 ```
 
@@ -207,7 +272,8 @@ Response:
 
 ```http
 POST /api/upload/chunk
-Cookie: access_token=<jwt>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; nexus_csrf=<token>
 x-upload-id: 94aa00ac-219a-4d65-8ff4-11ffc7a042e1
 x-chunk-index: 0
 x-chunk-size: 31457280
@@ -230,7 +296,8 @@ Response:
 
 ```http
 POST /api/upload/complete
-Cookie: access_token=<jwt>
+X-NexusRelay-CSRF: CfDJ8M...
+Cookie: access_token=<jwt>; nexus_csrf=<token>
 Content-Type: application/json
 ```
 
