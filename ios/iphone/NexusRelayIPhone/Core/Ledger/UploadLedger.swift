@@ -1,5 +1,13 @@
 import Foundation
 
+struct LedgerCounts: Equatable {
+    let queued: Int
+    let uploaded: Int
+    let failed: Int
+    let exporting: Int
+    let uploading: Int
+}
+
 protocol UploadLedger {
     func upsertDiscovered(_ candidates: [PhotoAssetCandidate], folderId: UUID) async throws
     func nextUploadBatch(limit: Int) async throws -> [UploadLedgerRecord]
@@ -9,4 +17,5 @@ protocol UploadLedger {
     func markUploaded(id: String, backendUploadId: UUID) async throws
     func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws
     func markFailed(id: String, error: String, retryable: Bool) async throws
+    func getLedgerCounts() async throws -> LedgerCounts
 }

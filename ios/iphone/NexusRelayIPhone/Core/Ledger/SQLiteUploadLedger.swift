@@ -239,6 +239,34 @@ final class SQLiteUploadLedger: UploadLedger {
         try runUpdate(sql, params: [error, timestamp, id])
     }
 
+    func getLedgerCounts() async throws -> LedgerCounts {
+        let sql = """
+        SELECT 
+            SUM(case when status IN ('discovered', 'readyToUpload') then 1 else 0 end),
+            SUM(case when status IN ('uploaded', 'synced') then 1 else 0 end),
+            SUM(case when status = 'failed' then 1 else 0 end),
+            SUM(case when status = 'exporting' then 1 else 0 end),
+            SUM(case when status = 'uploading' then 1 else 0 end)
+        FROM upload_ledger;
+        """
+        
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw DatabaseError.prepareFailed(errorMessage())
+        }
+        defer { sqlite3_finalize(stmt) }
+        
+        if sqlite3_step(stmt) == SQLITE_ROW {
+            let queued = Int(sqlite3_column_int(stmt, 0))
+            let uploaded = Int(sqlite3_column_int(stmt, 1))
+            let failed = Int(sqlite3_column_int(stmt, 2))
+            let exporting = Int(sqlite3_column_int(stmt, 3))
+            let uploading = Int(sqlite3_column_int(stmt, 4))
+            return LedgerCounts(queued: queued, uploaded: uploaded, failed: failed, exporting: exporting, uploading: uploading)
+        }
+        return LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)
+    }
+
     private func runUpdate(_ sql: String, params: [Any]) throws {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
