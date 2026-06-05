@@ -156,6 +156,9 @@ final class ReconciliationServiceTests: XCTestCase {
     }
 
     func testDatabaseCorruptionRecovery() {
+        service = nil
+        ledger = nil
+
         // Write corrupt garbage data into the database file
         let badData = "corrupted-file-data".data(using: .utf8)!
         try! badData.write(to: dbURL)

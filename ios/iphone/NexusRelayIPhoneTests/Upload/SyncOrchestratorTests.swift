@@ -121,7 +121,8 @@ final class MockUploadLedger: UploadLedger {
 
     func nextUploadBatch(limit: Int) async throws -> [UploadLedgerRecord] {
         nextBatchCount += 1
-        let batch = records.filter { $0.status == .discovered || $0.status == .readyToUpload || $0.status == .failed }
+        let uploadableStatuses: [UploadStatus] = [.discovered, .exporting, .readyToUpload, .uploading, .failed]
+        let batch = records.filter { uploadableStatuses.contains($0.status) && $0.attemptCount < 3 }
             .prefix(limit)
         return Array(batch)
     }
@@ -187,12 +188,13 @@ final class MockUploadLedger: UploadLedger {
     func markFailed(id: String, error: String, retryable: Bool) async throws {
         if let idx = records.firstIndex(where: { $0.id == id }) {
             let r = records[idx]
+            let nextAttemptCount = retryable ? r.attemptCount + 1 : 99
             records[idx] = UploadLedgerRecord(
                 id: r.id, assetLocalIdentifier: r.assetLocalIdentifier, resourceKind: r.resourceKind,
                 fingerprintSuffix: r.fingerprintSuffix, originalFilename: r.originalFilename,
                 uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                 status: .failed, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
-                localStagedFileURL: r.localStagedFileURL, attemptCount: r.attemptCount + 1,
+                localStagedFileURL: r.localStagedFileURL, attemptCount: nextAttemptCount,
                 lastAttemptAt: Date(), lastError: error
             )
         }

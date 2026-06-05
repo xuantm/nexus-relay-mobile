@@ -7,13 +7,23 @@ final class SQLiteUploadLedger: UploadLedger {
 
     init(dbURL: URL) throws {
         self.dbURL = dbURL
-        try openDatabase()
-        try createTables()
+        do {
+            try openDatabase()
+            try createTables()
+        } catch {
+            closeDatabase()
+            throw error
+        }
     }
 
     deinit {
+        closeDatabase()
+    }
+
+    private func closeDatabase() {
         if let db = db {
             sqlite3_close(db)
+            self.db = nil
         }
     }
 

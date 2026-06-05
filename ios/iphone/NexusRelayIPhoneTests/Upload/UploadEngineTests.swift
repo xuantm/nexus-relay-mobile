@@ -141,6 +141,7 @@ final class UploadEngineTests: XCTestCase {
         XCTAssertEqual(api.uploadChunkCount, 3)
         XCTAssertEqual(api.completeUploadCount, 1)
         XCTAssertNotNil(uploadId)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFileURL.path))
     }
 
     func testRetriesOnTransientError() async throws {

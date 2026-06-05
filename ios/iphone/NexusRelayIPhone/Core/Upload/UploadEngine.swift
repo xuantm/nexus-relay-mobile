@@ -80,7 +80,9 @@ final class SystemUploadEngine: UploadEngine {
                 )
                 
                 defer {
-                    try? FileManager.default.removeItem(at: chunkURL)
+                    if chunkURL.standardizedFileURL != localURL.standardizedFileURL {
+                        try? FileManager.default.removeItem(at: chunkURL)
+                    }
                 }
                 
                 let actualChunkSize = try getFileSize(at: chunkURL)
@@ -141,6 +143,9 @@ final class SystemUploadEngine: UploadEngine {
     private func getFileSize(at url: URL) throws -> Int64 {
         let path = url.path
         let attrs = try FileManager.default.attributesOfItem(atPath: path)
+        if let size = attrs[.size] as? NSNumber {
+            return size.int64Value
+        }
         return attrs[.size] as? Int64 ?? 0
     }
 }

@@ -151,12 +151,12 @@ struct PublicPhotoAssetFileSizeResolver {
             return nil
         }
 
-        if let allocatedSize = values.totalFileAllocatedSize {
-            return Int64(allocatedSize)
-        }
-
         if let fileSize = values.fileSize {
             return Int64(fileSize)
+        }
+
+        if let allocatedSize = values.totalFileAllocatedSize {
+            return Int64(allocatedSize)
         }
 
         return nil

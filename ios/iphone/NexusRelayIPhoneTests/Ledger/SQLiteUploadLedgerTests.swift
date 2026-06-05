@@ -1,4 +1,3 @@
-import SQLite3
 import XCTest
 @testable import NexusRelayIPhone
 
@@ -115,11 +114,7 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         let suffix = batch.first?.fingerprintSuffix ?? AssetFingerprinter.getFingerprintSuffix(fingerprint: AssetFingerprinter.generateFingerprint(candidate: candidate))
         try await ledger.markSyncedByFingerprintSuffixes([suffix], folderId: folderId)
         
-        // Fetch to check status isSynced
-        let querySql = "SELECT status FROM upload_ledger WHERE id = ?;"
-        var stmt: OpaquePointer?
-        sqlite3_prepare_v2(ledger.nextUploadBatchStmt(), querySql, -1, &stmt, nil)
-        // Wait, SQLiteUploadLedger doesn't expose raw db, but we can verify it's not fetched anymore
+        // Verify synced items are no longer fetched for upload.
         batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertTrue(batch.isEmpty)
     }
@@ -185,19 +180,5 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         try await ledger.markFailed(id: id, error: "File corrupted", retryable: false)
         let batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertTrue(batch.isEmpty) // Non-retryable fails immediately and is excluded
-    }
-}
-
-// Extension to allow binding test checks if needed
-extension SQLiteUploadLedger {
-    func nextUploadBatchStmt() -> OpaquePointer? {
-        // Just returns private db pointer for test query helper
-        let mirror = Mirror(reflecting: self)
-        for child in mirror.children {
-            if child.label == "db" {
-                return child.value as? OpaquePointer
-            }
-        }
-        return nil
     }
 }

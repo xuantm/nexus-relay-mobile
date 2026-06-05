@@ -99,6 +99,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         var uploadedCount = 0
         var hasMore = true
         let batchLimit = 10
+        var processedRecordIds = Set<String>()
 
         while hasMore {
             // Respect low power mode during queue execution
@@ -107,12 +108,14 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             }
 
             let batch = try await ledger.nextUploadBatch(limit: batchLimit)
-            if batch.isEmpty {
+            let pendingBatch = batch.filter { !processedRecordIds.contains($0.id) }
+            if pendingBatch.isEmpty {
                 hasMore = false
                 break
             }
 
-            for record in batch {
+            for record in pendingBatch {
+                processedRecordIds.insert(record.id)
                 do {
                     // Stage: mark exporting
                     try await ledger.markExporting(id: record.id)
@@ -206,6 +209,9 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
     private func getFileSize(at url: URL) throws -> Int64 {
         let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        if let size = attrs[.size] as? NSNumber {
+            return size.int64Value
+        }
         return attrs[.size] as? Int64 ?? 0
     }
 
