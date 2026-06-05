@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Select Xcode
         run: |
@@ -124,7 +124,7 @@ jobs:
             "$RUNNER_TEMP/NexusRelayIPhone-xcarchive.zip"
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-iphone-release-artifacts-${{ github.run_number }}
           path: |
