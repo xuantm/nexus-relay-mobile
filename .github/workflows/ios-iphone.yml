@@ -1,0 +1,31 @@
+name: iOS iPhone
+
+on:
+  pull_request:
+    paths:
+      - 'ios/iphone/**'
+      - '.github/workflows/ios-iphone.yml'
+  push:
+    branches:
+      - develop
+      - 'feature/**'
+    paths:
+      - 'ios/iphone/**'
+      - '.github/workflows/ios-iphone.yml'
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        working-directory: ios/iphone
+        run: xcodegen generate
+      - name: Test
+        working-directory: ios/iphone
+        run: xcodebuild -scheme NexusRelayIPhone -destination 'platform=iOS Simulator,name=iPhone 16' test
+      - name: Build
+        working-directory: ios/iphone
+        run: xcodebuild -scheme NexusRelayIPhone -destination 'platform=iOS Simulator,name=iPhone 16' build
