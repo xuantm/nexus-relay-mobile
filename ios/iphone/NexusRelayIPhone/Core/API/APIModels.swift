@@ -71,11 +71,30 @@ struct CursorPageDTO<T: Codable & Equatable>: Codable, Equatable {
     let nextCursor: String?
 }
 
+struct OffsetPageDTO<T: Codable & Equatable>: Codable, Equatable {
+    let items: [T]
+    let page: Int
+    let pageSize: Int
+    let hasMore: Bool
+    let nextPage: Int?
+}
+
+struct BreadcrumbDTO: Codable, Equatable, Identifiable {
+    let id: UUID
+    let name: String
+}
+
 struct FolderContentDTO: Codable, Equatable {
     let folder: FolderDTO
     let subFolders: [FolderDTO]
     let mediaItems: [MediaItemDTO]?
     let media: CursorPageDTO<MediaItemDTO>?
+    let breadcrumbs: [BreadcrumbDTO]?
+    let page: Int?
+    let pageSize: Int?
+    let hasMore: Bool?
+    let nextPage: Int?
+    let folders: OffsetPageDTO<FolderDTO>?
 }
 
 // MARK: - Upload DTOs

@@ -1,0 +1,132 @@
+name: iOS iPhone Release Artifact
+
+on:
+  push:
+    tags:
+      - "ios-iphone-v*"
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Xcode build configuration"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Release
+          - Debug
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-iphone-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IOS_PROJECT_DIR: ios/iphone
+  IOS_PROJECT_FILE: NexusRelayIPhone.xcodeproj
+  IOS_SCHEME: NexusRelayIPhone
+  XCODE_VERSION: "16.4"
+
+jobs:
+  archive:
+    runs-on: macos-15
+    defaults:
+      run:
+        shell: bash
+        working-directory: ios/iphone
+    env:
+      BUILD_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+
+          primary="/Applications/Xcode_${XCODE_VERSION}.app"
+          fallback="/Applications/Xcode_${XCODE_VERSION}.0.app"
+
+          if [[ -d "$primary" ]]; then
+            sudo xcode-select -switch "$primary"
+          elif [[ -d "$fallback" ]]; then
+            sudo xcode-select -switch "$fallback"
+          else
+            echo "Requested Xcode ${XCODE_VERSION} not found on runner."
+            ls /Applications | grep '^Xcode' || true
+            exit 1
+          fi
+
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          set -euo pipefail
+
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen version
+            exit 0
+          fi
+
+          brew install xcodegen
+          xcodegen version
+
+      - name: Generate project
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project.yml
+
+      - name: Build release simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "$IOS_PROJECT_FILE" \
+            -scheme "$IOS_SCHEME" \
+            -configuration "$BUILD_CONFIGURATION" \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData-release" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package simulator app
+        run: |
+          set -euo pipefail
+
+          app_path="$(find "$RUNNER_TEMP/DerivedData-release/Build/Products" -type d -name 'NexusRelayIPhone.app' | head -n 1)"
+          if [[ -z "$app_path" ]]; then
+            echo "Simulator app bundle not found."
+            exit 1
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "$RUNNER_TEMP/NexusRelayIPhone-simulator-app.zip"
+
+      - name: Archive unsigned device build
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "$IOS_PROJECT_FILE" \
+            -scheme "$IOS_SCHEME" \
+            -configuration "$BUILD_CONFIGURATION" \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/NexusRelayIPhone.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            archive
+
+      - name: Package xcarchive
+        run: |
+          set -euo pipefail
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/NexusRelayIPhone.xcarchive" \
+            "$RUNNER_TEMP/NexusRelayIPhone-xcarchive.zip"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-iphone-release-artifacts-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/NexusRelayIPhone-simulator-app.zip
+            ${{ runner.temp }}/NexusRelayIPhone-xcarchive.zip

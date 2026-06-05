@@ -87,7 +87,8 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         // discovered -> exporting
         try await ledger.markExporting(id: id)
         var batch = try await ledger.nextUploadBatch(limit: 10)
-        XCTAssertTrue(batch.isEmpty) // exporting items are not in next upload batch
+        XCTAssertEqual(batch.count, 1)
+        XCTAssertEqual(batch.first?.status, .exporting)
         
         // exporting -> readyToUpload
         let fakeStagedURL = URL(string: "file:///tmp/staged/photo1.jpg")!
@@ -100,7 +101,8 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         // readyToUpload -> uploading
         try await ledger.markUploading(id: id)
         batch = try await ledger.nextUploadBatch(limit: 10)
-        XCTAssertTrue(batch.isEmpty) // uploading items are not in next upload batch
+        XCTAssertEqual(batch.count, 1)
+        XCTAssertEqual(batch.first?.status, .uploading)
         
         // uploading -> uploaded
         let uploadId = UUID()

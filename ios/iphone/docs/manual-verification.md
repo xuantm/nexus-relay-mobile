@@ -6,18 +6,18 @@ This document outlines the testing and verification strategy for the native iPho
 
 | Verification Area | Type | Target Environment | Status | Details / Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Unit Test Suite** | Automated | GitHub Actions (macOS 15) | **PASSED** | Runs clean via `xcodebuild` |
-| **Simulator Compilation** | Automated | GitHub Actions (macOS 15) | **PASSED** | Compiles clean via `xcodegen` and `xcodebuild` |
-| **Auth & CSRF Handling** | Manual/Faked | iOS Simulator & Local Backend | **Verified** | Cookie preservation + CSRF token retrial logic |
-| **Photos Upload Flow** | Manual | Physical iPhone / Simulator | **Verified** | Stream upload for small files; chunked upload for files > 90MB |
-| **Duplicate Prevention** | Manual | Physical iPhone / Simulator | **Verified** | Suffix matching prevents uploading existing files |
-| **Network Constraints** | Manual | Physical iPhone / Simulator | **Verified** | Wi-Fi Only constraint pauses cellular uploads |
+| **Unit Test Suite** | Automated | GitHub Actions (macOS 15) | **NOT RUN IN THIS REPO SESSION** | Intended command is `xcodebuild ... test`; verify on macOS or CI |
+| **Simulator Compilation** | Automated | GitHub Actions (macOS 15) | **NOT RUN IN THIS REPO SESSION** | Intended command is `xcodegen generate` + `xcodebuild ... build` |
+| **Auth & CSRF Handling** | Manual/Faked | iOS Simulator & Local Backend | **PLANNED** | Covered by code/tests, but still needs a real verification pass |
+| **Photos Upload Flow** | Manual | Physical iPhone / Simulator | **PLANNED** | Requires device/simulator run against a live NexusRelay deployment |
+| **Duplicate Prevention** | Manual | Physical iPhone / Simulator | **PLANNED** | Requires reconciliation test against real backend folder data |
+| **Network Constraints** | Manual | Physical iPhone / Simulator | **PLANNED** | Requires controlled Wi-Fi/cellular switching on device |
 
 ---
 
 ## Automated Verification (CI Pipeline)
 
-The project utilizes a GitHub Actions workflow defined at [ios-iphone.yml](file:///g:/workspace/nexus-relay-mobile/.github/workflows/ios-iphone.yml). This workflow executes on every push to the `feature/ios-uploader-plan` branch.
+The project utilizes a GitHub Actions workflow defined at `/.github/workflows/ios-iphone.yml`. Use that workflow on a macOS runner to verify the commands below.
 
 ### 1. Build Verification
 To ensure the project builds correctly:

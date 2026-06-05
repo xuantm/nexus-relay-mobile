@@ -6,7 +6,9 @@ struct NexusRelayIPhoneApp: App {
     @State private var isSetupComplete: Bool = {
         let store = UserDefaultsSettingsStore()
         let settings = store.settings
-        return settings.backendBaseURL != nil && settings.destinationFolderId != nil
+        let photosStatus = PhotoKitPhotoLibraryClient().authorizationStatus()
+        let hasPhotosAccess = photosStatus == .authorized || photosStatus == .limited
+        return settings.backendBaseURL != nil && settings.destinationFolderId != nil && hasPhotosAccess
     }()
 
     var body: some Scene {

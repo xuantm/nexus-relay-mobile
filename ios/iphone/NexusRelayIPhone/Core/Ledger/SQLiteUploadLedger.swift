@@ -131,7 +131,7 @@ final class SQLiteUploadLedger: UploadLedger {
                status, backend_folder_id, backend_upload_id, local_staged_file_url,
                attempt_count, last_attempt_at, last_error
         FROM upload_ledger
-        WHERE status IN ('discovered', 'readyToUpload', 'failed') AND attempt_count < 3
+        WHERE status IN ('discovered', 'exporting', 'readyToUpload', 'uploading', 'failed') AND attempt_count < 3
         ORDER BY last_attempt_at ASC, id ASC
         LIMIT ?;
         """

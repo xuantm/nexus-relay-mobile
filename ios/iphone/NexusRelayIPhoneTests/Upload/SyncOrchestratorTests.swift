@@ -19,6 +19,31 @@ final class MockAssetExporter: AssetExporter {
     }
 }
 
+final class PermissionAwarePhotoLibraryClient: PhotoLibraryClient {
+    var status: PhotoLibraryAuthorizationStatus
+    var requestedStatus: PhotoLibraryAuthorizationStatus?
+    var candidates: [PhotoAssetCandidate] = []
+
+    init(status: PhotoLibraryAuthorizationStatus) {
+        self.status = status
+    }
+
+    func authorizationStatus() -> PhotoLibraryAuthorizationStatus {
+        status
+    }
+
+    func requestAuthorization() async -> PhotoLibraryAuthorizationStatus {
+        if let requestedStatus {
+            status = requestedStatus
+        }
+        return status
+    }
+
+    func fetchCandidates(includeVideos: Bool, includeLivePhotoVideo: Bool) async throws -> [PhotoAssetCandidate] {
+        candidates
+    }
+}
+
 final class MockTemporaryFileStore: TemporaryFileStore {
     var getStagedURLCount = 0
     var deleteCount = 0
@@ -343,5 +368,25 @@ final class SyncOrchestratorTests: XCTestCase {
         
         XCTAssertEqual(ledger.records.first(where: { $0.assetLocalIdentifier == "failed-asset" })?.status, .failed)
         XCTAssertEqual(ledger.records.first(where: { $0.assetLocalIdentifier == "success-asset" })?.status, .failed)
+    }
+
+    func testSyncFailsWhenPhotosPermissionDenied() async throws {
+        let deniedScanner = PermissionAwarePhotoLibraryClient(status: .denied)
+        orchestrator = SystemSyncOrchestrator(
+            apiClient: api, photosScanner: deniedScanner, ledger: ledger,
+            exporter: exporter, tempFileStore: tempStore, uploadEngine: engine,
+            settingsStore: settingsStore,
+            wifiChecker: { true }
+        )
+
+        settingsStore.settings.destinationFolderId = UUID()
+
+        do {
+            _ = try await orchestrator.startSync()
+            XCTFail("Should have required Photos permission")
+        } catch {
+            XCTAssertTrue(error is SyncError)
+            XCTAssertEqual(error.localizedDescription, "Photos access is required before sync can start.")
+        }
     }
 }

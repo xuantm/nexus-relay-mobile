@@ -213,6 +213,47 @@ final class NexusRelayAPIClientTests: XCTestCase {
         XCTAssertEqual(content.media?.items.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
     }
 
+    func testListFolderMediaUsesMediaCursorQueryParameter() async throws {
+        sessionStore.currentSession = AuthSession(
+            userId: UUID(),
+            username: "xuan",
+            role: "Admin",
+            cookies: []
+        )
+
+        let folderId = UUID(uuidString: "1f16e90d-6ddb-43fc-8e30-61a71e2e5005")!
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/folders/\(folderId.uuidString.lowercased())/media")
+            XCTAssertEqual(request.url?.query, "mediaPageSize=60&mediaCursor=cursor-token")
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let json = """
+            {
+                "folder": {
+                    "id": "1f16e90d-6ddb-43fc-8e30-61a71e2e5005",
+                    "name": "iPhone Uploads",
+                    "parentId": null,
+                    "googleDriveFolderId": null,
+                    "createdAt": "2026-06-05T12:00:00Z",
+                    "childCount": 0,
+                    "mediaCount": 0
+                },
+                "subFolders": [],
+                "mediaItems": [],
+                "media": {
+                    "items": [],
+                    "pageSize": 60,
+                    "hasMore": false,
+                    "nextCursor": null
+                }
+            }
+            """
+            return (response, json.data(using: .utf8)!)
+        }
+
+        _ = try await apiClient.listFolderMedia(folderId: folderId, pageSize: 60, cursor: "cursor-token")
+    }
+
     func testHTTPClientTransparent401RefreshSuccess() async throws {
         sessionStore.currentSession = AuthSession(
             userId: UUID(),

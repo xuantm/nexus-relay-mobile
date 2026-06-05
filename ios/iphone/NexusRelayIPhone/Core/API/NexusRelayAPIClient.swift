@@ -124,7 +124,7 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         var path = "api/folders/\(folderId.uuidString.lowercased())/media?mediaPageSize=\(pageSize)"
         if let cursor = cursor, !cursor.isEmpty {
             if let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-                path += "&cursor=\(encodedCursor)"
+                path += "&mediaCursor=\(encodedCursor)"
             }
         }
         let request = HTTPRequest(method: "GET", path: path, headers: [:], body: nil)

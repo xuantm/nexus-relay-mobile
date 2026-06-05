@@ -15,9 +15,14 @@ final class SetupViewModel: ObservableObject {
     @Published var isSetupComplete = false
     
     private let settingsStore: SettingsStore
+    private let photosScanner: PhotoLibraryClient
     
-    init(settingsStore: SettingsStore = UserDefaultsSettingsStore()) {
+    init(
+        settingsStore: SettingsStore = UserDefaultsSettingsStore(),
+        photosScanner: PhotoLibraryClient = PhotoKitPhotoLibraryClient()
+    ) {
         self.settingsStore = settingsStore
+        self.photosScanner = photosScanner
         let s = settingsStore.settings
         self.serverURL = s.backendBaseURL?.absoluteString ?? ""
         self.wifiOnly = s.wifiOnly
@@ -63,6 +68,11 @@ final class SetupViewModel: ObservableObject {
             
             s.destinationFolderId = folderId
             settingsStore.settings = s
+
+            let photosStatus = await ensurePhotosAuthorization()
+            guard photosStatus == .authorized || photosStatus == .limited else {
+                throw SyncError.photosPermissionRequired
+            }
             
             isSetupComplete = true
         } catch {
@@ -70,5 +80,14 @@ final class SetupViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+
+    private func ensurePhotosAuthorization() async -> PhotoLibraryAuthorizationStatus {
+        let currentStatus = photosScanner.authorizationStatus()
+        if currentStatus == .notDetermined {
+            return await photosScanner.requestAuthorization()
+        }
+
+        return currentStatus
     }
 }

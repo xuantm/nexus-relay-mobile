@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import NexusRelayIPhone
 
@@ -120,5 +121,35 @@ final class AssetFingerprinterTests: XCTestCase {
         let uploadedName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: suffix)
         
         XCTAssertEqual(uploadedName, "IMG_1001__nr-bd02941f22ac9170.HEIC")
+    }
+
+    func testPublicFileSizeResolverReadsImageFileURLSize() throws {
+        let resolver = PublicPhotoAssetFileSizeResolver()
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let data = Data(repeating: 0xAB, count: 13)
+
+        try data.write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        XCTAssertEqual(resolver.fileSize(forImageFileURL: fileURL), 13)
+    }
+
+    func testPublicFileSizeResolverReadsAVURLAssetSize() throws {
+        let resolver = PublicPhotoAssetFileSizeResolver()
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let data = Data(repeating: 0xCD, count: 21)
+
+        try data.write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let asset = AVURLAsset(url: fileURL)
+        XCTAssertEqual(resolver.fileSize(forAudiovisualAsset: asset), 21)
+    }
+
+    func testPublicFileSizeResolverReturnsNilForRemoteAVURLAsset() {
+        let resolver = PublicPhotoAssetFileSizeResolver()
+        let remoteAsset = AVURLAsset(url: URL(string: "https://example.com/video.mov")!)
+
+        XCTAssertNil(resolver.fileSize(forAudiovisualAsset: remoteAsset))
     }
 }

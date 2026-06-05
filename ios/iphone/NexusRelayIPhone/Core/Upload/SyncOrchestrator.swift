@@ -78,6 +78,11 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             throw SyncError.missingFolder
         }
 
+        let photosAuthorization = await ensurePhotosAuthorization()
+        guard photosAuthorization == .authorized || photosAuthorization == .limited else {
+            throw SyncError.photosPermissionRequired
+        }
+
         // 1. Check network constraints
         if settings.wifiOnly && !isWifiConnected() {
             throw SyncError.cellularConnectionBlocked
@@ -190,6 +195,15 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         return wifiChecker()
     }
 
+    private func ensurePhotosAuthorization() async -> PhotoLibraryAuthorizationStatus {
+        let currentStatus = photosScanner.authorizationStatus()
+        if currentStatus == .notDetermined {
+            return await photosScanner.requestAuthorization()
+        }
+
+        return currentStatus
+    }
+
     private func getFileSize(at url: URL) throws -> Int64 {
         let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
         return attrs[.size] as? Int64 ?? 0
@@ -222,11 +236,13 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 enum SyncError: Error, LocalizedError {
     case missingFolder
     case cellularConnectionBlocked
+    case photosPermissionRequired
 
     var errorDescription: String? {
         switch self {
         case .missingFolder: return "Destination upload folder is not set."
         case .cellularConnectionBlocked: return "Upload paused: connection is cellular but sync is set to Wi-Fi only."
+        case .photosPermissionRequired: return "Photos access is required before sync can start."
         }
     }
 }
