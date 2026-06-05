@@ -1,0 +1,215 @@
+import Foundation
+import Network
+
+protocol SyncOrchestrator: AnyObject {
+    var isSyncing: Bool { get }
+    func startSync() async throws -> Int // Returns number of successfully uploaded assets
+}
+
+final class SystemSyncOrchestrator: SyncOrchestrator {
+    private let apiClient: NexusRelayAPI
+    private let photosScanner: PhotoLibraryClient
+    private let ledger: UploadLedger
+    private let exporter: AssetExporter
+    private let tempFileStore: TemporaryFileStore
+    private let uploadEngine: UploadEngine
+    private let settingsStore: SettingsStore
+
+    private let wifiChecker: () -> Bool
+    private(set) var isSyncing = false
+
+    init(
+        apiClient: NexusRelayAPI,
+        photosScanner: PhotoLibraryClient,
+        ledger: UploadLedger,
+        exporter: AssetExporter,
+        tempFileStore: TemporaryFileStore,
+        uploadEngine: UploadEngine,
+        settingsStore: SettingsStore,
+        wifiChecker: @escaping () -> Bool = {
+            let monitor = NWPathMonitor()
+            let semaphore = DispatchSemaphore(value: 0)
+            var isWifi = false
+            monitor.pathUpdateHandler = { path in
+                isWifi = path.usesInterfaceType(.wifi)
+                semaphore.signal()
+            }
+            let queue = DispatchQueue(label: "reachability")
+            monitor.start(queue: queue)
+            _ = semaphore.wait(timeout: .now() + 0.3)
+            monitor.cancel()
+            return isWifi
+        }
+    ) {
+        self.apiClient = apiClient
+        self.photosScanner = photosScanner
+        self.ledger = ledger
+        self.exporter = exporter
+        self.tempFileStore = tempFileStore
+        self.uploadEngine = uploadEngine
+        self.settingsStore = settingsStore
+        self.wifiChecker = wifiChecker
+    }
+
+    func startSync() async throws -> Int {
+        guard !isSyncing else { return 0 }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let settings = settingsStore.settings
+        guard let folderId = settings.destinationFolderId else {
+            throw SyncError.missingFolder
+        }
+
+        // 1. Check network constraints
+        if settings.wifiOnly && !isWifiConnected() {
+            throw SyncError.cellularConnectionBlocked
+        }
+
+        // 2. Scan and register new files
+        let candidates = try await photosScanner.fetchCandidates(
+            includeVideos: settings.includeVideos,
+            includeLivePhotoVideo: settings.includeLivePhotoVideo
+        )
+        try await ledger.upsertDiscovered(candidates, folderId: folderId)
+
+        // 3. Process batches
+        var uploadedCount = 0
+        var hasMore = true
+        let batchLimit = 10
+
+        while hasMore {
+            // Respect low power mode during queue execution
+            if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                break
+            }
+
+            let batch = try await ledger.nextUploadBatch(limit: batchLimit)
+            if batch.isEmpty {
+                hasMore = false
+                break
+            }
+
+            for record in batch {
+                do {
+                    // Stage: mark exporting
+                    try await ledger.markExporting(id: record.id)
+                    
+                    // Generate photo candidate from record data for export compatibility
+                    let candidate = PhotoAssetCandidate(
+                        assetLocalIdentifier: record.assetLocalIdentifier,
+                        resourceKind: record.resourceKind,
+                        originalFilename: record.originalFilename,
+                        uniformTypeIdentifier: record.mimeType, // UTType mapping is simplified here
+                        mimeType: record.mimeType,
+                        creationDate: record.lastAttemptAt,
+                        modificationDate: nil,
+                        pixelWidth: 0,
+                        pixelHeight: 0,
+                        durationSeconds: nil,
+                        resourceFileSize: record.sizeBytes
+                    )
+
+                    let stagedURL = try tempFileStore.getStagedFileURL(
+                        recordId: record.id,
+                        fileName: record.uploadedFileName
+                    )
+
+                    // Export resource to temporary storage
+                    try await exporter.exportOriginalResource(
+                        candidate: candidate,
+                        outputURL: stagedURL,
+                        allowNetworkAccess: !settings.wifiOnly
+                    )
+
+                    // Stage: mark ready
+                    let actualSize = try getFileSize(at: stagedURL)
+                    try await ledger.markReady(id: record.id, stagedFileURL: stagedURL, sizeBytes: actualSize)
+
+                    // Upload: mark uploading
+                    try await ledger.markUploading(id: record.id)
+                    
+                    // Run upload engine
+                    let updatedRecord = UploadLedgerRecord(
+                        id: record.id,
+                        assetLocalIdentifier: record.assetLocalIdentifier,
+                        resourceKind: record.resourceKind,
+                        fingerprintSuffix: record.fingerprintSuffix,
+                        originalFilename: record.originalFilename,
+                        uploadedFileName: record.uploadedFileName,
+                        mimeType: record.mimeType,
+                        sizeBytes: actualSize,
+                        status: .readyToUpload,
+                        backendFolderId: folderId,
+                        backendUploadId: nil,
+                        localStagedFileURL: stagedURL,
+                        attemptCount: record.attemptCount,
+                        lastAttemptAt: Date(),
+                        lastError: nil
+                    )
+                    
+                    let uploadId = try await uploadEngine.upload(record: updatedRecord, folderId: folderId)
+                    
+                    // Complete: mark uploaded & clean
+                    try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
+                    try? tempFileStore.deleteStagedFile(recordId: record.id)
+                    uploadedCount += 1
+                } catch {
+                    // Mark failed (retryable or terminal depending on error)
+                    let retryable = isRetryableError(error)
+                    try await ledger.markFailed(id: record.id, error: error.localizedDescription, retryable: retryable)
+                    try? tempFileStore.deleteStagedFile(recordId: record.id)
+                }
+            }
+        }
+
+        // Clean any leftover stale files
+        try? tempFileStore.cleanStaleFiles()
+        
+        return uploadedCount
+    }
+
+    private func isWifiConnected() -> Bool {
+        return wifiChecker()
+    }
+
+    private func getFileSize(at url: URL) throws -> Int64 {
+        let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        return attrs[.size] as? Int64 ?? 0
+    }
+
+    private func isRetryableError(_ error: Error) -> Bool {
+        if let exportError = error as? ExportError {
+            switch exportError {
+            case .networkAccessRequired:
+                return true // Can retry when on Wi-Fi
+            default:
+                return false
+            }
+        }
+        
+        // Network timeout/offline is retryable
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return nsError.code == NSURLErrorTimedOut ||
+                   nsError.code == NSURLErrorCannotFindHost ||
+                   nsError.code == NSURLErrorCannotConnectToHost ||
+                   nsError.code == NSURLErrorNetworkConnectionLost ||
+                   nsError.code == NSURLErrorNotConnectedToInternet
+        }
+        
+        return true
+    }
+}
+
+enum SyncError: Error, LocalizedError {
+    case missingFolder
+    case cellularConnectionBlocked
+
+    var errorDescription: String? {
+        switch self {
+        case .missingFolder: return "Destination upload folder is not set."
+        case .cellularConnectionBlocked: return "Upload paused: connection is cellular but sync is set to Wi-Fi only."
+        }
+    }
+}
