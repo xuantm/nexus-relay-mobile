@@ -81,7 +81,7 @@ Use these defaults unless the owner changes them:
 
 ```text
 Package name: com.nexusrelay.pixel
-Min SDK: 26
+Min SDK: 29
 Target SDK: 35
 App name: NexusRelay Pixel
 Image destination: Pictures/NexusRelay
@@ -122,7 +122,7 @@ com.nexusrelay.pixel
 Configure:
 
 ```text
-minSdk = 26
+minSdk = 29
 targetSdk = 35
 compileSdk = 35
 ```
