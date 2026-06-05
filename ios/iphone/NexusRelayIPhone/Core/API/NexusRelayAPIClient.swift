@@ -79,7 +79,8 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         let decoder = JSONDecoder.apiDecoder
         let authResponse = try decoder.decode(BrowserAuthResponse.self, from: response.body)
         
-        let cookies = HTTPCookieStorage.shared.cookies(for: baseURL) ?? []
+        let responseCookies = Self.cookies(from: response.headers, for: baseURL)
+        let cookies = responseCookies.isEmpty ? (HTTPCookieStorage.shared.cookies(for: baseURL) ?? []) : responseCookies
         let session = AuthSession(userId: authResponse.id, username: authResponse.username, role: authResponse.role, cookies: cookies)
         try sessionStore.saveSession(session)
         return session
@@ -123,7 +124,8 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO {
         var path = "api/folders/\(folderId.uuidString.lowercased())/media?mediaPageSize=\(pageSize)"
         if let cursor = cursor, !cursor.isEmpty {
-            if let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            let queryValueAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=+"))
+            if let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) {
                 path += "&mediaCursor=\(encodedCursor)"
             }
         }
@@ -197,5 +199,18 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         guard response.statusCode == 200 else {
             throw APIError.requestFailed(statusCode: response.statusCode, message: "Complete chunked upload failed")
         }
+    }
+
+    private static func cookies(from headers: [AnyHashable: Any], for url: URL) -> [HTTPCookie] {
+        var headerFields: [String: String] = [:]
+
+        for (key, value) in headers {
+            guard let headerName = key as? String else { continue }
+            if let headerValue = value as? String {
+                headerFields[headerName] = headerValue
+            }
+        }
+
+        return HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
     }
 }

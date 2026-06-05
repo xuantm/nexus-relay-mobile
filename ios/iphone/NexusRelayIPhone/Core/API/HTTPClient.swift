@@ -78,7 +78,7 @@ final class SystemHTTPClient: HTTPClient {
     }
 
     private func prepareRequest(_ request: HTTPRequest) async throws -> URLRequest {
-        let fullURL = baseURL.appendingPathComponent(request.path)
+        let fullURL = try makeURL(path: request.path)
         var urlRequest = URLRequest(url: fullURL)
         urlRequest.httpMethod = request.method
         urlRequest.httpBody = request.body
@@ -104,6 +104,27 @@ final class SystemHTTPClient: HTTPClient {
         }
 
         return urlRequest
+    }
+
+    private func makeURL(path: String) throws -> URL {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+
+        let pieces = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        let rawPath = pieces.first.map(String.init) ?? ""
+        let basePath = components.percentEncodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let requestPath = rawPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let combinedPath = [basePath, requestPath].filter { !$0.isEmpty }.joined(separator: "/")
+
+        components.percentEncodedPath = "/" + combinedPath
+        components.percentEncodedQuery = pieces.count > 1 ? String(pieces[1]) : nil
+
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+
+        return url
     }
 
     private func isUnsafeMethod(_ method: String) -> Bool {
@@ -145,11 +166,37 @@ final class SystemHTTPClient: HTTPClient {
 
         let (_, response) = try await urlSession.data(for: refreshRequest)
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-            saveCookies(for: baseURL)
+            saveCookies(from: httpResponse)
             return true
         } else {
             try? sessionStore.clearSession()
             return false
         }
+    }
+
+    private func saveCookies(from response: HTTPURLResponse) {
+        guard let session = sessionStore.currentSession else { return }
+
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields(from: response.allHeaderFields), for: baseURL)
+        if !cookies.isEmpty {
+            let newSession = AuthSession(userId: session.userId, username: session.username, role: session.role, cookies: cookies)
+            try? sessionStore.saveSession(newSession)
+            return
+        }
+
+        saveCookies(for: baseURL)
+    }
+
+    private func headerFields(from headers: [AnyHashable: Any]) -> [String: String] {
+        var result: [String: String] = [:]
+
+        for (key, value) in headers {
+            guard let headerName = key as? String else { continue }
+            if let headerValue = value as? String {
+                result[headerName] = headerValue
+            }
+        }
+
+        return result
     }
 }

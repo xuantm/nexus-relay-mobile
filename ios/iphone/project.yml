@@ -18,6 +18,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nexusrelay.iphone
         INFOPLIST_FILE: NexusRelayIPhone/Resources/Info.plist
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
     dependencies:
       - sdk: libsqlite3.tbd
   NexusRelayIPhoneTests:
