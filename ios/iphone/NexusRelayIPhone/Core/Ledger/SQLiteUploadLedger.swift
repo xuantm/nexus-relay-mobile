@@ -1,5 +1,5 @@
 import Foundation
-import sqlite3
+import SQLite3
 
 final class SQLiteUploadLedger: UploadLedger {
     private var db: OpaquePointer?
