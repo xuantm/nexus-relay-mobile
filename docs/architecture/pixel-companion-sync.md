@@ -55,6 +55,9 @@ The app sends `X-Device-Token` for device job endpoints. It stores the device to
 
 The receiver handles `device_sync_job_available` and enqueues sync work. The FCM payload contains only a job id and routing type. It does not contain download URLs, auth tokens, Google Drive ids, or media metadata beyond the job id.
 
+> [!NOTE]
+> FCM token refresh/rotation is not yet supported in the current mobile MVP. Device registration requires user credentials (Authorization: Bearer token), which are not persisted or managed on the device. Rotated FCM tokens are stored locally and will be used during the next manual/explicit registration flow.
+
 ### WorkManager Sync
 
 WorkManager is the durable background executor:
