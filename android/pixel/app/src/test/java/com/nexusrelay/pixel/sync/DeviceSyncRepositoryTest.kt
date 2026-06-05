@@ -218,6 +218,44 @@ class DeviceSyncRepositoryTest {
         verify(mockLedger, never()).markFailed(eq("job-5"), any())
         verify(mockApi, never()).fail(any(), eq("job-5"), any())
     }
+    
+    @Test
+    fun testSyncPendingJobs_NewJob_DownloadImportSucceed_ConfirmFailRetriable_ThrowsAndDoesNotMarkFailed() = runTest {
+        setupConfiguredMocks()
+        val job = createSampleJobDto("job-new-confirm-fail")
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
+        whenever(mockLedger.get("job-new-confirm-fail")).thenReturn(null)
+
+        val mockResponseBody = mock(ResponseBody::class.java)
+        val mockInputStream = mock(java.io.InputStream::class.java)
+        whenever(mockResponseBody.byteStream()).thenReturn(mockInputStream)
+        whenever(mockApi.downloadJob(eq("token-123"), eq("job-new-confirm-fail"))).thenReturn(mockResponseBody)
+        whenever(mockApi.markDownloading(any(), any())).thenAnswer {}
+        
+        val localUri = "content://media/external/images/media/999"
+        whenever(mockImporter.importMedia(eq(job.fileName), eq(job.mimeType), any(), eq(job.sizeBytes))).thenReturn(localUri)
+        
+        // Mock confirm to fail with retriable IOException
+        whenever(mockApi.confirm(eq("token-123"), eq("job-new-confirm-fail"), any())).thenAnswer { throw IOException("Confirm connection dropped") }
+
+        val repository = createRepository()
+        var threw = false
+        try {
+            repository.syncPendingJobs()
+        } catch (e: IOException) {
+            threw = true
+        }
+        assertTrue("Expected IOException to be thrown", threw)
+
+        // Verify ledger marked it as downloading, then confirm pending
+        verify(mockLedger).upsert(any())
+        verify(mockLedger).markDownloading(eq("job-new-confirm-fail"))
+        verify(mockLedger).markConfirmPending(eq("job-new-confirm-fail"), eq(localUri))
+
+        // But must NOT be marked failed locally, and fail endpoint must NOT be called
+        verify(mockLedger, never()).markFailed(eq("job-new-confirm-fail"), any())
+        verify(mockApi, never()).fail(any(), eq("job-new-confirm-fail"), any())
+    }
 
     private fun createSampleJobDto(jobId: String): DeviceSyncJobDto {
         return DeviceSyncJobDto(

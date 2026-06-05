@@ -684,7 +684,7 @@ When Firebase rotates the token:
 
 ```text
 Save token locally.
-If device is registered, send token update to backend registration endpoint or register endpoint.
+Note: Backend FCM token refresh is not yet supported in the current MVP. The new token is stored locally and will be sent to the backend during the next manual registration/pairing flow.
 ```
 
 - [ ] **Step 3: Register service in manifest**
