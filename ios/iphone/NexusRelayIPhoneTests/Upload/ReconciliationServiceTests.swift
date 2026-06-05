@@ -25,18 +25,24 @@ final class MockNexusRelayReconciliationAPI: NexusRelayAPI {
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO {
         let folder = FolderDTO(id: folderId, name: "iPhone Uploads", parentId: nil, googleDriveFolderId: nil, createdAt: Date(), childCount: 0, mediaCount: 0)
         let page = CursorPageDTO(items: mediaItems, pageSize: pageSize, hasMore: false, nextCursor: nil)
-        let folderPage = OffsetPageDTO(items: [], page: 1, pageSize: pageSize, hasMore: false, nextPage: nil)
+        let folderPage = OffsetPageDTO<FolderDTO>(
+            items: [],
+            page: 1,
+            pageSize: pageSize,
+            hasMore: false,
+            nextPage: nil
+        )
         
         return FolderContentDTO(
             folder: folder,
             subFolders: [],
             mediaItems: mediaItems,
+            media: page,
             breadcrumbs: [],
             page: 1,
             pageSize: pageSize,
             hasMore: false,
             nextPage: nil,
-            media: page,
             folders: folderPage
         )
     }
