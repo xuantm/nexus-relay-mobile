@@ -207,10 +207,10 @@ final class NexusRelayAPIClientTests: XCTestCase {
 
         let content = try await apiClient.listFolderMedia(folderId: folderId, pageSize: 60, cursor: nil)
         XCTAssertEqual(content.folder.name, "iPhone Uploads")
-        XCTAssertEqual(content.mediaItems.count, 1)
-        XCTAssertEqual(content.mediaItems.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
-        XCTAssertEqual(content.media.items.count, 1)
-        XCTAssertEqual(content.media.items.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
+        XCTAssertEqual(content.mediaItems?.count, 1)
+        XCTAssertEqual(content.mediaItems?.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
+        XCTAssertEqual(content.media?.items.count, 1)
+        XCTAssertEqual(content.media?.items.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
     }
 
     func testHTTPClientTransparent401RefreshSuccess() async throws {

@@ -8,15 +8,19 @@ protocol CSRFTokenProvider: AnyObject {
 final class SystemCSRFTokenProvider: CSRFTokenProvider {
     private var cachedToken: String?
     private let urlSession: URLSession
+    private let lock = NSLock()
 
     init(urlSession: URLSession = .shared) {
         self.urlSession = urlSession
     }
 
     func getCSRFToken(baseURL: URL, forceRefresh: Bool = false) async throws -> String {
+        lock.lock()
         if !forceRefresh, let cached = cachedToken {
+            lock.unlock()
             return cached
         }
+        lock.unlock()
 
         let csrfURL = baseURL.appendingPathComponent("api/auth/csrf")
         var request = URLRequest(url: csrfURL)
@@ -30,12 +34,18 @@ final class SystemCSRFTokenProvider: CSRFTokenProvider {
 
         let decoder = JSONDecoder()
         let csrfResponse = try decoder.decode(CSRFResponse.self, from: data)
+        
+        lock.lock()
         self.cachedToken = csrfResponse.token
+        lock.unlock()
+        
         return csrfResponse.token
     }
 
     func clearToken() {
+        lock.lock()
         cachedToken = nil
+        lock.unlock()
     }
 }
 

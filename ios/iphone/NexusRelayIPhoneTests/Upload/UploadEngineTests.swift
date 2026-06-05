@@ -42,7 +42,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
 final class MockChunkFileBuilder: ChunkFileBuilder {
     var buildChunkCount = 0
     var buildChunkResult: URL?
-    func buildChunkFile(sourceURL: URL, chunkIndex: Int, chunkSize: Int64, totalSize: Int64) throws -> URL {
+    func buildChunkFile(recordId: String, sourceURL: URL, chunkIndex: Int, chunkSize: Int64, totalSize: Int64) throws -> URL {
         buildChunkCount += 1
         return buildChunkResult ?? sourceURL
     }

@@ -54,6 +54,10 @@ final class SystemUploadEngine: UploadEngine {
             let chunkSize = policy.chunkSizeBytes
             let totalChunks = Int(ceil(Double(fileSize) / Double(chunkSize)))
             
+            defer {
+                chunkFileBuilder.cleanChunks(recordId: record.id)
+            }
+            
             // 1. Initialize
             let initResponse = try await retry {
                 try await apiClient.initUpload(
@@ -68,6 +72,7 @@ final class SystemUploadEngine: UploadEngine {
             // 2. Upload chunks
             for chunkIndex in 0..<totalChunks {
                 let chunkURL = try chunkFileBuilder.buildChunkFile(
+                    recordId: record.id,
                     sourceURL: localURL,
                     chunkIndex: chunkIndex,
                     chunkSize: chunkSize,

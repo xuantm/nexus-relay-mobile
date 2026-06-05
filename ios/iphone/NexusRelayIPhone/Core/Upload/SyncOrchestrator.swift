@@ -16,7 +16,14 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     private let settingsStore: SettingsStore
 
     private let wifiChecker: () -> Bool
-    private(set) var isSyncing = false
+    private let lock = NSLock()
+    private var _isSyncing = false
+
+    var isSyncing: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isSyncing
+    }
 
     init(
         apiClient: NexusRelayAPI,
@@ -52,9 +59,19 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     }
 
     func startSync() async throws -> Int {
-        guard !isSyncing else { return 0 }
-        isSyncing = true
-        defer { isSyncing = false }
+        lock.lock()
+        guard !_isSyncing else {
+            lock.unlock()
+            return 0
+        }
+        _isSyncing = true
+        lock.unlock()
+        
+        defer {
+            lock.lock()
+            _isSyncing = false
+            lock.unlock()
+        }
 
         let settings = settingsStore.settings
         guard let folderId = settings.destinationFolderId else {

@@ -172,6 +172,15 @@ final class MockUploadLedger: UploadLedger {
             )
         }
     }
+
+    func getLedgerCounts() async throws -> LedgerCounts {
+        let queued = records.filter { $0.status == .discovered || $0.status == .readyToUpload }.count
+        let uploaded = records.filter { $0.status == .uploaded || $0.status == .synced }.count
+        let failed = records.filter { $0.status == .failed }.count
+        let exporting = records.filter { $0.status == .exporting }.count
+        let uploading = records.filter { $0.status == .uploading }.count
+        return LedgerCounts(queued: queued, uploaded: uploaded, failed: failed, exporting: exporting, uploading: uploading)
+    }
 }
 
 // MARK: - Orchestrator Tests

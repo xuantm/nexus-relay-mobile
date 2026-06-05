@@ -66,6 +66,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func upsertDiscovered(_ candidates: [PhotoAssetCandidate], folderId: UUID) async throws {
+        guard !candidates.isEmpty else { return }
+        
         let sql = """
         INSERT INTO upload_ledger (
             id, asset_local_identifier, resource_kind, fingerprint_suffix,
@@ -86,31 +88,39 @@ final class SQLiteUploadLedger: UploadLedger {
         
         defer { sqlite3_finalize(stmt) }
 
-        for candidate in candidates {
-            let fingerprint = AssetFingerprinter.generateFingerprint(candidate: candidate)
-            let suffix = AssetFingerprinter.getFingerprintSuffix(fingerprint: fingerprint)
-            let uploadedName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: suffix)
-            
-            sqlite3_reset(stmt)
-            sqlite3_clear_bindings(stmt)
-            
-            sqlite3_bind_text(stmt, 1, candidate.id, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, candidate.assetLocalIdentifier, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 3, candidate.resourceKind.rawValue, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 4, suffix, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 5, candidate.originalFilename, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 6, uploadedName, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 7, candidate.mimeType, -1, SQLITE_TRANSIENT)
-            if let size = candidate.resourceFileSize {
-                sqlite3_bind_int64(stmt, 8, size)
-            } else {
-                sqlite3_bind_null(stmt, 8)
+        try execute("BEGIN TRANSACTION;")
+
+        do {
+            for candidate in candidates {
+                let fingerprint = AssetFingerprinter.generateFingerprint(candidate: candidate)
+                let suffix = AssetFingerprinter.getFingerprintSuffix(fingerprint: fingerprint)
+                let uploadedName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: suffix)
+                
+                sqlite3_reset(stmt)
+                sqlite3_clear_bindings(stmt)
+                
+                sqlite3_bind_text(stmt, 1, candidate.id, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 2, candidate.assetLocalIdentifier, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, candidate.resourceKind.rawValue, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 4, suffix, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 5, candidate.originalFilename, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 6, uploadedName, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 7, candidate.mimeType, -1, SQLITE_TRANSIENT)
+                if let size = candidate.resourceFileSize {
+                    sqlite3_bind_int64(stmt, 8, size)
+                } else {
+                    sqlite3_bind_null(stmt, 8)
+                }
+                sqlite3_bind_text(stmt, 9, folderId.uuidString.lowercased(), -1, SQLITE_TRANSIENT)
+                
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    throw DatabaseError.executionFailed(errorMessage())
+                }
             }
-            sqlite3_bind_text(stmt, 9, folderId.uuidString.lowercased(), -1, SQLITE_TRANSIENT)
-            
-            if sqlite3_step(stmt) != SQLITE_DONE {
-                throw DatabaseError.executionFailed(errorMessage())
-            }
+            try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
         }
     }
 
@@ -231,7 +241,7 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func markFailed(id: String, error: String, retryable: Bool) async throws {
-        let status = retryable ? "failed" : "failed"
+        let status = "failed"
         let attemptCountUpdate = retryable ? "attempt_count = attempt_count + 1" : "attempt_count = 99"
         let timestamp = Int64(Date().timeIntervalSince1970)
         

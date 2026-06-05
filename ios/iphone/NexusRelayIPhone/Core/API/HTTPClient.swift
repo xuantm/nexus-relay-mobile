@@ -89,6 +89,11 @@ final class SystemHTTPClient: HTTPClient {
             urlRequest.setValue(val, forHTTPHeaderField: key)
         }
 
+        // Auto-set Content-Type for JSON body requests when not already provided
+        if request.body != nil && urlRequest.value(forHTTPHeaderField: "Content-Type") == nil {
+            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+
         // Sync session cookies to URLSession configuration / cookie storage
         syncCookies(for: baseURL)
 

@@ -39,7 +39,7 @@ final class ReconciliationService {
             let content = try await apiClient.listFolderMedia(folderId: folderId, pageSize: 60, cursor: cursor)
             
             // Decodes mediaItems first, fallback to media.items
-            let items = content.mediaItems.isEmpty ? content.media.items : content.mediaItems
+            let items = content.mediaItems ?? content.media?.items ?? []
             
             for item in items {
                 if let suffix = extractSuffix(from: item.fileName) {
@@ -47,8 +47,8 @@ final class ReconciliationService {
                 }
             }
             
-            cursor = content.media.nextCursor
-            hasMore = content.media.hasMore && cursor != nil && !(cursor?.isEmpty ?? true)
+            cursor = content.media?.nextCursor
+            hasMore = (content.media?.hasMore ?? false) && cursor != nil && !(cursor?.isEmpty ?? true)
         }
         
         // 2. Scan local Photos candidates

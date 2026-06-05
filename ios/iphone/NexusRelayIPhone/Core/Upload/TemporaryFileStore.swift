@@ -25,13 +25,13 @@ final class SystemTemporaryFileStore: TemporaryFileStore {
     func deleteStagedFile(recordId: String) throws {
         let safeDirName = recordId.replacingOccurrences(of: ":", with: "_")
         let dirURL = rootTempURL.appendingPathComponent(safeDirName, isDirectory: true)
-        if FileManager.default.fileExists(atPath: dbPath(for: dirURL)) {
+        if FileManager.default.fileExists(atPath: filePath(for: dirURL)) {
             try FileManager.default.removeItem(at: dirURL)
         }
     }
 
     func cleanStaleFiles() throws {
-        guard FileManager.default.fileExists(atPath: dbPath(for: rootTempURL)) else { return }
+        guard FileManager.default.fileExists(atPath: filePath(for: rootTempURL)) else { return }
         
         let now = Date()
         let sevenDaysAgo = now.addingTimeInterval(-7 * 24 * 60 * 60)
@@ -51,7 +51,7 @@ final class SystemTemporaryFileStore: TemporaryFileStore {
         }
     }
 
-    private func dbPath(for url: URL) -> String {
+    private func filePath(for url: URL) -> String {
         if #available(iOS 16.0, *) {
             return url.path(percentEncoded: false)
         } else {

@@ -169,6 +169,11 @@ final class SyncStatusViewModel: ObservableObject {
         
         settingsStore.settings = .defaults
         
+        // Explicitly clear references to trigger deinit / database close before file removal
+        self.orchestrator = nil
+        self.reconciliationService = nil
+        self.ledger = nil
+        
         let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ledger.sqlite")
         try? FileManager.default.removeItem(at: dbURL)

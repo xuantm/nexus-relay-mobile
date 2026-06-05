@@ -19,28 +19,32 @@ protocol NexusRelayAPI {
 }
 
 extension JSONDecoder {
-    static var apiDecoder: JSONDecoder {
+    static let apiDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
+        
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSZZZZZ",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ",
+            "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss"
+        ]
+        
+        let formatters: [DateFormatter] = formats.map { format in
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = format
+            return formatter
+        }
+        
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateStr = try container.decode(String.self)
             
-            let formats = [
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSZZZZZ",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ",
-                "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss"
-            ]
-            
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            
-            for format in formats {
-                formatter.dateFormat = format
+            for formatter in formatters {
                 if let date = formatter.date(from: dateStr) {
                     return date
                 }
@@ -48,7 +52,7 @@ extension JSONDecoder {
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateStr)")
         }
         return decoder
-    }
+    }()
 }
 
 final class SystemNexusRelayAPIClient: NexusRelayAPI {

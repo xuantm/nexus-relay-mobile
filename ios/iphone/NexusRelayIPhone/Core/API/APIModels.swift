@@ -74,8 +74,8 @@ struct CursorPageDTO<T: Codable & Equatable>: Codable, Equatable {
 struct FolderContentDTO: Codable, Equatable {
     let folder: FolderDTO
     let subFolders: [FolderDTO]
-    let mediaItems: [MediaItemDTO]
-    let media: CursorPageDTO<MediaItemDTO>
+    let mediaItems: [MediaItemDTO]?
+    let media: CursorPageDTO<MediaItemDTO>?
 }
 
 // MARK: - Upload DTOs
