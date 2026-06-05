@@ -25,5 +25,9 @@ targets:
     platform: iOS
     sources:
       - NexusRelayIPhoneTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.nexusrelay.iphoneTests
     dependencies:
       - target: NexusRelayIPhone
