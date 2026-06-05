@@ -54,5 +54,6 @@ iPhone Photos
 Read:
 
 - [iPhone uploader architecture](docs/architecture/iphone-photos-uploader.md)
+- [iPhone source notes from nexus-relay](docs/architecture/iphone-source-notes-from-nexus-relay.md)
 - [iPhone upload API contract](docs/contracts/iphone-upload-api.md)
 - [iPhone implementation plan](docs/implementation/iphone-photos-uploader-plan.md)
