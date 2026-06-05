@@ -6,6 +6,7 @@ import com.nexusrelay.pixel.BuildConfig
 import com.nexusrelay.pixel.api.ApiClientFactory
 import com.nexusrelay.pixel.api.ConfirmDeviceSyncJobRequest
 import com.nexusrelay.pixel.api.FailDeviceSyncJobRequest
+import com.nexusrelay.pixel.api.NexusRelayApi
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.media.MediaStoreImporter
 import com.nexusrelay.pixel.storage.AppSettingsStore
@@ -21,7 +22,8 @@ class DeviceSyncRepository(
     private val appSettingsStore: AppSettingsStore = AppSettingsStore(context),
     private val deviceTokenStore: DeviceTokenStore = DeviceTokenStore(context),
     private val ledger: LocalSyncLedger = LocalSyncLedger(context),
-    private val mediaStoreImporter: MediaStoreImporter = MediaStoreImporter(context)
+    private val mediaStoreImporter: MediaStoreImporter = MediaStoreImporter(context),
+    private val apiProvider: (String) -> NexusRelayApi = { baseUrl -> ApiClientFactory.create(baseUrl, debugLoggingEnabled = BuildConfig.DEBUG) }
 ) {
     private val tag = "DeviceSyncRepository"
 
@@ -55,7 +57,7 @@ class DeviceSyncRepository(
             return false
         }
 
-        val api = ApiClientFactory.create(backendUrl, debugLoggingEnabled = BuildConfig.DEBUG)
+        val api = apiProvider(backendUrl)
         val pendingJobs = try {
             api.pendingJobs(deviceToken)
         } catch (e: Exception) {
