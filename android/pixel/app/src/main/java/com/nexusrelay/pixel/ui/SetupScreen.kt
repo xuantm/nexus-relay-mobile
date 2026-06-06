@@ -49,6 +49,16 @@ fun SetupScreen(
     val appSettingsStore = remember { AppSettingsStore(context) }
     val deviceTokenStore = remember { DeviceTokenStore(context) }
 
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedLabelColor = Color(0xFF00E5FF),
+        unfocusedLabelColor = Color.LightGray,
+        focusedBorderColor = Color(0xFF00E5FF),
+        unfocusedBorderColor = Color.Gray,
+        cursorColor = Color.White
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -99,7 +109,8 @@ fun SetupScreen(
                         onValueChange = { backendUrl = it },
                         label = { Text("Backend URL", color = Color.LightGray) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                 }
 
@@ -108,7 +119,8 @@ fun SetupScreen(
                     onValueChange = { username = it },
                     label = { Text("NexusRelay Username", color = Color.LightGray) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors
                 )
 
                 OutlinedTextField(
@@ -117,7 +129,8 @@ fun SetupScreen(
                     label = { Text("NexusRelay Password", color = Color.LightGray) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = textFieldColors
                 )
 
                 OutlinedTextField(
@@ -125,7 +138,8 @@ fun SetupScreen(
                     onValueChange = { deviceName = it },
                     label = { Text("Device Name", color = Color.LightGray) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors
                 )
 
                 Row(
@@ -169,7 +183,8 @@ fun SetupScreen(
                         onValueChange = { scopedFolderId = it },
                         label = { Text("Folder ID", color = Color.LightGray) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                 }
 
