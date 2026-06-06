@@ -31,7 +31,7 @@ fun SetupScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var backendUrl by remember { mutableStateOf("https://") }
+    var backendUrl by remember { mutableStateOf(BuildConfig.DEFAULT_BACKEND_BASE_URL) }
     var deviceName by remember { mutableStateOf("Pixel Client") }
     var wifiOnly by remember { mutableStateOf(true) }
 
@@ -86,13 +86,15 @@ fun SetupScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                OutlinedTextField(
-                    value = backendUrl,
-                    onValueChange = { backendUrl = it },
-                    label = { Text("Backend URL", color = Color.LightGray) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (BuildConfig.SHOW_BACKEND_URL_FIELD) {
+                    OutlinedTextField(
+                        value = backendUrl,
+                        onValueChange = { backendUrl = it },
+                        label = { Text("Backend URL", color = Color.LightGray) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 OutlinedTextField(
                     value = deviceName,
