@@ -1,0 +1,80 @@
+import Foundation
+import SwiftUI
+
+enum SetupChecklistState: Equatable {
+    case complete
+    case pending
+    case failed
+
+    var iconName: String {
+        switch self {
+        case .complete: return "checkmark.circle.fill"
+        case .pending: return "circle"
+        case .failed: return "exclamationmark.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .complete: return NRDesign.ColorToken.success
+        case .pending: return NRDesign.ColorToken.accent
+        case .failed: return NRDesign.ColorToken.error
+        }
+    }
+}
+
+struct SetupChecklistRow: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let state: SetupChecklistState
+
+    static func makeRows(
+        serverURL: String,
+        username: String,
+        photosStatus: PhotoLibraryAuthorizationStatus,
+        destinationFolderName: String
+    ) -> [SetupChecklistRow] {
+        [
+            SetupChecklistRow(
+                id: "server",
+                title: "Server",
+                subtitle: URL(string: serverURL)?.host ?? "Add server URL",
+                systemImage: "server.rack",
+                state: URL(string: serverURL) == nil ? .pending : .complete
+            ),
+            SetupChecklistRow(
+                id: "signin",
+                title: "Sign in",
+                subtitle: username.isEmpty ? "NexusRelay account" : username,
+                systemImage: "person.crop.circle",
+                state: username.isEmpty ? .pending : .complete
+            ),
+            SetupChecklistRow(
+                id: "photos",
+                title: "Photos Access",
+                subtitle: photosSubtitle(photosStatus),
+                systemImage: "photo.on.rectangle",
+                state: photosStatus == .authorized || photosStatus == .limited ? .complete : .pending
+            ),
+            SetupChecklistRow(
+                id: "folder",
+                title: "Destination Folder",
+                subtitle: destinationFolderName.isEmpty ? "Not configured" : destinationFolderName,
+                systemImage: "folder",
+                state: destinationFolderName.isEmpty ? .pending : .complete
+            )
+        ]
+    }
+
+    private static func photosSubtitle(_ status: PhotoLibraryAuthorizationStatus) -> String {
+        switch status {
+        case .authorized: return "Full access"
+        case .limited: return "Limited access"
+        case .denied: return "Access denied"
+        case .restricted: return "Restricted"
+        case .notDetermined: return "Choose access"
+        }
+    }
+}

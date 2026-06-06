@@ -14,6 +14,18 @@ final class SetupViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isSetupComplete = false
     
+    @Published var photosStatus: PhotoLibraryAuthorizationStatus = .notDetermined
+    @Published var destinationFolderName = "iPhone Uploads"
+    
+    var checklistRows: [SetupChecklistRow] {
+        SetupChecklistRow.makeRows(
+            serverURL: serverURL,
+            username: username,
+            photosStatus: photosStatus,
+            destinationFolderName: destinationFolderName
+        )
+    }
+    
     private let settingsStore: SettingsStore
     private let photosScanner: PhotoLibraryClient
     
@@ -28,6 +40,8 @@ final class SetupViewModel: ObservableObject {
         self.wifiOnly = s.wifiOnly
         self.includeVideos = s.includeVideos
         self.includeLivePhotos = s.includeLivePhotoVideo
+        self.destinationFolderName = s.destinationFolderName
+        self.photosStatus = photosScanner.authorizationStatus()
     }
 
     func saveAndLogin() async {
@@ -69,8 +83,9 @@ final class SetupViewModel: ObservableObject {
             s.destinationFolderId = folderId
             settingsStore.settings = s
 
-            let photosStatus = await ensurePhotosAuthorization()
-            guard photosStatus == .authorized || photosStatus == .limited else {
+            let grantedStatus = await ensurePhotosAuthorization()
+            self.photosStatus = grantedStatus
+            guard grantedStatus == .authorized || grantedStatus == .limited else {
                 throw SyncError.photosPermissionRequired
             }
             

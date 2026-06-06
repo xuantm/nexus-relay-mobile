@@ -5,157 +5,34 @@ struct SetupView: View {
     var onSetupSuccess: () -> Void
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.08, green: 0.09, blue: 0.15), Color(red: 0.15, green: 0.18, blue: 0.28)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
+        NavigationStack {
             ScrollView {
-                VStack(spacing: 25) {
-                    VStack(spacing: 10) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 70, height: 70)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .cyan],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        
+                VStack(alignment: .leading, spacing: NRDesign.Spacing.section) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("NexusRelay")
-                            .font(.system(.largeTitle, design: .rounded))
-                            .bold()
-                            .foregroundColor(.white)
-                        
-                        Text("iPhone Photos Uploader Setup")
-                            .font(.system(.subheadline, design: .rounded))
-                            .foregroundColor(.gray)
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(NRDesign.ColorToken.primaryText)
+                        Text("Set up photo relay from this iPhone")
+                            .font(.subheadline)
+                            .foregroundStyle(NRDesign.ColorToken.secondaryText)
                     }
-                    .padding(.top, 40)
+                    .padding(.top, 24)
 
-                    VStack(spacing: 15) {
-                        HStack {
-                            Image(systemName: "link")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
-                            TextField("", text: $viewModel.serverURL, prompt: Text("Server URL (e.g. https://relay.xuantruong.org)").foregroundColor(.gray))
-                                .foregroundColor(.white)
-                                .keyboardType(.URL)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                        }
-                        .padding()
-                        .background(Color.white.opacity(0.06))
-                        .cornerRadius(12)
+                    SetupChecklistView(rows: viewModel.checklistRows)
 
-                        HStack {
-                            Image(systemName: "person")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
-                            TextField("", text: $viewModel.username, prompt: Text("Username").foregroundColor(.gray))
-                                .foregroundColor(.white)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                        }
-                        .padding()
-                        .background(Color.white.opacity(0.06))
-                        .cornerRadius(12)
-
-                        HStack {
-                            Image(systemName: "lock")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
-                            SecureField("", text: $viewModel.password, prompt: Text("Password").foregroundColor(.gray))
-                                .foregroundColor(.white)
-                        }
-                        .padding()
-                        .background(Color.white.opacity(0.06))
-                        .cornerRadius(12)
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Preferences")
-                            .font(.system(.headline, design: .rounded))
-                            .foregroundColor(.white)
-                            .padding(.bottom, 5)
-
-                        Toggle(isOn: $viewModel.wifiOnly) {
-                            HStack {
-                                Image(systemName: "wifi")
-                                    .foregroundColor(.cyan)
-                                VStack(alignment: .leading) {
-                                    Text("Wi-Fi Only")
-                                        .foregroundColor(.white)
-                                    Text("Uploads pause on cellular networks")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .tint(.blue)
-                        
-                        Divider().background(Color.white.opacity(0.1))
-
-                        Toggle(isOn: $viewModel.includeVideos) {
-                            HStack {
-                                Image(systemName: "video")
-                                    .foregroundColor(.cyan)
-                                VStack(alignment: .leading) {
-                                    Text("Sync Videos")
-                                        .foregroundColor(.white)
-                                    Text("Include video files in photo queue")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .tint(.blue)
-                        
-                        Divider().background(Color.white.opacity(0.1))
-
-                        Toggle(isOn: $viewModel.includeLivePhotos) {
-                            HStack {
-                                Image(systemName: "livephoto")
-                                    .foregroundColor(.cyan)
-                                VStack(alignment: .leading) {
-                                    Text("Sync Live Photo Video")
-                                        .foregroundColor(.white)
-                                    Text("Export paired video resources")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .tint(.blue)
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+                    setupFields
+                    setupPreferences
 
                     if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(.system(.callout, design: .rounded))
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout)
+                            .foregroundStyle(NRDesign.ColorToken.error)
                     }
+
+                    Text("Password is not stored after login. Photos stay local until upload starts.")
+                        .font(.caption)
+                        .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                     Button {
                         Task {
@@ -165,32 +42,81 @@ struct SetupView: View {
                             }
                         }
                     } label: {
-                        HStack {
-                            if viewModel.isLoading {
-                                ProgressView()
-                                    .tint(.white)
-                                    .padding(.trailing, 5)
-                            }
-                            Text("Connect and Login")
-                                .bold()
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [.blue, .cyan],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .cornerRadius(12)
+                        Label(viewModel.isLoading ? "Connecting..." : "Continue", systemImage: "arrow.right")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(NRDesign.ColorToken.accent)
                     .disabled(viewModel.isLoading)
-                    .padding(.bottom, 30)
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, NRDesign.Spacing.page)
+                .padding(.bottom, 32)
             }
+            .navigationBarTitleDisplayMode(.inline)
+            .nrPageBackground()
         }
+    }
+
+    private var setupFields: some View {
+        VStack(spacing: 0) {
+            LabeledContent("Server") {
+                TextField("https://relay.example.com", text: $viewModel.serverURL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.vertical, 12)
+            
+            Divider()
+            
+            LabeledContent("Username") {
+                TextField("xuan", text: $viewModel.username)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.vertical, 12)
+            
+            Divider()
+            
+            LabeledContent("Password") {
+                SecureField("Required", text: $viewModel.password)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.vertical, 12)
+        }
+        .padding(.horizontal, 16)
+        .background(NRDesign.ColorToken.surface)
+        .clipShape(RoundedRectangle(cornerRadius: NRDesign.Radius.row, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: NRDesign.Radius.row, style: .continuous)
+                .stroke(NRDesign.ColorToken.hairline, lineWidth: 1)
+        )
+    }
+
+    private var setupPreferences: some View {
+        VStack(spacing: 0) {
+            Toggle("Wi-Fi Only", isOn: $viewModel.wifiOnly)
+                .padding(.vertical, 12)
+            
+            Divider()
+            
+            Toggle("Include Videos", isOn: $viewModel.includeVideos)
+                .padding(.vertical, 12)
+            
+            Divider()
+            
+            Toggle("Live Photo Video", isOn: $viewModel.includeLivePhotos)
+                .padding(.vertical, 12)
+        }
+        .padding(.horizontal, 16)
+        .background(NRDesign.ColorToken.surface)
+        .clipShape(RoundedRectangle(cornerRadius: NRDesign.Radius.row, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: NRDesign.Radius.row, style: .continuous)
+                .stroke(NRDesign.ColorToken.hairline, lineWidth: 1)
+        )
     }
 }
