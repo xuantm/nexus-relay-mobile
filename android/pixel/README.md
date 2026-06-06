@@ -36,7 +36,8 @@ Release builds default to https://relay.xuantruong.org. Debug builds keep the ba
 2. Register the Android app with the package name: `com.nexusrelay.pixel`.
 3. Download the generated `google-services.json` file.
 4. Place `google-services.json` inside the `app/` directory (`android/pixel/app/google-services.json`).
-5. (Optional) For development/local builds where FCM is not needed, you can build without adding Firebase, but background notifications will not be received. Polling and manual sync will still function.
+5. When `google-services.json` is present, the build automatically applies the Google Services Gradle plugin so Firebase can initialize and issue an FCM token during device registration.
+6. (Optional) For development/local builds where FCM is not needed, you can build without adding Firebase, but background notifications will not be received. Polling and manual sync will still function.
 
 ### Build and Run
 

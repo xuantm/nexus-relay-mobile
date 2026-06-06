@@ -44,6 +44,8 @@ fun StatusScreen(
     val lastSyncAt by appSettingsStore.lastSuccessfulSyncAtFlow.collectAsState(initial = 0L)
     val syncScope by appSettingsStore.syncScopeFlow.collectAsState(initial = "")
     val scopedFolderId by appSettingsStore.scopedFolderIdFlow.collectAsState(initial = "")
+    val autoDeleteEnabled by appSettingsStore.autoDeleteEnabledFlow.collectAsState(initial = false)
+    val autoDeleteDelayMinutes by appSettingsStore.autoDeleteDelayMinutesFlow.collectAsState(initial = 24 * 60)
 
     val recentJobs by ledger.recentRecordsFlow.collectAsState(initial = emptyList())
 
@@ -171,6 +173,93 @@ fun StatusScreen(
                             }
                         )
                     }
+
+                    HorizontalDivider(color = Color.DarkGray, modifier = Modifier.padding(vertical = 4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Tự động xóa file sau sync", color = Color.White, fontSize = 15.sp)
+                            Text(
+                                "Giải phóng bộ nhớ local sau khi đã đồng bộ",
+                                color = Color.Gray,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Switch(
+                            checked = autoDeleteEnabled,
+                            onCheckedChange = {
+                                coroutineScope.launch {
+                                    appSettingsStore.saveAutoDeleteEnabled(it)
+                                }
+                            }
+                        )
+                    }
+
+                    if (autoDeleteEnabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Độ trễ xóa file", color = Color.LightGray, fontSize = 14.sp)
+                            Box {
+                                var expanded by remember { mutableStateOf(false) }
+                                TextButton(onClick = { expanded = true }) {
+                                    val delayText = when (autoDeleteDelayMinutes) {
+                                        0 -> "Ngay lập tức"
+                                        30 -> "30 phút"
+                                        60 -> "1 giờ"
+                                        120 -> "2 giờ"
+                                        360 -> "6 giờ"
+                                        720 -> "12 giờ"
+                                        1440 -> "24 giờ (Khuyên dùng)"
+                                        else -> "$autoDeleteDelayMinutes phút"
+                                    }
+                                    Text(delayText, color = Color(0xFF00E5FF), fontWeight = FontWeight.SemiBold)
+                                }
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                    modifier = Modifier.background(Color(0xFF1E1E2F))
+                                ) {
+                                    val options = listOf(0, 30, 60, 120, 360, 720, 1440)
+                                    options.forEach { minutes ->
+                                        val label = when (minutes) {
+                                            0 -> "Ngay lập tức"
+                                            30 -> "30 phút"
+                                            60 -> "1 giờ"
+                                            120 -> "2 giờ"
+                                            360 -> "6 giờ"
+                                            720 -> "12 giờ"
+                                            1440 -> "24 giờ (Khuyên dùng)"
+                                            else -> "$minutes phút"
+                                        }
+                                        DropdownMenuItem(
+                                            text = { Text(label, color = Color.White) },
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    appSettingsStore.saveAutoDeleteDelayMinutes(minutes)
+                                                }
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = "Lưu ý: Bạn nên cấu hình độ trễ ít nhất 2 giờ để Google Photos trên thiết bị có đủ thời gian quét và đồng bộ các file mới lên đám mây trước khi chúng bị xóa.",
+                            color = Color(0xFFFFA726),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -255,12 +344,22 @@ fun StatusScreen(
 
 @Composable
 fun JobItemRow(record: LocalSyncRecord) {
-    val statusColor = when (record.status) {
-        LocalSyncStatus.Confirmed -> Color(0xFF00E5FF)
-        LocalSyncStatus.Failed -> Color(0xFFD32F2F)
-        LocalSyncStatus.Downloading -> Color(0xFFFFB300)
-        LocalSyncStatus.ConfirmPending -> Color(0xFF8E24AA)
-        else -> Color.Gray
+    val statusText = if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
+        "Cleaned"
+    } else {
+        record.status.name
+    }
+
+    val statusColor = if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
+        Color(0xFF81C784)
+    } else {
+        when (record.status) {
+            LocalSyncStatus.Confirmed -> Color(0xFF00E5FF)
+            LocalSyncStatus.Failed -> Color(0xFFD32F2F)
+            LocalSyncStatus.Downloading -> Color(0xFFFFB300)
+            LocalSyncStatus.ConfirmPending -> Color(0xFF8E24AA)
+            else -> Color.Gray
+        }
     }
 
     Card(
@@ -291,7 +390,7 @@ fun JobItemRow(record: LocalSyncRecord) {
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 Text(
-                    text = record.status.name,
+                    text = statusText,
                     color = statusColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

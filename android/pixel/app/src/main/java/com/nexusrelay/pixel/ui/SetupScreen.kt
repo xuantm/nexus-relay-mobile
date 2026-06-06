@@ -21,6 +21,7 @@ import com.nexusrelay.pixel.api.DeviceSyncScope
 import com.nexusrelay.pixel.api.LoginRequest
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
+import com.nexusrelay.pixel.sync.fetchCurrentFcmToken
 import com.nexusrelay.pixel.sync.PollWorker
 import com.nexusrelay.pixel.sync.SyncWorker
 import kotlinx.coroutines.flow.first
@@ -224,8 +225,12 @@ fun SetupScreen(
                             try {
                                 val api = ApiClientFactory.create(backendUrl, BuildConfig.DEBUG)
                                 val loginResponse = api.login(LoginRequest(username = username, password = password))
-                                // Fetch current FCM token if available
-                                val currentFcmToken = appSettingsStore.fcmTokenFlow.first()
+                                val storedFcmToken = appSettingsStore.fcmTokenFlow.first()
+                                val currentFcmToken = resolveFcmTokenForRegistration(
+                                    storedFcmToken = storedFcmToken,
+                                    fetchCurrentFcmToken = ::fetchCurrentFcmToken,
+                                    saveFcmToken = appSettingsStore::saveFcmToken
+                                )
                                 val response = api.registerDevice(
                                     authorization = "Bearer ${loginResponse.token}",
                                     request = RegisterDeviceRequest(

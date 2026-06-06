@@ -314,4 +314,70 @@ class DeviceSyncRepositoryTest {
             createdAt = "2026-06-05T00:00:00Z"
         )
     }
+
+    @Test
+    fun testCleanUpLocalFiles_Disabled_DoesNotDelete() = runTest {
+        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(false))
+
+        val repository = createRepository()
+        repository.cleanUpLocalFiles()
+
+        verify(mockLedger, never()).listByStatuses(any())
+    }
+
+    @Test
+    fun testCleanUpLocalFiles_EnabledButNewerThanDelay_DoesNotDelete() = runTest {
+        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(true))
+        whenever(mockSettingsStore.autoDeleteDelayMinutesFlow).thenReturn(flowOf(24 * 60))
+
+        val record = LocalSyncRecord(
+            jobId = "job-new",
+            mediaId = "media-new",
+            fileName = "test.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Confirmed,
+            localUri = "content://media/external/images/media/new",
+            lastAttemptAt = System.currentTimeMillis() - 10000L,
+            lastError = null,
+            isLocalDeleted = false
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
+
+        val repository = createRepository()
+        repository.cleanUpLocalFiles()
+
+        verify(mockLedger, never()).markLocalDeleted(any())
+    }
+
+    @Test
+    fun testCleanUpLocalFiles_EnabledAndOlderThanDelay_DeletesAndMarksDeleted() = runTest {
+        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(true))
+        whenever(mockSettingsStore.autoDeleteDelayMinutesFlow).thenReturn(flowOf(2 * 60))
+
+        val record = LocalSyncRecord(
+            jobId = "job-old",
+            mediaId = "media-old",
+            fileName = "test.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Confirmed,
+            localUri = "content://media/external/images/media/old",
+            lastAttemptAt = System.currentTimeMillis() - 3 * 3600 * 1000L,
+            lastError = null,
+            isLocalDeleted = false
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
+
+        val mockContentResolver = mock(android.content.ContentResolver::class.java)
+        whenever(mockContext.contentResolver).thenReturn(mockContentResolver)
+        whenever(mockContentResolver.delete(any(), any(), any())).thenReturn(1)
+
+        val repository = createRepository()
+        repository.cleanUpLocalFiles()
+
+        verify(mockLedger).markLocalDeleted("job-old")
+    }
 }

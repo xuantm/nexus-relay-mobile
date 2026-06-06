@@ -20,6 +20,12 @@ interface NexusRelayApi {
         @Body request: RegisterDeviceRequest
     ): RegisterDeviceResponse
 
+    @POST("api/device-sync/fcm-token")
+    suspend fun updateFcmToken(
+        @Header("X-Device-Token") deviceToken: String,
+        @Body request: UpdateDeviceFcmTokenRequest
+    )
+
     @GET("api/device-sync/jobs/pending")
     suspend fun pendingJobs(
         @Header("X-Device-Token") deviceToken: String

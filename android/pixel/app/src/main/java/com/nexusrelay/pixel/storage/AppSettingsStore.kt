@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -99,6 +100,26 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
+    val autoDeleteEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_AUTO_DELETE_ENABLED] ?: false
+    }
+
+    suspend fun saveAutoDeleteEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_AUTO_DELETE_ENABLED] = enabled
+        }
+    }
+
+    val autoDeleteDelayMinutesFlow: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_AUTO_DELETE_DELAY_MINUTES] ?: (24 * 60)
+    }
+
+    suspend fun saveAutoDeleteDelayMinutes(minutes: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_AUTO_DELETE_DELAY_MINUTES] = minutes
+        }
+    }
+
     suspend fun clear() {
         context.dataStore.edit { preferences ->
             preferences.clear()
@@ -114,5 +135,7 @@ class AppSettingsStore(private val context: Context) {
         private val KEY_FCM_TOKEN = stringPreferencesKey("fcm_token")
         private val KEY_SYNC_SCOPE = stringPreferencesKey("sync_scope")
         private val KEY_SCOPED_FOLDER_ID = stringPreferencesKey("scoped_folder_id")
+        private val KEY_AUTO_DELETE_ENABLED = booleanPreferencesKey("auto_delete_enabled")
+        private val KEY_AUTO_DELETE_DELAY_MINUTES = intPreferencesKey("auto_delete_delay_minutes")
     }
 }

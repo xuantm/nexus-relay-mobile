@@ -1,6 +1,7 @@
 package com.nexusrelay.pixel.sync
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.nexusrelay.pixel.BuildConfig
 import com.nexusrelay.pixel.api.ApiClientFactory
@@ -185,6 +186,53 @@ class DeviceSyncRepository(
             appSettingsStore.saveLastSuccessfulSyncAt(System.currentTimeMillis())
         }
 
+        try {
+            cleanUpLocalFiles()
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to run cleanUpLocalFiles", e)
+        }
+
         return allSucceeded
+    }
+
+    suspend fun cleanUpLocalFiles() {
+        val autoDeleteEnabled = appSettingsStore.autoDeleteEnabledFlow.first()
+        if (!autoDeleteEnabled) {
+            return
+        }
+
+        val delayMinutes = appSettingsStore.autoDeleteDelayMinutesFlow.first()
+        val delayMillis = delayMinutes * 60L * 1000L
+        val thresholdTime = System.currentTimeMillis() - delayMillis
+
+        val confirmedRecords = ledger.listByStatuses(LocalSyncStatus.Confirmed)
+        val resolver = context.contentResolver
+
+        for (record in confirmedRecords) {
+            if (record.isLocalDeleted || record.localUri == null) {
+                continue
+            }
+
+            if (record.lastAttemptAt <= thresholdTime) {
+                try {
+                    val uri = Uri.parse(record.localUri)
+                    Log.d(tag, "Auto-deleting local file: ${record.fileName} (URI: ${record.localUri})")
+                    val deletedRows = resolver.delete(uri, null, null)
+                    if (deletedRows > 0) {
+                        Log.i(tag, "Successfully deleted local file: ${record.fileName}")
+                    } else {
+                        Log.w(tag, "Local file not deleted or already missing: ${record.fileName}")
+                    }
+                    ledger.markLocalDeleted(record.jobId)
+                } catch (e: SecurityException) {
+                    Log.e(tag, "SecurityException deleting local file ${record.fileName}: ${e.message}", e)
+                } catch (e: Exception) {
+                    Log.e(tag, "Error deleting local file ${record.fileName}: ${e.message}", e)
+                    if (e.message?.contains("does not exist") == true || e is java.io.FileNotFoundException) {
+                        ledger.markLocalDeleted(record.jobId)
+                    }
+                }
+            }
+        }
     }
 }

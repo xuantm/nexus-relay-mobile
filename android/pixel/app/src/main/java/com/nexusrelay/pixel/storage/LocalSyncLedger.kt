@@ -22,7 +22,8 @@ data class LocalSyncRecord(
     val status: LocalSyncStatus,
     val localUri: String?,
     val lastAttemptAt: Long,
-    val lastError: String?
+    val lastError: String?,
+    val isLocalDeleted: Boolean = false
 )
 
 enum class LocalSyncStatus {
@@ -132,6 +133,13 @@ class LocalSyncLedger(
             status = LocalSyncStatus.Failed,
             lastError = error,
             lastAttemptAt = System.currentTimeMillis()
+        ))
+    }
+
+    suspend fun markLocalDeleted(jobId: String) {
+        val record = get(jobId) ?: return
+        upsert(record.copy(
+            isLocalDeleted = true
         ))
     }
 

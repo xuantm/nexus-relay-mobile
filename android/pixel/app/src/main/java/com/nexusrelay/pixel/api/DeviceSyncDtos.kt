@@ -25,6 +25,11 @@ data class RegisterDeviceResponse(
 )
 
 @JsonClass(generateAdapter = true)
+data class UpdateDeviceFcmTokenRequest(
+    val fcmToken: String
+)
+
+@JsonClass(generateAdapter = true)
 data class DeviceSyncJobDto(
     val jobId: String,
     val mediaId: String,

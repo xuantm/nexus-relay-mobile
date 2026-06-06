@@ -3,13 +3,9 @@ package com.nexusrelay.pixel.sync
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.nexusrelay.pixel.api.ApiClientFactory
-import com.nexusrelay.pixel.api.RegisterDeviceRequest
-import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class FcmReceiverService : FirebaseMessagingService() {
@@ -39,9 +35,7 @@ class FcmReceiverService : FirebaseMessagingService() {
         serviceScope.launch {
             val appSettingsStore = AppSettingsStore(applicationContext)
             appSettingsStore.saveFcmToken(token)
-            // Note: Backend FCM token refresh/update is not yet supported in the current mobile MVP.
-            // Device registration via registerDevice requires Authorization: Bearer <user-access-token>
-            // which is not persisted or managed on the device.
+            refreshBackendFcmToken(applicationContext, token)
         }
     }
 }

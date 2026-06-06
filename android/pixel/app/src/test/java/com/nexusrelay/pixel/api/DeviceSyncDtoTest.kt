@@ -30,6 +30,22 @@ class DeviceSyncDtoTest {
     }
 
     @Test
+    fun fcmTokenResolutionSavesCurrentTokenWhenFetchSucceeds() = runTest {
+        var savedToken: String? = null
+
+        val token = resolveFcmTokenForRegistration(
+            storedFcmToken = null,
+            fetchCurrentFcmToken = { "current-token" },
+            saveFcmToken = {
+                savedToken = it
+            }
+        )
+
+        assertEquals("current-token", token)
+        assertEquals("current-token", savedToken)
+    }
+
+    @Test
     fun loginUsesMobileTokenEndpoint() {
         val post = NexusRelayApi::class.java
             .declaredMethods
@@ -37,6 +53,16 @@ class DeviceSyncDtoTest {
             .getAnnotation(POST::class.java)
 
         assertEquals("api/auth/mobile/login", post?.value)
+    }
+
+    @Test
+    fun updateFcmTokenUsesDeviceAuthenticatedEndpoint() {
+        val post = NexusRelayApi::class.java
+            .declaredMethods
+            .single { it.name == "updateFcmToken" }
+            .getAnnotation(POST::class.java)
+
+        assertEquals("api/device-sync/fcm-token", post?.value)
     }
 
     @Test
