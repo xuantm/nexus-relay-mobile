@@ -81,7 +81,7 @@ Use these defaults unless the owner changes them:
 
 ```text
 Package name: com.nexusrelay.pixel
-Min SDK: 26
+Min SDK: 29
 Target SDK: 35
 App name: NexusRelay Pixel
 Image destination: Pictures/NexusRelay
@@ -122,7 +122,7 @@ com.nexusrelay.pixel
 Configure:
 
 ```text
-minSdk = 26
+minSdk = 29
 targetSdk = 35
 compileSdk = 35
 ```
@@ -684,7 +684,7 @@ When Firebase rotates the token:
 
 ```text
 Save token locally.
-If device is registered, send token update to backend registration endpoint or register endpoint.
+Note: Backend FCM token refresh is not yet supported in the current MVP. The new token is stored locally and will be sent to the backend during the next manual registration/pairing flow.
 ```
 
 - [ ] **Step 3: Register service in manifest**

@@ -6,6 +6,10 @@ Build an Android Pixel companion app that receives media uploaded into NexusRela
 
 The first mobile milestone is Pixel-only. iPhone uploader work should be planned separately after the Pixel receiver path is stable.
 
+## Sync Scope
+
+The backend is the source of truth for sync scope. Pixel never receives all jobs and filters locally. DeviceSyncService creates jobs only for targets whose account and scope match the completed media item.
+
 ## Recommended Design
 
 Use:
@@ -54,6 +58,9 @@ The app sends `X-Device-Token` for device job endpoints. It stores the device to
 ### FCM Receiver
 
 The receiver handles `device_sync_job_available` and enqueues sync work. The FCM payload contains only a job id and routing type. It does not contain download URLs, auth tokens, Google Drive ids, or media metadata beyond the job id.
+
+> [!NOTE]
+> FCM token refresh/rotation is not yet supported in the current mobile MVP. Device registration requires user credentials (Authorization: Bearer token), which are not persisted or managed on the device. Rotated FCM tokens are stored locally and will be used during the next manual/explicit registration flow.
 
 ### WorkManager Sync
 

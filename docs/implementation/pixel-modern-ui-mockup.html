@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NexusRelay Pixel UI Mockup</title>
+  <style>
+    :root {
+      --page: #f6f8fb;
+      --ink: #17202a;
+      --muted: #627083;
+      --line: #dbe2ea;
+      --panel: #ffffff;
+      --panel-soft: #f1f5f8;
+      --green: #16856a;
+      --green-soft: #dff5ef;
+      --blue: #276ef1;
+      --blue-soft: #e6efff;
+      --amber: #a76613;
+      --amber-soft: #fff0d8;
+      --red: #ba2f45;
+      --red-soft: #ffe3e8;
+      --charcoal: #24313f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(39, 110, 241, 0.12), transparent 28rem),
+        linear-gradient(135deg, #fbfcfe 0%, var(--page) 100%);
+      color: var(--ink);
+      font-family: Inter, Roboto, Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .canvas {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 42px 32px 54px;
+    }
+
+    .header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.1;
+      font-weight: 760;
+      color: var(--charcoal);
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .mockups {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(310px, 1fr));
+      gap: 28px;
+      align-items: start;
+    }
+
+    .phone-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .phone-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 390px;
+      min-height: 820px;
+      margin: 0 auto;
+      border: 1px solid #d7dde6;
+      border-radius: 34px;
+      background: #f8fafc;
+      box-shadow: 0 24px 64px rgba(37, 49, 63, 0.18);
+      padding: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 9px;
+      left: 50%;
+      width: 78px;
+      height: 5px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #cfd7e2;
+    }
+
+    .screen {
+      height: 100%;
+      min-height: 788px;
+      padding: 26px 16px 18px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f8fb 100%);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: var(--charcoal);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 760;
+      color: var(--charcoal);
+      line-height: 1.15;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--charcoal);
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .hero-status {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid #d2e8df;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ecfbf6 0%, #f8fffc 100%);
+      margin-bottom: 12px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      color: var(--charcoal);
+      font-weight: 780;
+    }
+
+    .status-copy {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.78);
+      min-height: 68px;
+    }
+
+    .stat-value {
+      font-size: 19px;
+      font-weight: 780;
+      color: var(--charcoal);
+      line-height: 1;
+    }
+
+    .stat-label {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 112px;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .info-panel,
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .info-panel {
+      padding: 12px;
+    }
+
+    .small-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 720;
+      text-transform: uppercase;
+    }
+
+    .small-value {
+      margin-top: 6px;
+      color: var(--charcoal);
+      font-size: 14px;
+      font-weight: 720;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .primary-button {
+      min-height: 56px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 8px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 760;
+      box-shadow: 0 10px 20px rgba(39, 110, 241, 0.22);
+    }
+
+    .section {
+      margin-top: 12px;
+      padding: 14px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 780;
+      color: var(--charcoal);
+    }
+
+    .link {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 740;
+    }
+
+    .ledger {
+      display: grid;
+      gap: 8px;
+    }
+
+    .ledger-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--panel-soft);
+    }
+
+    .file-name {
+      font-size: 13px;
+      color: var(--charcoal);
+      font-weight: 720;
+      line-height: 1.25;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .file-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .chip.green {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .chip.amber {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .chip.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .form-stack {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .input {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--charcoal);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 8px;
+      background: #e8eef5;
+      margin-top: 2px;
+    }
+
+    .segment {
+      display: grid;
+      place-items: center;
+      height: 36px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 740;
+    }
+
+    .segment.active {
+      background: #fff;
+      color: var(--charcoal);
+      box-shadow: 0 1px 4px rgba(37, 49, 63, 0.12);
+    }
+
+    .toggle-row,
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 52px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+
+    .switch {
+      width: 48px;
+      height: 28px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--green);
+      flex: 0 0 auto;
+    }
+
+    .switch::after {
+      content: "";
+      display: block;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      margin-left: auto;
+    }
+
+    .bottom-nav {
+      position: absolute;
+      left: 32px;
+      right: 32px;
+      bottom: 28px;
+      height: 56px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 28px rgba(37, 49, 63, 0.12);
+    }
+
+    .nav-item {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .nav-item.active {
+      color: var(--blue);
+    }
+
+    .sheet {
+      display: grid;
+      gap: 10px;
+    }
+
+    .delay-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .delay {
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 740;
+    }
+
+    .delay.active {
+      border-color: #a7d9ca;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .danger {
+      width: 100%;
+      height: 44px;
+      margin-top: 10px;
+      border: 1px solid #ffc6d0;
+      border-radius: 8px;
+      background: var(--red-soft);
+      color: var(--red);
+      font-weight: 780;
+    }
+
+    .note {
+      border-left: 3px solid var(--amber);
+      background: var(--amber-soft);
+      color: #70440e;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 1120px) {
+      .mockups {
+        grid-template-columns: 1fr;
+      }
+
+      .phone {
+        max-width: 420px;
+      }
+
+      .header {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <header class="header">
+      <div>
+        <h1 class="title">NexusRelay Pixel Companion</h1>
+        <p class="subtitle">Modern UI direction for the Pixel app: a calm sync dashboard, clearer registration, and focused controls for Wi-Fi, push, polling, ledger, and cleanup.</p>
+      </div>
+      <span class="tag">Mockup only - no app code changed</span>
+    </header>
+
+    <section class="mockups" aria-label="Pixel companion app mockup screens">
+      <article class="phone-wrap">
+        <div class="phone-label">01 - First run setup</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="topbar">
+              <div class="brand">
+                <div class="mark">NR</div>
+                <div>
+                  <div class="brand-title">NexusRelay Pixel</div>
+                  <div class="brand-subtitle">Connect this device</div>
+                </div>
+              </div>
+              <div class="icon-button">?</div>
+            </div>
+
+            <div class="hero-status">
+              <div class="status-row">
+                <div>
+                  <p class="status-title">Pair your Pixel</p>
+                  <p class="status-copy">Use your NexusRelay account once. The app stores a device token for future sync.</p>
+                </div>
+                <span class="state-pill">Secure</span>
+              </div>
+            </div>
+
+            <div class="form-stack">
+              <div class="field">
+                <label>Server</label>
+                <div class="input">https://relay.xuantruong.org</div>
+              </div>
+              <div class="field">
+                <label>Username</label>
+                <div class="input">xuantruong</div>
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <div class="input">••••••••••••</div>
+              </div>
+              <div class="field">
+                <label>Device name</label>
+                <div class="input">Pixel Client</div>
+              </div>
+              <div class="field">
+                <label>Sync scope</label>
+                <div class="segmented">
+                  <div class="segment active">Account</div>
+                  <div class="segment">Folder</div>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div>
+                  <div class="section-title">Wi-Fi only</div>
+                  <div class="file-meta">Uses unmetered network for downloads</div>
+                </div>
+                <div class="switch"></div>
+              </div>
+              <button class="primary-button">Register Pixel</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="phone-wrap">
+        <div class="phone-label">02 - Sync home</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="topbar">
+              <div class="brand">
+                <div class="mark">NR</div>
+                <div>
+                  <div class="brand-title">Pixel Client</div>
+                  <div class="brand-subtitle">Account uploads</div>
+                </div>
+              </div>
+              <div class="icon-button">⋯</div>
+            </div>
+
+            <div class="hero-status">
+              <div class="status-row">
+                <div>
+                  <p class="status-title">Ready to receive</p>
+                  <p class="status-copy">Push wake-up is active. Fallback polling checks every 15 minutes.</p>
+                </div>
+                <span class="state-pill">Online</span>
+              </div>
+              <div class="stats-grid">
+                <div class="stat">
+                  <div class="stat-value">23</div>
+                  <div class="stat-label">Confirmed</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">0</div>
+                  <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">1</div>
+                  <div class="stat-label">Failed</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <div class="info-panel">
+                <div class="small-label">Last sync</div>
+                <div class="small-value">09:42 today</div>
+              </div>
+              <button class="primary-button">Sync now</button>
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <h2 class="section-title">Recent ledger</h2>
+                <span class="link">View all</span>
+              </div>
+              <div class="ledger">
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">IMG_1042.HEIC</div>
+                    <div class="file-meta">image/heic · 4.8 MB</div>
+                  </div>
+                  <span class="chip green">Confirmed</span>
+                </div>
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">VID_0981.MOV</div>
+                    <div class="file-meta">video/quicktime · 83 MB</div>
+                  </div>
+                  <span class="chip green">Cleaned</span>
+                </div>
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">IMG_1039.JPG</div>
+                    <div class="file-meta">image/jpeg · 2.1 MB</div>
+                  </div>
+                  <span class="chip red">Failed</span>
+                </div>
+              </div>
+            </div>
+
+            <nav class="bottom-nav" aria-label="Mock navigation">
+              <div class="nav-item active">Sync</div>
+              <div class="nav-item">Ledger</div>
+              <div class="nav-item">Settings</div>
+            </nav>
+          </div>
+        </div>
+      </article>
+
+      <article class="phone-wrap">
+        <div class="phone-label">03 - Settings and cleanup</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="topbar">
+              <div class="brand">
+                <div class="mark">NR</div>
+                <div>
+                  <div class="brand-title">Settings</div>
+                  <div class="brand-subtitle">Device target 019e9c36</div>
+                </div>
+              </div>
+              <div class="icon-button">×</div>
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <h2 class="section-title">Device target</h2>
+                <span class="chip green">Registered</span>
+              </div>
+              <div class="sheet">
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">Server</div>
+                    <div class="file-meta">relay.xuantruong.org</div>
+                  </div>
+                </div>
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">Scope</div>
+                    <div class="file-meta">Account uploads</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="setting-row">
+                <div>
+                  <div class="section-title">Wi-Fi only</div>
+                  <div class="file-meta">Avoid mobile data downloads</div>
+                </div>
+                <div class="switch"></div>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="section-title">Auto-delete after sync</div>
+                  <div class="file-meta">Clean local copies after Google Photos has time to scan</div>
+                </div>
+                <div class="switch"></div>
+              </div>
+              <div class="delay-options">
+                <div class="delay">2h</div>
+                <div class="delay">6h</div>
+                <div class="delay active">24h</div>
+              </div>
+              <p class="note">Recommended: keep a delay before deleting local files so Google Photos can detect and upload new media.</p>
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <h2 class="section-title">Background sync</h2>
+                <span class="chip green">Healthy</span>
+              </div>
+              <div class="ledger">
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">Push wake-up</div>
+                    <div class="file-meta">Firebase Cloud Messaging</div>
+                  </div>
+                  <span class="chip green">Ready</span>
+                </div>
+                <div class="ledger-row">
+                  <div>
+                    <div class="file-name">Fallback polling</div>
+                    <div class="file-meta">Every 15 minutes</div>
+                  </div>
+                  <span class="chip amber">On</span>
+                </div>
+              </div>
+              <button class="danger">Unregister device</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
