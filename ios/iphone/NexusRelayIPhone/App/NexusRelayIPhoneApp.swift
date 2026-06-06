@@ -14,7 +14,7 @@ struct NexusRelayIPhoneApp: App {
     var body: some Scene {
         WindowGroup {
             if isSetupComplete {
-                SyncStatusView(onLogout: {
+                AppShellView(onLogout: {
                     isSetupComplete = false
                 })
             } else {
