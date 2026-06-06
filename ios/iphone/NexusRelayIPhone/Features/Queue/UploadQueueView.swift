@@ -19,8 +19,19 @@ struct UploadQueueView: View {
                         .foregroundStyle(NRDesign.ColorToken.error)
                 }
 
-                ForEach(viewModel.items) { item in
-                    UploadQueueRow(item: item)
+                if viewModel.items.isEmpty {
+                    ContentUnavailableView(
+                        viewModel.selectedSegment == .failed ? "No failed uploads" : "Queue is clear",
+                        systemImage: viewModel.selectedSegment == .failed ? "checkmark.circle" : "tray",
+                        description: Text(viewModel.selectedSegment == .failed ? "Uploads needing attention will appear here." : "New uploads appear here after scanning.")
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .padding(.vertical, 40)
+                } else {
+                    ForEach(viewModel.items) { item in
+                        UploadQueueRow(item: item)
+                    }
                 }
 
                 if viewModel.selectedSegment == .failed && viewModel.items.contains(where: \.canRetry) {

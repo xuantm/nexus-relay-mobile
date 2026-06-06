@@ -7,24 +7,33 @@ struct LibrarySyncView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: NRDesign.Spacing.section) {
-                    PhotoMosaicView(images: viewModel.mosaicImages)
+                    if viewModel.summary.total == 0 {
+                        ContentUnavailableView(
+                            "No items ready to upload",
+                            systemImage: "photo.on.rectangle",
+                            description: Text("Tap Sync after granting Photos access.")
+                        )
+                        .padding(.vertical, 40)
+                    } else {
+                        PhotoMosaicView(images: viewModel.mosaicImages)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(viewModel.summary.progressPercentText)
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(NRDesign.ColorToken.primaryText)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(viewModel.summary.progressPercentText)
+                                .font(.largeTitle.bold())
+                                .foregroundStyle(NRDesign.ColorToken.primaryText)
 
-                        ProgressView(value: viewModel.summary.progressFraction)
-                            .tint(NRDesign.ColorToken.accent)
+                            ProgressView(value: viewModel.summary.progressFraction)
+                                .tint(NRDesign.ColorToken.accent)
 
-                        Text(viewModel.summary.summaryText)
-                            .font(.callout)
-                            .foregroundStyle(NRDesign.ColorToken.primaryText)
+                            Text(viewModel.summary.summaryText)
+                                .font(.callout)
+                                .foregroundStyle(NRDesign.ColorToken.primaryText)
 
-                        if let lastSync = viewModel.lastSyncDate {
-                            Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.caption)
-                                .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                            if let lastSync = viewModel.lastSyncDate {
+                                Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                            }
                         }
                     }
 
@@ -43,6 +52,8 @@ struct LibrarySyncView: View {
                     .controlSize(.large)
                     .tint(NRDesign.ColorToken.accent)
                     .disabled(viewModel.activeStatus != .idle)
+                    .accessibilityLabel("Start NexusRelay sync")
+                    .accessibilityHint("Scans Photos and uploads pending items to the selected NexusRelay folder")
                 }
                 .padding(NRDesign.Spacing.page)
             }
