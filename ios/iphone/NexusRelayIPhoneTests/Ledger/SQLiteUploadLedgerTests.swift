@@ -181,4 +181,54 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         let batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertTrue(batch.isEmpty) // Non-retryable fails immediately and is excluded
     }
+
+    func testListQueueRecordsFiltersActiveWaitingAndFailed() async throws {
+        let folderId = UUID()
+        let candidate1 = makeCandidate(assetId: "asset-active", fileName: "active.jpg")
+        let candidate2 = makeCandidate(assetId: "asset-waiting", fileName: "waiting.jpg")
+        let candidate3 = makeCandidate(assetId: "asset-failed", fileName: "failed.jpg")
+
+        try await ledger.upsertDiscovered([candidate1, candidate2, candidate3], folderId: folderId)
+        try await ledger.markUploading(id: candidate1.id)
+        try await ledger.markFailed(id: candidate3.id, error: "Network error", retryable: true)
+
+        let all = try await ledger.listQueueRecords(filter: .all, limit: 10)
+        let active = try await ledger.listQueueRecords(filter: .active, limit: 10)
+        let failed = try await ledger.listQueueRecords(filter: .failed, limit: 10)
+
+        XCTAssertEqual(all.count, 3)
+        XCTAssertEqual(active.map(\.assetLocalIdentifier), ["asset-active"])
+        XCTAssertEqual(failed.map(\.assetLocalIdentifier), ["asset-failed"])
+    }
+
+    func testRetryFailedResetsAttemptsAndClearsError() async throws {
+        let folderId = UUID()
+        let candidate = makeCandidate(assetId: "asset-failed", fileName: "failed.jpg")
+
+        try await ledger.upsertDiscovered([candidate], folderId: folderId)
+        try await ledger.markFailed(id: candidate.id, error: "Server unavailable", retryable: false)
+        try await ledger.retryFailed(ids: [candidate.id])
+
+        let records = try await ledger.listQueueRecords(filter: .all, limit: 10)
+        XCTAssertEqual(records.first?.status, .discovered)
+        XCTAssertEqual(records.first?.attemptCount, 0)
+        XCTAssertNil(records.first?.lastError)
+    }
+
+    private func makeCandidate(assetId: String, fileName: String) -> PhotoAssetCandidate {
+        PhotoAssetCandidate(
+            assetLocalIdentifier: assetId,
+            resourceKind: .image,
+            originalFilename: fileName,
+            uniformTypeIdentifier: "public.jpeg",
+            mimeType: "image/jpeg",
+            creationDate: Date(timeIntervalSince1970: 1_780_000_000),
+            modificationDate: nil,
+            pixelWidth: 1200,
+            pixelHeight: 800,
+            durationSeconds: nil,
+            resourceFileSize: 1024
+        )
+    }
 }
+

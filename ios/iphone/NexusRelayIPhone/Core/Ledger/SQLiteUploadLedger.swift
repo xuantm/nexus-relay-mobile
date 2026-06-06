@@ -146,60 +146,133 @@ final class SQLiteUploadLedger: UploadLedger {
         LIMIT ?;
         """
         
+        return try queryRecords(sql: sql, params: [limit])
+    }
+
+    func listQueueRecords(filter: UploadQueueFilter, limit: Int) async throws -> [UploadLedgerRecord] {
+        let statusClause: String
+        switch filter {
+        case .all:
+            statusClause = "status IN ('discovered', 'exporting', 'readyToUpload', 'uploading', 'failed')"
+        case .active:
+            statusClause = "status IN ('exporting', 'uploading')"
+        case .failed:
+            statusClause = "status = 'failed'"
+        }
+
+        let sql = """
+        SELECT id, asset_local_identifier, resource_kind, fingerprint_suffix,
+               original_filename, uploaded_file_name, mime_type, size_bytes,
+               status, backend_folder_id, backend_upload_id, local_staged_file_url,
+               attempt_count, last_attempt_at, last_error
+        FROM upload_ledger
+        WHERE \(statusClause)
+        ORDER BY
+          CASE status
+            WHEN 'failed' THEN 0
+            WHEN 'uploading' THEN 1
+            WHEN 'exporting' THEN 2
+            WHEN 'readyToUpload' THEN 3
+            ELSE 4
+          END,
+          last_attempt_at DESC,
+          id ASC
+        LIMIT ?;
+        """
+
+        return try queryRecords(sql: sql, params: [limit])
+    }
+
+    func retryFailed(ids: [String]) async throws {
+        guard !ids.isEmpty else { return }
+
+        try execute("BEGIN TRANSACTION;")
+        do {
+            for id in ids {
+                let sql = """
+                UPDATE upload_ledger
+                SET status = 'discovered',
+                    attempt_count = 0,
+                    last_error = NULL,
+                    last_attempt_at = NULL
+                WHERE id = ? AND status = 'failed';
+                """
+                try runUpdate(sql, params: [id])
+            }
+            try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
+    }
+
+    private func queryRecords(sql: String, params: [Any]) throws -> [UploadLedgerRecord] {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             throw DatabaseError.prepareFailed(errorMessage())
         }
-        
         defer { sqlite3_finalize(stmt) }
-        
-        sqlite3_bind_int(stmt, 1, Int32(limit))
-        
+
+        bind(params, to: stmt)
+
         var records: [UploadLedgerRecord] = []
-        
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let id = String(cString: sqlite3_column_text(stmt, 0))
-            let assetId = String(cString: sqlite3_column_text(stmt, 1))
-            let kindRaw = String(cString: sqlite3_column_text(stmt, 2))
-            let suffix = String(cString: sqlite3_column_text(stmt, 3))
-            let originalFilename = String(cString: sqlite3_column_text(stmt, 4))
-            let uploadedFileName = String(cString: sqlite3_column_text(stmt, 5))
-            let mimeType = String(cString: sqlite3_column_text(stmt, 6))
-            
-            let sizeBytes: Int64? = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? nil : sqlite3_column_int64(stmt, 7)
-            let statusRaw = String(cString: sqlite3_column_text(stmt, 8))
-            
-            let folderId = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : UUID(uuidString: String(cString: sqlite3_column_text(stmt, 9)))
-            let uploadId = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : UUID(uuidString: String(cString: sqlite3_column_text(stmt, 10)))
-            let localUrl = sqlite3_column_type(stmt, 11) == SQLITE_NULL ? nil : URL(string: String(cString: sqlite3_column_text(stmt, 11)))
-            
-            let attemptCount = Int(sqlite3_column_int(stmt, 12))
-            
-            let lastAttempt: Date? = sqlite3_column_type(stmt, 13) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(stmt, 13)))
-            let lastError = sqlite3_column_type(stmt, 14) == SQLITE_NULL ? nil : String(cString: sqlite3_column_text(stmt, 14))
-            
-            let record = UploadLedgerRecord(
-                id: id,
-                assetLocalIdentifier: assetId,
-                resourceKind: PhotoResourceKind(rawValue: kindRaw) ?? .image,
-                fingerprintSuffix: suffix,
-                originalFilename: originalFilename,
-                uploadedFileName: uploadedFileName,
-                mimeType: mimeType,
-                sizeBytes: sizeBytes,
-                status: UploadStatus(rawValue: statusRaw) ?? .discovered,
-                backendFolderId: folderId,
-                backendUploadId: uploadId,
-                localStagedFileURL: localUrl,
-                attemptCount: attemptCount,
-                lastAttemptAt: lastAttempt,
-                lastError: lastError
-            )
-            records.append(record)
+            records.append(readRecord(from: stmt))
         }
-        
         return records
     }
+
+    private func bind(_ params: [Any], to stmt: OpaquePointer?) {
+        for (index, param) in params.enumerated() {
+            let bindIndex = Int32(index + 1)
+            if let strVal = param as? String {
+                sqlite3_bind_text(stmt, bindIndex, strVal, -1, SQLITE_TRANSIENT)
+            } else if let intVal = param as? Int64 {
+                sqlite3_bind_int64(stmt, bindIndex, intVal)
+            } else if let intVal = param as? Int {
+                sqlite3_bind_int64(stmt, bindIndex, Int64(intVal))
+            } else {
+                sqlite3_bind_null(stmt, bindIndex)
+            }
+        }
+    }
+
+    private func readRecord(from stmt: OpaquePointer?) -> UploadLedgerRecord {
+        let id = String(cString: sqlite3_column_text(stmt, 0))
+        let assetId = String(cString: sqlite3_column_text(stmt, 1))
+        let kindRaw = String(cString: sqlite3_column_text(stmt, 2))
+        let suffix = String(cString: sqlite3_column_text(stmt, 3))
+        let originalFilename = String(cString: sqlite3_column_text(stmt, 4))
+        let uploadedFileName = String(cString: sqlite3_column_text(stmt, 5))
+        let mimeType = String(cString: sqlite3_column_text(stmt, 6))
+        let sizeBytes: Int64? = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? nil : sqlite3_column_int64(stmt, 7)
+        let statusRaw = String(cString: sqlite3_column_text(stmt, 8))
+        let folderId = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : UUID(uuidString: String(cString: sqlite3_column_text(stmt, 9)))
+        let uploadId = sqlite3_column_type(stmt, 10) == SQLITE_NULL ? nil : UUID(uuidString: String(cString: sqlite3_column_text(stmt, 10)))
+        let localUrl = sqlite3_column_type(stmt, 11) == SQLITE_NULL ? nil : URL(string: String(cString: sqlite3_column_text(stmt, 11)))
+        let attemptCount = Int(sqlite3_column_int(stmt, 12))
+        let lastAttempt = sqlite3_column_type(stmt, 13) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(stmt, 13)))
+        let lastError = sqlite3_column_type(stmt, 14) == SQLITE_NULL ? nil : String(cString: sqlite3_column_text(stmt, 14))
+
+        return UploadLedgerRecord(
+            id: id,
+            assetLocalIdentifier: assetId,
+            resourceKind: PhotoResourceKind(rawValue: kindRaw) ?? .image,
+            fingerprintSuffix: suffix,
+            originalFilename: originalFilename,
+            uploadedFileName: uploadedFileName,
+            mimeType: mimeType,
+            sizeBytes: sizeBytes,
+            status: UploadStatus(rawValue: statusRaw) ?? .discovered,
+            backendFolderId: folderId,
+            backendUploadId: uploadId,
+            localStagedFileURL: localUrl,
+            attemptCount: attemptCount,
+            lastAttemptAt: lastAttempt,
+            lastError: lastError
+        )
+    }
+
 
     func markExporting(id: String) async throws {
         let sql = "UPDATE upload_ledger SET status = 'exporting' WHERE id = ?;"
