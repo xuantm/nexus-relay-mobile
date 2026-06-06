@@ -2,17 +2,26 @@ package com.nexusrelay.pixel.api
 
 import com.squareup.moshi.JsonClass
 
+enum class DeviceSyncScope {
+    AccountUploads,
+    Folder
+}
+
 @JsonClass(generateAdapter = true)
 data class RegisterDeviceRequest(
     val deviceName: String,
     val fcmToken: String?,
-    val wifiOnly: Boolean
+    val wifiOnly: Boolean,
+    val syncScope: DeviceSyncScope = DeviceSyncScope.AccountUploads,
+    val scopedFolderId: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class RegisterDeviceResponse(
     val targetId: String,
-    val deviceToken: String
+    val deviceToken: String,
+    val syncScope: DeviceSyncScope = DeviceSyncScope.AccountUploads,
+    val scopedFolderId: String? = null
 )
 
 @JsonClass(generateAdapter = true)
