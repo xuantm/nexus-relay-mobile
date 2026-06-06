@@ -40,3 +40,20 @@ Read:
 - [Device sync API contract](docs/contracts/device-sync-api.md)
 - [Pixel implementation plan](docs/implementation/pixel-companion-app-plan.md)
 
+## iPhone App Plan
+
+The iPhone milestone is a Photos uploader:
+
+```text
+iPhone Photos
+  -> NexusRelay upload APIs
+  -> NexusRelay backend relay
+  -> existing Pixel device-sync path
+```
+
+Read:
+
+- [iPhone uploader architecture](docs/architecture/iphone-photos-uploader.md)
+- [iPhone source notes from nexus-relay](docs/architecture/iphone-source-notes-from-nexus-relay.md)
+- [iPhone upload API contract](docs/contracts/iphone-upload-api.md)
+- [iPhone implementation plan](docs/implementation/iphone-photos-uploader-plan.md)

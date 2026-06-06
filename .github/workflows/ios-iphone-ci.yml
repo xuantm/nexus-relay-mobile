@@ -1,0 +1,117 @@
+name: iOS iPhone CI
+
+on:
+  pull_request:
+    paths:
+      - "ios/iphone/**"
+      - ".github/workflows/ios-iphone-ci.yml"
+      - ".github/workflows/ios-iphone-release.yml"
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+    paths:
+      - "ios/iphone/**"
+      - ".github/workflows/ios-iphone-ci.yml"
+      - ".github/workflows/ios-iphone-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-iphone-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_PROJECT_DIR: ios/iphone
+  IOS_PROJECT_FILE: NexusRelayIPhone.xcodeproj
+  IOS_SCHEME: NexusRelayIPhone
+  XCODE_VERSION: "16.4"
+  SIMULATOR_DESTINATION: "platform=iOS Simulator,name=iPhone 16,OS=latest"
+
+jobs:
+  test-and-build:
+    runs-on: macos-15
+    defaults:
+      run:
+        shell: bash
+        working-directory: ios/iphone
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+
+          primary="/Applications/Xcode_${XCODE_VERSION}.app"
+          fallback="/Applications/Xcode_${XCODE_VERSION}.0.app"
+
+          if [[ -d "$primary" ]]; then
+            sudo xcode-select -switch "$primary"
+          elif [[ -d "$fallback" ]]; then
+            sudo xcode-select -switch "$fallback"
+          else
+            echo "Requested Xcode ${XCODE_VERSION} not found on runner."
+            ls /Applications | grep '^Xcode' || true
+            exit 1
+          fi
+
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          set -euo pipefail
+
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen version
+            exit 0
+          fi
+
+          brew install xcodegen
+          xcodegen version
+
+      - name: Generate project
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project.yml
+
+      - name: Show available destinations
+        run: |
+          set -euo pipefail
+          xcodebuild -project "$IOS_PROJECT_FILE" -scheme "$IOS_SCHEME" -showdestinations
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "$IOS_PROJECT_FILE" \
+            -scheme "$IOS_SCHEME" \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/NexusRelayIPhone-tests.xcresult" \
+            test
+
+      - name: Build simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "$IOS_PROJECT_FILE" \
+            -scheme "$IOS_SCHEME" \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/NexusRelayIPhone-build.xcresult" \
+            build
+
+      - name: Upload xcresult bundles
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ios-iphone-xcresults
+          path: |
+            ${{ runner.temp }}/NexusRelayIPhone-tests.xcresult
+            ${{ runner.temp }}/NexusRelayIPhone-build.xcresult
+          if-no-files-found: warn
