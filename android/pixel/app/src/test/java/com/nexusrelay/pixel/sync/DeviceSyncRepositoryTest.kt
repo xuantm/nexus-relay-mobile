@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -406,8 +407,8 @@ class DeviceSyncRepositoryTest {
         val repository = createRepository()
         val result = repository.cleanUpSpaceNow()
 
-        assertTrue(result.deletedCount == 1)
-        assertTrue(result.freedBytes == 4096L)
+        assertEquals(1, result.deletedCount)
+        assertEquals(4096L, result.freedBytes)
         verify(mockLedger).markLocalDeleted("job-clean-now")
     }
 
@@ -438,9 +439,9 @@ class DeviceSyncRepositoryTest {
         val repository = createRepository()
         val result = repository.cleanUpSpaceNow()
 
-        assertTrue(result.scannedCount == 2)
-        assertTrue(result.deletedCount == 0)
-        assertTrue(result.skippedCount == 2)
+        assertEquals(2, result.scannedCount)
+        assertEquals(0, result.deletedCount)
+        assertEquals(2, result.skippedCount)
         verify(mockLedger, never()).markLocalDeleted(any())
     }
 }

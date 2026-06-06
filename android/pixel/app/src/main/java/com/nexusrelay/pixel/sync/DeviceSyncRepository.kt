@@ -239,6 +239,7 @@ class DeviceSyncRepository(
                     ledger.markLocalDeleted(record.jobId)
                 } else {
                     skippedCount++
+                    ledger.markLocalDeleted(record.jobId)
                     Log.w(tag, "Local file not deleted or already missing: ${record.fileName}")
                 }
             } catch (e: SecurityException) {

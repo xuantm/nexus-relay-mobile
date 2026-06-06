@@ -90,7 +90,7 @@ fun StatusScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showCleanupDialog by remember { mutableStateOf(false) }
-    var selectedTab by rememberSaveable { mutableStateOf(PixelTab.Sync) }
+    var selectedTab by rememberSaveable(stateSaver = PixelTabSaver) { mutableStateOf(PixelTab.Sync) }
     val cleanupPreview = buildCleanupPreview(recentJobs)
 
     if (showCleanupDialog) {
@@ -349,7 +349,7 @@ private fun SettingsTab(
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun DelaySelector(selectedMinutes: Int, onSelected: (Int) -> Unit) {
-    val options = listOf(120, 360, 1440)
+    val options = listOf(30, 120, 360, 1440)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, minutes ->
             SegmentedButton(
@@ -359,6 +359,7 @@ private fun DelaySelector(selectedMinutes: Int, onSelected: (Int) -> Unit) {
             ) {
                 Text(
                     when (minutes) {
+                        30 -> "30m"
                         120 -> "2h"
                         360 -> "6h"
                         else -> "24h"

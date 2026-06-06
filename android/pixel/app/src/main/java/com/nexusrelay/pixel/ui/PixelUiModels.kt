@@ -1,5 +1,6 @@
 package com.nexusrelay.pixel.ui
 
+import androidx.compose.runtime.saveable.Saver
 import com.nexusrelay.pixel.storage.LocalSyncRecord
 import com.nexusrelay.pixel.storage.LocalSyncStatus
 import java.text.SimpleDateFormat
@@ -11,6 +12,11 @@ enum class PixelTab {
     Ledger,
     Settings
 }
+
+val PixelTabSaver = Saver<PixelTab, String>(
+    save = { it.name },
+    restore = { PixelTab.valueOf(it) }
+)
 
 data class SyncMetrics(
     val confirmed: Int,
