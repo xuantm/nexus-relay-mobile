@@ -1,33 +1,55 @@
 package com.nexusrelay.pixel.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
 import com.nexusrelay.pixel.BuildConfig
 import com.nexusrelay.pixel.api.ApiClientFactory
-import com.nexusrelay.pixel.api.RegisterDeviceRequest
 import com.nexusrelay.pixel.api.DeviceSyncScope
 import com.nexusrelay.pixel.api.LoginRequest
+import com.nexusrelay.pixel.api.RegisterDeviceRequest
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
-import com.nexusrelay.pixel.sync.fetchCurrentFcmToken
 import com.nexusrelay.pixel.sync.PollWorker
 import com.nexusrelay.pixel.sync.SyncWorker
+import com.nexusrelay.pixel.sync.fetchCurrentFcmToken
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     onRegistrationSuccess: () -> Unit
@@ -50,241 +72,211 @@ fun SetupScreen(
     val appSettingsStore = remember { AppSettingsStore(context) }
     val deviceTokenStore = remember { DeviceTokenStore(context) }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
-        focusedLabelColor = Color(0xFF00E5FF),
-        unfocusedLabelColor = Color.LightGray,
-        focusedBorderColor = Color(0xFF00E5FF),
-        unfocusedBorderColor = Color.Gray,
-        cursorColor = Color.White
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F0F1A),
-                        Color(0xFF05050A)
-                    )
-                )
-            ),
-        contentAlignment = Alignment.Center
+            .padding(20.dp)
     ) {
-        Card(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1E1E2F).copy(alpha = 0.9f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            PixelScreenHeader(
+                title = "NexusRelay Pixel",
+                subtitle = "Connect this device"
+            )
+
+            ReadyStatusPanel(
+                lastSyncLabel = "Not registered",
+                scopeLabel = "Choose during setup"
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Text(
-                    text = "Register Device",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                Text(
-                    text = "Connect this device as a companion to your NexusRelay server.",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                if (BuildConfig.SHOW_BACKEND_URL_FIELD) {
-                    OutlinedTextField(
-                        value = backendUrl,
-                        onValueChange = { backendUrl = it },
-                        label = { Text("Backend URL", color = Color.LightGray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors
-                    )
-                }
-
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("NexusRelay Username", color = Color.LightGray) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors
-                )
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("NexusRelay Password", color = Color.LightGray) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
-                    colors = textFieldColors
-                )
-
-                OutlinedTextField(
-                    value = deviceName,
-                    onValueChange = { deviceName = it },
-                    label = { Text("Device Name", color = Color.LightGray) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Sync on Wi-Fi Only",
-                        color = Color.White,
-                        fontSize = 16.sp
+                        "Pair your Pixel",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
-                    Switch(
-                        checked = wifiOnly,
-                        onCheckedChange = { wifiOnly = it }
-                    )
-                }
-
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = syncScope == DeviceSyncScope.AccountUploads,
-                        onClick = { syncScope = DeviceSyncScope.AccountUploads },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                    ) {
-                        Text("Account")
-                    }
-                    SegmentedButton(
-                        selected = syncScope == DeviceSyncScope.Folder,
-                        onClick = { syncScope = DeviceSyncScope.Folder },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                    ) {
-                        Text("Folder")
-                    }
-                }
-
-                if (syncScope == DeviceSyncScope.Folder) {
-                    OutlinedTextField(
-                        value = scopedFolderId,
-                        onValueChange = { scopedFolderId = it },
-                        label = { Text("Folder ID", color = Color.LightGray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors
-                    )
-                }
-
-                if (errorMessage != null) {
                     Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        "Use your NexusRelay account once. This app stores a device token for future sync.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
 
-                if (successMessage != null) {
-                    Text(
-                        text = successMessage!!,
-                        color = Color(0xFF00E5FF),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        if (backendUrl.isBlank() || deviceName.isBlank() || username.isBlank() || password.isBlank()) {
-                            errorMessage = "Server, account, and device name are required"
-                            return@Button
-                        }
-                        if (syncScope == DeviceSyncScope.Folder && scopedFolderId.isBlank()) {
-                            errorMessage = "Folder ID is required for folder sync"
-                            return@Button
-                        }
-                        isLoading = true
-                        errorMessage = null
-                        successMessage = null
-
-                        coroutineScope.launch {
-                            try {
-                                val api = ApiClientFactory.create(backendUrl, BuildConfig.DEBUG)
-                                val loginResponse = api.login(LoginRequest(username = username, password = password))
-                                val storedFcmToken = appSettingsStore.fcmTokenFlow.first()
-                                val currentFcmToken = resolveFcmTokenForRegistration(
-                                    storedFcmToken = storedFcmToken,
-                                    fetchCurrentFcmToken = ::fetchCurrentFcmToken,
-                                    saveFcmToken = appSettingsStore::saveFcmToken
-                                )
-                                val response = api.registerDevice(
-                                    authorization = "Bearer ${loginResponse.token}",
-                                    request = RegisterDeviceRequest(
-                                        deviceName = deviceName,
-                                        fcmToken = currentFcmToken,
-                                        wifiOnly = wifiOnly,
-                                        syncScope = syncScope,
-                                        scopedFolderId = scopedFolderId.takeIf { syncScope == DeviceSyncScope.Folder && it.isNotBlank() }
-                                    )
-                                )
-
-                                appSettingsStore.saveBackendBaseUrl(backendUrl)
-                                appSettingsStore.saveDeviceName(deviceName)
-                                appSettingsStore.saveWifiOnly(wifiOnly)
-                                appSettingsStore.saveTargetId(response.targetId)
-                                appSettingsStore.saveSyncScope(response.syncScope.name)
-                                appSettingsStore.saveScopedFolderId(response.scopedFolderId)
-                                deviceTokenStore.saveDeviceToken(response.deviceToken)
-
-                                // Schedule polling and run immediate sync
-                                PollWorker.schedulePeriodicPoll(context)
-                                SyncWorker.enqueueOneTimeSync(context)
-
-                                successMessage = "Registration successful!"
-                                onRegistrationSuccess()
-                            } catch (e: Exception) {
-                                errorMessage = "Registration failed: ${e.localizedMessage ?: "Unknown error"}"
-                            } finally {
-                                isLoading = false
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !isLoading,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+                    if (BuildConfig.SHOW_BACKEND_URL_FIELD) {
+                        OutlinedTextField(
+                            value = backendUrl,
+                            onValueChange = { backendUrl = it },
+                            label = { Text("Server") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    } else {
+                    }
+
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text("Username") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+
+                    OutlinedTextField(
+                        value = deviceName,
+                        onValueChange = { deviceName = it },
+                        label = { Text("Device name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Wi-Fi only", fontWeight = FontWeight.SemiBold)
+                        Switch(
+                            checked = wifiOnly,
+                            onCheckedChange = { wifiOnly = it }
+                        )
+                    }
+
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = syncScope == DeviceSyncScope.AccountUploads,
+                            onClick = { syncScope = DeviceSyncScope.AccountUploads },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        ) {
+                            Text("Account")
+                        }
+                        SegmentedButton(
+                            selected = syncScope == DeviceSyncScope.Folder,
+                            onClick = { syncScope = DeviceSyncScope.Folder },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                        ) {
+                            Text("Folder")
+                        }
+                    }
+
+                    if (syncScope == DeviceSyncScope.Folder) {
+                        OutlinedTextField(
+                            value = scopedFolderId,
+                            onValueChange = { scopedFolderId = it },
+                            label = { Text("Folder ID") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    if (errorMessage != null) {
                         Text(
-                            text = "Register",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
                         )
+                    }
+
+                    if (successMessage != null) {
+                        Text(
+                            text = successMessage!!,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (backendUrl.isBlank() || deviceName.isBlank() || username.isBlank() || password.isBlank()) {
+                                errorMessage = "Server, account, and device name are required"
+                                return@Button
+                            }
+                            if (syncScope == DeviceSyncScope.Folder && scopedFolderId.isBlank()) {
+                                errorMessage = "Folder ID is required for folder sync"
+                                return@Button
+                            }
+                            isLoading = true
+                            errorMessage = null
+                            successMessage = null
+
+                            coroutineScope.launch {
+                                try {
+                                    val api = ApiClientFactory.create(backendUrl, BuildConfig.DEBUG)
+                                    val loginResponse = api.login(LoginRequest(username = username, password = password))
+                                    val storedFcmToken = appSettingsStore.fcmTokenFlow.first()
+                                    val currentFcmToken = resolveFcmTokenForRegistration(
+                                        storedFcmToken = storedFcmToken,
+                                        fetchCurrentFcmToken = ::fetchCurrentFcmToken,
+                                        saveFcmToken = appSettingsStore::saveFcmToken
+                                    )
+                                    val response = api.registerDevice(
+                                        authorization = "Bearer ${loginResponse.token}",
+                                        request = RegisterDeviceRequest(
+                                            deviceName = deviceName,
+                                            fcmToken = currentFcmToken,
+                                            wifiOnly = wifiOnly,
+                                            syncScope = syncScope,
+                                            scopedFolderId = scopedFolderId.takeIf {
+                                                syncScope == DeviceSyncScope.Folder && it.isNotBlank()
+                                            }
+                                        )
+                                    )
+
+                                    appSettingsStore.saveBackendBaseUrl(backendUrl)
+                                    appSettingsStore.saveDeviceName(deviceName)
+                                    appSettingsStore.saveWifiOnly(wifiOnly)
+                                    appSettingsStore.saveTargetId(response.targetId)
+                                    appSettingsStore.saveSyncScope(response.syncScope.name)
+                                    appSettingsStore.saveScopedFolderId(response.scopedFolderId)
+                                    deviceTokenStore.saveDeviceToken(response.deviceToken)
+
+                                    // Schedule polling and run immediate sync
+                                    PollWorker.schedulePeriodicPoll(context)
+                                    SyncWorker.enqueueOneTimeSync(context)
+
+                                    successMessage = "Pixel registered"
+                                    onRegistrationSuccess()
+                                } catch (e: Exception) {
+                                    errorMessage = "Registration failed: ${e.localizedMessage ?: "Unknown error"}"
+                                } finally {
+                                    isLoading = false
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text("Registering…", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("Register Pixel", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

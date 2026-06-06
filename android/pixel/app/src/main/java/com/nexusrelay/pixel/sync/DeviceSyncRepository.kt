@@ -206,33 +206,62 @@ class DeviceSyncRepository(
         val thresholdTime = System.currentTimeMillis() - delayMillis
 
         val confirmedRecords = ledger.listByStatuses(LocalSyncStatus.Confirmed)
-        val resolver = context.contentResolver
+            .filter { it.lastAttemptAt <= thresholdTime }
 
-        for (record in confirmedRecords) {
-            if (record.isLocalDeleted || record.localUri == null) {
+        deleteLocalFiles(confirmedRecords)
+    }
+
+    suspend fun cleanUpSpaceNow(): CleanupSpaceResult {
+        val confirmedRecords = ledger.listByStatuses(LocalSyncStatus.Confirmed)
+        return deleteLocalFiles(confirmedRecords)
+    }
+
+    private suspend fun deleteLocalFiles(records: List<LocalSyncRecord>): CleanupSpaceResult {
+        val resolver = context.contentResolver
+        var deletedCount = 0
+        var skippedCount = 0
+        var failedCount = 0
+        var freedBytes = 0L
+
+        for (record in records) {
+            if (record.isLocalDeleted || record.localUri.isNullOrBlank()) {
+                skippedCount++
                 continue
             }
 
-            if (record.lastAttemptAt <= thresholdTime) {
-                try {
-                    val uri = Uri.parse(record.localUri)
-                    Log.d(tag, "Auto-deleting local file: ${record.fileName} (URI: ${record.localUri})")
-                    val deletedRows = resolver.delete(uri, null, null)
-                    if (deletedRows > 0) {
-                        Log.i(tag, "Successfully deleted local file: ${record.fileName}")
-                    } else {
-                        Log.w(tag, "Local file not deleted or already missing: ${record.fileName}")
-                    }
+            try {
+                val uri = Uri.parse(record.localUri)
+                Log.d(tag, "Deleting local file: ${record.fileName} (URI: ${record.localUri})")
+                val deletedRows = resolver.delete(uri, null, null)
+                if (deletedRows > 0) {
+                    deletedCount++
+                    freedBytes += record.sizeBytes
                     ledger.markLocalDeleted(record.jobId)
-                } catch (e: SecurityException) {
-                    Log.e(tag, "SecurityException deleting local file ${record.fileName}: ${e.message}", e)
-                } catch (e: Exception) {
+                } else {
+                    skippedCount++
+                    Log.w(tag, "Local file not deleted or already missing: ${record.fileName}")
+                }
+            } catch (e: SecurityException) {
+                failedCount++
+                Log.e(tag, "SecurityException deleting local file ${record.fileName}: ${e.message}", e)
+            } catch (e: Exception) {
+                if (e.message?.contains("does not exist") == true || e is java.io.FileNotFoundException) {
+                    skippedCount++
+                    ledger.markLocalDeleted(record.jobId)
+                } else {
+                    failedCount++
                     Log.e(tag, "Error deleting local file ${record.fileName}: ${e.message}", e)
-                    if (e.message?.contains("does not exist") == true || e is java.io.FileNotFoundException) {
-                        ledger.markLocalDeleted(record.jobId)
-                    }
                 }
             }
         }
+
+        return CleanupSpaceResult(
+            scannedCount = records.size,
+            deletedCount = deletedCount,
+            skippedCount = skippedCount,
+            failedCount = failedCount,
+            freedBytes = freedBytes
+        )
     }
 }
+

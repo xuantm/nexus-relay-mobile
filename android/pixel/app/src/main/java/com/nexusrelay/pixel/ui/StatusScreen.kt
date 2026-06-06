@@ -1,31 +1,64 @@
 package com.nexusrelay.pixel.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.storage.LocalSyncLedger
 import com.nexusrelay.pixel.storage.LocalSyncRecord
-import com.nexusrelay.pixel.storage.LocalSyncStatus
+import com.nexusrelay.pixel.sync.DeviceSyncRepository
 import com.nexusrelay.pixel.sync.SyncWorker
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun StatusScreen(
     onUnregister: () -> Unit
@@ -36,6 +69,7 @@ fun StatusScreen(
     val appSettingsStore = remember { AppSettingsStore(context) }
     val deviceTokenStore = remember { DeviceTokenStore(context) }
     val ledger = remember { LocalSyncLedger(context) }
+    val repository = remember { DeviceSyncRepository(context) }
 
     val backendUrl by appSettingsStore.backendBaseUrlFlow.collectAsState(initial = "")
     val deviceName by appSettingsStore.deviceNameFlow.collectAsState(initial = "")
@@ -46,355 +80,289 @@ fun StatusScreen(
     val scopedFolderId by appSettingsStore.scopedFolderIdFlow.collectAsState(initial = "")
     val autoDeleteEnabled by appSettingsStore.autoDeleteEnabledFlow.collectAsState(initial = false)
     val autoDeleteDelayMinutes by appSettingsStore.autoDeleteDelayMinutesFlow.collectAsState(initial = 24 * 60)
-
     val recentJobs by ledger.recentRecordsFlow.collectAsState(initial = emptyList())
 
-    val confirmedCount = recentJobs.count { it.status == LocalSyncStatus.Confirmed }
-    val failedCount = recentJobs.count { it.status == LocalSyncStatus.Failed }
+    val scopeLabel = when (syncScope) {
+        "Folder" -> "Folder ${scopedFolderId?.take(8) ?: ""}"
+        "AccountUploads" -> "Account uploads"
+        else -> "Account uploads"
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F0F1A),
-                        Color(0xFF05050A)
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showCleanupDialog by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableStateOf(PixelTab.Sync) }
+    val cleanupPreview = buildCleanupPreview(recentJobs)
+
+    if (showCleanupDialog) {
+        CleanupConfirmDialog(
+            preview = cleanupPreview,
+            onConfirm = {
+                showCleanupDialog = false
+                coroutineScope.launch {
+                    val result = repository.cleanUpSpaceNow()
+                    snackbarHostState.showSnackbar(
+                        "Cleaned ${result.deletedCount} files, freed ${formatBytes(result.freedBytes)}"
                     )
+                }
+            },
+            onDismiss = { showCleanupDialog = false }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                PixelScreenHeader(
+                    title = deviceName?.takeIf { it.isNotBlank() } ?: "Pixel Client",
+                    subtitle = scopeLabel
                 )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Pixel Sync Companion",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = deviceName ?: "Active Device",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            deviceTokenStore.clear()
-                            appSettingsStore.clear()
-                            onUnregister()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
-                ) {
-                    Text("Unregister", color = Color.White)
-                }
             }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E2F))
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Server Address", color = Color.LightGray, fontSize = 14.sp)
-                        Text(backendUrl ?: "Not set", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Target ID", color = Color.LightGray, fontSize = 14.sp)
-                        Text(targetId?.take(8) ?: "None", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Sync Scope", color = Color.LightGray, fontSize = 14.sp)
-                        val scopeText = when (syncScope) {
-                            "Folder" -> "Folder ${scopedFolderId?.take(8) ?: ""}"
-                            "AccountUploads" -> "Account uploads"
-                            else -> "Account uploads"
-                        }
-                        Text(scopeText, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Last Sync", color = Color.LightGray, fontSize = 14.sp)
-                        val lastSyncString = if (lastSyncAt > 0L) {
-                            SimpleDateFormat("HH:mm:ss dd/MM", Locale.getDefault()).format(Date(lastSyncAt))
-                        } else {
-                            "Never"
-                        }
-                        Text(lastSyncString, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-
-                    HorizontalDivider(color = Color.DarkGray, modifier = Modifier.padding(vertical = 4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Wi-Fi Only Sync", color = Color.White, fontSize = 15.sp)
-                        Switch(
-                            checked = wifiOnly,
-                            onCheckedChange = {
-                                coroutineScope.launch {
-                                    appSettingsStore.saveWifiOnly(it)
-                                }
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(color = Color.DarkGray, modifier = Modifier.padding(vertical = 4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Tự động xóa file sau sync", color = Color.White, fontSize = 15.sp)
-                            Text(
-                                "Giải phóng bộ nhớ local sau khi đã đồng bộ",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                        Switch(
-                            checked = autoDeleteEnabled,
-                            onCheckedChange = {
-                                coroutineScope.launch {
-                                    appSettingsStore.saveAutoDeleteEnabled(it)
-                                }
-                            }
-                        )
-                    }
-
-                    if (autoDeleteEnabled) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Độ trễ xóa file", color = Color.LightGray, fontSize = 14.sp)
-                            Box {
-                                var expanded by remember { mutableStateOf(false) }
-                                TextButton(onClick = { expanded = true }) {
-                                    val delayText = when (autoDeleteDelayMinutes) {
-                                        0 -> "Ngay lập tức"
-                                        30 -> "30 phút"
-                                        60 -> "1 giờ"
-                                        120 -> "2 giờ"
-                                        360 -> "6 giờ"
-                                        720 -> "12 giờ"
-                                        1440 -> "24 giờ (Khuyên dùng)"
-                                        else -> "$autoDeleteDelayMinutes phút"
-                                    }
-                                    Text(delayText, color = Color(0xFF00E5FF), fontWeight = FontWeight.SemiBold)
-                                }
-                                DropdownMenu(
-                                    expanded = expanded,
-                                    onDismissRequest = { expanded = false },
-                                    modifier = Modifier.background(Color(0xFF1E1E2F))
-                                ) {
-                                    val options = listOf(0, 30, 60, 120, 360, 720, 1440)
-                                    options.forEach { minutes ->
-                                        val label = when (minutes) {
-                                            0 -> "Ngay lập tức"
-                                            30 -> "30 phút"
-                                            60 -> "1 giờ"
-                                            120 -> "2 giờ"
-                                            360 -> "6 giờ"
-                                            720 -> "12 giờ"
-                                            1440 -> "24 giờ (Khuyên dùng)"
-                                            else -> "$minutes phút"
-                                        }
-                                        DropdownMenuItem(
-                                            text = { Text(label, color = Color.White) },
-                                            onClick = {
-                                                coroutineScope.launch {
-                                                    appSettingsStore.saveAutoDeleteDelayMinutes(minutes)
-                                                }
-                                                expanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Text(
-                            text = "Lưu ý: Bạn nên cấu hình độ trễ ít nhất 2 giờ để Google Photos trên thiết bị có đủ thời gian quét và đồng bộ các file mới lên đám mây trước khi chúng bị xóa.",
-                            color = Color(0xFFFFA726),
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedTab == PixelTab.Sync,
+                    onClick = { selectedTab = PixelTab.Sync },
+                    icon = { Icon(Icons.Outlined.Sync, contentDescription = null) },
+                    label = { Text("Sync") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == PixelTab.Ledger,
+                    onClick = { selectedTab = PixelTab.Ledger },
+                    icon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                    label = { Text("Ledger") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == PixelTab.Settings,
+                    onClick = { selectedTab = PixelTab.Settings },
+                    icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                    label = { Text("Settings") }
+                )
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14221F))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Confirmed", color = Color(0xFF00E5FF), fontSize = 12.sp)
-                        Text("$confirmedCount", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2E1C1C))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Failed", color = Color(0xFFD32F2F), fontSize = 12.sp)
-                        Text("$failedCount", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Button(
-                onClick = {
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        when (selectedTab) {
+            PixelTab.Sync -> SyncTab(
+                modifier = Modifier.padding(padding),
+                recentJobs = recentJobs,
+                lastSyncAt = lastSyncAt,
+                scopeLabel = scopeLabel,
+                onSyncNow = {
                     coroutineScope.launch {
                         SyncWorker.enqueueOneTimeSync(context)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-                Text("Sync Now", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-            }
-
-            Text(
-                text = "Sync Ledger",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (recentJobs.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("No sync records found.", color = Color.Gray, fontSize = 14.sp)
-                        }
-                    }
-                } else {
-                    items(recentJobs) { record ->
-                        JobItemRow(record)
+                        snackbarHostState.showSnackbar("Sync queued")
                     }
                 }
+            )
+            PixelTab.Ledger -> LedgerTab(
+                modifier = Modifier.padding(padding),
+                recentJobs = recentJobs
+            )
+            PixelTab.Settings -> SettingsTab(
+                modifier = Modifier.padding(padding),
+                backendUrl = backendUrl,
+                targetId = targetId,
+                syncScopeLabel = scopeLabel,
+                wifiOnly = wifiOnly,
+                autoDeleteEnabled = autoDeleteEnabled,
+                autoDeleteDelayMinutes = autoDeleteDelayMinutes,
+                cleanupPreview = cleanupPreview,
+                onWifiOnlyChanged = { coroutineScope.launch { appSettingsStore.saveWifiOnly(it) } },
+                onAutoDeleteChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteEnabled(it) } },
+                onAutoDeleteDelayChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteDelayMinutes(it) } },
+                onCleanUpSpace = { showCleanupDialog = true },
+                onUnregister = {
+                    coroutineScope.launch {
+                        deviceTokenStore.clear()
+                        appSettingsStore.clear()
+                        onUnregister()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SyncTab(
+    modifier: Modifier = Modifier,
+    recentJobs: List<LocalSyncRecord>,
+    lastSyncAt: Long,
+    scopeLabel: String,
+    onSyncNow: () -> Unit
+) {
+    val metrics = buildSyncMetrics(recentJobs)
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            ReadyStatusPanel(
+                lastSyncLabel = formatLastSyncTime(lastSyncAt),
+                scopeLabel = scopeLabel
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                MetricCard("Confirmed", metrics.confirmed.toString(), Icons.Outlined.CheckCircle, Color(0xFF16856A), Modifier.weight(1f))
+                MetricCard("Pending", metrics.pending.toString(), Icons.Outlined.Sync, Color(0xFFA76613), Modifier.weight(1f))
+                MetricCard("Failed", metrics.failed.toString(), Icons.Outlined.ErrorOutline, Color(0xFFBA2F45), Modifier.weight(1f))
+            }
+        }
+        item {
+            Button(
+                onClick = onSyncNow,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Outlined.Sync, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+                Text("Sync now", fontWeight = FontWeight.Bold)
+            }
+        }
+        item {
+            Text("Recent ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        if (recentJobs.isEmpty()) {
+            item {
+                Text("No sync records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            items(recentJobs.take(5), key = { it.jobId }) { record ->
+                LedgerRecordRow(record)
             }
         }
     }
 }
 
 @Composable
-fun JobItemRow(record: LocalSyncRecord) {
-    val statusText = if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
-        "Cleaned"
-    } else {
-        record.status.name
-    }
-
-    val statusColor = if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
-        Color(0xFF81C784)
-    } else {
-        when (record.status) {
-            LocalSyncStatus.Confirmed -> Color(0xFF00E5FF)
-            LocalSyncStatus.Failed -> Color(0xFFD32F2F)
-            LocalSyncStatus.Downloading -> Color(0xFFFFB300)
-            LocalSyncStatus.ConfirmPending -> Color(0xFF8E24AA)
-            else -> Color.Gray
+private fun LedgerTab(
+    modifier: Modifier = Modifier,
+    recentJobs: List<LocalSyncRecord>
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Text("Sync ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        if (recentJobs.isEmpty()) {
+            item {
+                Text("No sync records found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            items(recentJobs, key = { it.jobId }) { record ->
+                LedgerRecordRow(record)
+            }
         }
     }
+}
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E2F).copy(alpha = 0.5f))
+@Composable
+private fun SettingsTab(
+    modifier: Modifier = Modifier,
+    backendUrl: String?,
+    targetId: String?,
+    syncScopeLabel: String,
+    wifiOnly: Boolean,
+    autoDeleteEnabled: Boolean,
+    autoDeleteDelayMinutes: Int,
+    cleanupPreview: CleanupPreview,
+    onWifiOnlyChanged: (Boolean) -> Unit,
+    onAutoDeleteChanged: (Boolean) -> Unit,
+    onAutoDeleteDelayChanged: (Int) -> Unit,
+    onCleanUpSpace: () -> Unit,
+    onUnregister: () -> Unit
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(record.fileName, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text(
-                    text = "${record.mimeType} • ${(record.sizeBytes / 1024.0 / 1024.0).let { "%.2f".format(it) }} MB",
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
-                if (record.status == LocalSyncStatus.Failed && !record.lastError.isNullOrBlank()) {
-                    Text("Error: ${record.lastError}", color = Color(0xFFD32F2F), fontSize = 11.sp)
+        item {
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Device target", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Server: ${backendUrl?.takeIf { it.isNotBlank() } ?: "Not set"}")
+                    Text("Target: ${targetId?.take(8) ?: "None"}")
+                    Text("Scope: $syncScopeLabel")
                 }
             }
+        }
+        item {
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    SettingsRow("Wi-Fi only", "Avoid mobile data downloads", Icons.Outlined.Wifi) {
+                        Switch(checked = wifiOnly, onCheckedChange = onWifiOnlyChanged)
+                    }
+                    SettingsRow("Auto-delete after sync", "Clean local copies after a delay", Icons.Outlined.DeleteSweep) {
+                        Switch(checked = autoDeleteEnabled, onCheckedChange = onAutoDeleteChanged)
+                    }
+                    if (autoDeleteEnabled) {
+                        DelaySelector(autoDeleteDelayMinutes, onAutoDeleteDelayChanged)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onCleanUpSpace,
+                        enabled = cleanupPreview.cleanableCount > 0,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text("Clean up ${cleanupPreview.cleanableBytesLabel}")
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Background sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Push wake-up: Firebase Cloud Messaging")
+                    Text("Fallback polling: every 15 minutes")
+                }
+            }
+        }
+        item {
+            OutlinedButton(onClick = onUnregister, modifier = Modifier.fillMaxWidth()) {
+                Text("Unregister device")
+            }
+        }
+    }
+}
 
-            Surface(
-                color = statusColor.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.padding(start = 8.dp)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun DelaySelector(selectedMinutes: Int, onSelected: (Int) -> Unit) {
+    val options = listOf(120, 360, 1440)
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, minutes ->
+            SegmentedButton(
+                selected = selectedMinutes == minutes,
+                onClick = { onSelected(minutes) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
             ) {
                 Text(
-                    text = statusText,
-                    color = statusColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    when (minutes) {
+                        120 -> "2h"
+                        360 -> "6h"
+                        else -> "24h"
+                    }
                 )
             }
         }

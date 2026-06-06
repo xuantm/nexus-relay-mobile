@@ -19,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -373,11 +374,73 @@ class DeviceSyncRepositoryTest {
 
         val mockContentResolver = mock(android.content.ContentResolver::class.java)
         whenever(mockContext.contentResolver).thenReturn(mockContentResolver)
-        whenever(mockContentResolver.delete(any(), any(), any())).thenReturn(1)
+        whenever(mockContentResolver.delete(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(1)
 
         val repository = createRepository()
         repository.cleanUpLocalFiles()
 
         verify(mockLedger).markLocalDeleted("job-old")
+    }
+
+    @Test
+    fun testCleanUpSpaceNow_DeletesConfirmedLocalFilesEvenWhenAutoDeleteDisabled() = runTest {
+        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(false))
+        val record = LocalSyncRecord(
+            jobId = "job-clean-now",
+            mediaId = "media-clean-now",
+            fileName = "clean-now.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 4096L,
+            sha256 = null,
+            status = LocalSyncStatus.Confirmed,
+            localUri = "content://media/external/images/media/clean-now",
+            lastAttemptAt = System.currentTimeMillis(),
+            lastError = null,
+            isLocalDeleted = false
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
+        val mockContentResolver = mock(android.content.ContentResolver::class.java)
+        whenever(mockContext.contentResolver).thenReturn(mockContentResolver)
+        whenever(mockContentResolver.delete(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(1)
+
+        val repository = createRepository()
+        val result = repository.cleanUpSpaceNow()
+
+        assertTrue(result.deletedCount == 1)
+        assertTrue(result.freedBytes == 4096L)
+        verify(mockLedger).markLocalDeleted("job-clean-now")
+    }
+
+    @Test
+    fun testCleanUpSpaceNow_SkipsAlreadyDeletedAndMissingUri() = runTest {
+        val deleted = LocalSyncRecord(
+            jobId = "job-deleted",
+            mediaId = "media-deleted",
+            fileName = "deleted.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Confirmed,
+            localUri = "content://media/external/images/media/deleted",
+            lastAttemptAt = 0L,
+            lastError = null,
+            isLocalDeleted = true
+        )
+        val missingUri = deleted.copy(
+            jobId = "job-missing-uri",
+            mediaId = "media-missing-uri",
+            fileName = "missing-uri.jpg",
+            localUri = null,
+            isLocalDeleted = false
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(deleted, missingUri))
+
+        val repository = createRepository()
+        val result = repository.cleanUpSpaceNow()
+
+        assertTrue(result.scannedCount == 2)
+        assertTrue(result.deletedCount == 0)
+        assertTrue(result.skippedCount == 2)
+        verify(mockLedger, never()).markLocalDeleted(any())
     }
 }
