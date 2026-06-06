@@ -75,6 +75,30 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
+    val syncScopeFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SYNC_SCOPE]
+    }
+
+    suspend fun saveSyncScope(scope: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SYNC_SCOPE] = scope
+        }
+    }
+
+    val scopedFolderIdFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SCOPED_FOLDER_ID]
+    }
+
+    suspend fun saveScopedFolderId(folderId: String?) {
+        context.dataStore.edit { preferences ->
+            if (folderId.isNullOrBlank()) {
+                preferences.remove(KEY_SCOPED_FOLDER_ID)
+            } else {
+                preferences[KEY_SCOPED_FOLDER_ID] = folderId
+            }
+        }
+    }
+
     suspend fun clear() {
         context.dataStore.edit { preferences ->
             preferences.clear()
@@ -88,5 +112,7 @@ class AppSettingsStore(private val context: Context) {
         private val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only")
         private val KEY_LAST_SYNC_AT = longPreferencesKey("last_sync_at")
         private val KEY_FCM_TOKEN = stringPreferencesKey("fcm_token")
+        private val KEY_SYNC_SCOPE = stringPreferencesKey("sync_scope")
+        private val KEY_SCOPED_FOLDER_ID = stringPreferencesKey("scoped_folder_id")
     }
 }

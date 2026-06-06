@@ -47,3 +47,16 @@ data class ConfirmDeviceSyncJobRequest(
 data class FailDeviceSyncJobRequest(
     val error: String
 )
+
+@JsonClass(generateAdapter = true)
+data class LoginRequest(
+    val username: String,
+    val password: String
+)
+
+@JsonClass(generateAdapter = true)
+data class LoginResponse(
+    val token: String,
+    val refreshToken: String? = null,
+    val username: String? = null
+)

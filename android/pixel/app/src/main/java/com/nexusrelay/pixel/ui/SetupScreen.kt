@@ -13,9 +13,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.nexusrelay.pixel.BuildConfig
 import com.nexusrelay.pixel.api.ApiClientFactory
 import com.nexusrelay.pixel.api.RegisterDeviceRequest
+import com.nexusrelay.pixel.api.DeviceSyncScope
+import com.nexusrelay.pixel.api.LoginRequest
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.sync.PollWorker
@@ -32,8 +35,12 @@ fun SetupScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var backendUrl by remember { mutableStateOf(BuildConfig.DEFAULT_BACKEND_BASE_URL) }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var deviceName by remember { mutableStateOf("Pixel Client") }
     var wifiOnly by remember { mutableStateOf(true) }
+    var syncScope by remember { mutableStateOf(DeviceSyncScope.AccountUploads) }
+    var scopedFolderId by remember { mutableStateOf("") }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -97,6 +104,23 @@ fun SetupScreen(
                 }
 
                 OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("NexusRelay Username", color = Color.LightGray) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("NexusRelay Password", color = Color.LightGray) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation()
+                )
+
+                OutlinedTextField(
                     value = deviceName,
                     onValueChange = { deviceName = it },
                     label = { Text("Device Name", color = Color.LightGray) },
@@ -122,6 +146,33 @@ fun SetupScreen(
                     )
                 }
 
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = syncScope == DeviceSyncScope.AccountUploads,
+                        onClick = { syncScope = DeviceSyncScope.AccountUploads },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) {
+                        Text("Account")
+                    }
+                    SegmentedButton(
+                        selected = syncScope == DeviceSyncScope.Folder,
+                        onClick = { syncScope = DeviceSyncScope.Folder },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) {
+                        Text("Folder")
+                    }
+                }
+
+                if (syncScope == DeviceSyncScope.Folder) {
+                    OutlinedTextField(
+                        value = scopedFolderId,
+                        onValueChange = { scopedFolderId = it },
+                        label = { Text("Folder ID", color = Color.LightGray) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage!!,
@@ -142,8 +193,12 @@ fun SetupScreen(
 
                 Button(
                     onClick = {
-                        if (backendUrl.isBlank() || deviceName.isBlank()) {
-                            errorMessage = "All fields are required"
+                        if (backendUrl.isBlank() || deviceName.isBlank() || username.isBlank() || password.isBlank()) {
+                            errorMessage = "Server, account, and device name are required"
+                            return@Button
+                        }
+                        if (syncScope == DeviceSyncScope.Folder && scopedFolderId.isBlank()) {
+                            errorMessage = "Folder ID is required for folder sync"
                             return@Button
                         }
                         isLoading = true
@@ -153,13 +208,17 @@ fun SetupScreen(
                         coroutineScope.launch {
                             try {
                                 val api = ApiClientFactory.create(backendUrl, BuildConfig.DEBUG)
+                                val loginResponse = api.login(LoginRequest(username = username, password = password))
                                 // Fetch current FCM token if available
                                 val currentFcmToken = appSettingsStore.fcmTokenFlow.first()
                                 val response = api.registerDevice(
-                                    RegisterDeviceRequest(
+                                    authorization = "Bearer ${loginResponse.token}",
+                                    request = RegisterDeviceRequest(
                                         deviceName = deviceName,
                                         fcmToken = currentFcmToken,
-                                        wifiOnly = wifiOnly
+                                        wifiOnly = wifiOnly,
+                                        syncScope = syncScope,
+                                        scopedFolderId = scopedFolderId.takeIf { syncScope == DeviceSyncScope.Folder && it.isNotBlank() }
                                     )
                                 )
 
@@ -167,6 +226,8 @@ fun SetupScreen(
                                 appSettingsStore.saveDeviceName(deviceName)
                                 appSettingsStore.saveWifiOnly(wifiOnly)
                                 appSettingsStore.saveTargetId(response.targetId)
+                                appSettingsStore.saveSyncScope(response.syncScope.name)
+                                appSettingsStore.saveScopedFolderId(response.scopedFolderId)
                                 deviceTokenStore.saveDeviceToken(response.deviceToken)
 
                                 // Schedule polling and run immediate sync
