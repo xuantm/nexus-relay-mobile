@@ -37,4 +37,87 @@ final class UploadQueueViewModelTests: XCTestCase {
             lastError: lastError
         )
     }
+
+    @MainActor
+    func testQueueViewModelLoadsFilteredRows() async throws {
+        let ledger = FakeQueueLedger(records: [
+            makeRecord(id: "1", status: .uploading),
+            makeRecord(id: "2", status: .failed),
+            makeRecord(id: "3", status: .discovered)
+        ])
+        let viewModel = UploadQueueViewModel(ledger: ledger)
+
+        viewModel.selectedSegment = .failed
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.items.map(\.id), ["2"])
+    }
+
+    @MainActor
+    func testRetryAllRetriesFailedIdsAndReloads() async throws {
+        let ledger = FakeQueueLedger(records: [
+            makeRecord(id: "1", status: .failed),
+            makeRecord(id: "2", status: .failed)
+        ])
+        let viewModel = UploadQueueViewModel(ledger: ledger)
+
+        await viewModel.load()
+        await viewModel.retryAll()
+
+        XCTAssertEqual(ledger.retriedIds, ["1", "2"])
+    }
+
+    private func makeRecord(id: String, status: UploadStatus) -> UploadLedgerRecord {
+        UploadLedgerRecord(
+            id: id,
+            assetLocalIdentifier: "asset-\(id)",
+            resourceKind: .image,
+            fingerprintSuffix: "a3f91c0d8e74b210",
+            originalFilename: "IMG_\(id).HEIC",
+            uploadedFileName: "IMG_\(id)__nr-a3f91c0d8e74b210.HEIC",
+            mimeType: "image/heic",
+            sizeBytes: 1024,
+            status: status,
+            backendFolderId: nil,
+            backendUploadId: nil,
+            localStagedFileURL: nil,
+            attemptCount: 0,
+            lastAttemptAt: nil,
+            lastError: status == .failed ? "Upload failed" : nil
+        )
+    }
 }
+
+final class FakeQueueLedger: UploadLedger {
+    var records: [UploadLedgerRecord]
+    var retriedIds: [String] = []
+
+    init(records: [UploadLedgerRecord]) {
+        self.records = records
+    }
+
+    func listQueueRecords(filter: UploadQueueFilter, limit: Int) async throws -> [UploadLedgerRecord] {
+        switch filter {
+        case .all: return records
+        case .active: return records.filter { $0.status == .uploading || $0.status == .exporting }
+        case .failed: return records.filter { $0.status == .failed }
+        }
+    }
+
+    func retryFailed(ids: [String]) async throws {
+        retriedIds = ids
+    }
+
+    func upsertDiscovered(_ candidates: [PhotoAssetCandidate], folderId: UUID) async throws {}
+    func nextUploadBatch(limit: Int) async throws -> [UploadLedgerRecord] { [] }
+    func markExporting(id: String) async throws {}
+    func markReady(id: String, stagedFileURL: URL, sizeBytes: Int64) async throws {}
+    func markUploading(id: String) async throws {}
+    func markUploaded(id: String, backendUploadId: UUID) async throws {}
+    func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws {}
+    func markFailed(id: String, error: String, retryable: Bool) async throws {}
+    func getLedgerCounts() async throws -> LedgerCounts {
+        LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)
+    }
+}
+
