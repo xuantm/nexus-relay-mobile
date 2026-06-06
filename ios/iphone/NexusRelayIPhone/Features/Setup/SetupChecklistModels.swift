@@ -56,7 +56,8 @@ struct SetupChecklistRow: Identifiable, Equatable {
                 title: "Photos Access",
                 subtitle: photosSubtitle(photosStatus),
                 systemImage: "photo.on.rectangle",
-                state: photosStatus == .authorized || photosStatus == .limited ? .complete : .pending
+                state: photosStatus == .authorized || photosStatus == .limited ? .complete
+                     : (photosStatus == .denied || photosStatus == .restricted ? .failed : .pending)
             ),
             SetupChecklistRow(
                 id: "folder",

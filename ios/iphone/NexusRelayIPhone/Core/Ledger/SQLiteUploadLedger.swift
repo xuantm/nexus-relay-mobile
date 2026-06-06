@@ -34,6 +34,10 @@ final class SQLiteUploadLedger: UploadLedger {
             let error = sqlite3_errmsg(db).map { String(cString: $0) } ?? "Unknown error"
             throw DatabaseError.openFailed(error)
         }
+        // Enable WAL mode for safe concurrent reads/writes across connections
+        try execute("PRAGMA journal_mode=WAL;")
+        // Allow up to 5 seconds wait when another connection holds a write lock
+        sqlite3_busy_timeout(db, 5000)
     }
 
     private func createTables() throws {
@@ -186,18 +190,30 @@ final class SQLiteUploadLedger: UploadLedger {
     func retryFailed(ids: [String]) async throws {
         guard !ids.isEmpty else { return }
 
+        let sql = """
+        UPDATE upload_ledger
+        SET status = 'discovered',
+            attempt_count = 0,
+            last_error = NULL,
+            last_attempt_at = NULL
+        WHERE id = ? AND status = 'failed';
+        """
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw DatabaseError.prepareFailed(errorMessage())
+        }
+        defer { sqlite3_finalize(stmt) }
+
         try execute("BEGIN TRANSACTION;")
         do {
             for id in ids {
-                let sql = """
-                UPDATE upload_ledger
-                SET status = 'discovered',
-                    attempt_count = 0,
-                    last_error = NULL,
-                    last_attempt_at = NULL
-                WHERE id = ? AND status = 'failed';
-                """
-                try runUpdate(sql, params: [id])
+                sqlite3_reset(stmt)
+                sqlite3_clear_bindings(stmt)
+                sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT)
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    throw DatabaseError.executionFailed(errorMessage())
+                }
             }
             try execute("COMMIT;")
         } catch {

@@ -1,4 +1,4 @@
-import PhotoKit
+import Photos
 import SwiftUI
 import UIKit
 
@@ -11,9 +11,10 @@ final class PhotoKitThumbnailProvider: PhotoThumbnailProvider {
         let assets = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
         guard let asset = assets.firstObject else { return nil }
 
-        return await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
             let options = PHImageRequestOptions()
-            options.deliveryMode = .opportunistic
+            options.deliveryMode = .highQualityFormat
+            options.isSynchronous = false
             options.resizeMode = .fast
             options.isNetworkAccessAllowed = false
 

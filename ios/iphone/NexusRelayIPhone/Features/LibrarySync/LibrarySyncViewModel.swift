@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import Combine
-import PhotoKit
+import Photos
 
 struct LibrarySyncSummary: Equatable {
     let uploaded: Int

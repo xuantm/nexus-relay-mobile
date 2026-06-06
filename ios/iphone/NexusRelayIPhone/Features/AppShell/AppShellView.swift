@@ -1,21 +1,12 @@
 import SwiftUI
 
-@MainActor
-final class SessionActions: ObservableObject {
-    private let syncStatusViewModel = SyncStatusViewModel()
-
-    func logout() {
-        syncStatusViewModel.logout()
-    }
-}
-
 struct AppShellView: View {
     var onLogout: () -> Void
-    @StateObject private var sessionActions = SessionActions()
+    @StateObject private var syncStatusViewModel = SyncStatusViewModel()
 
     var body: some View {
         TabView {
-            LibrarySyncView()
+            LibrarySyncView(syncStatusViewModel: syncStatusViewModel)
                 .tabItem {
                     Label("Sync", systemImage: "icloud.and.arrow.up")
                 }
@@ -26,7 +17,7 @@ struct AppShellView: View {
                 }
 
             SettingsView(onLogout: {
-                sessionActions.logout()
+                syncStatusViewModel.logout()
                 onLogout()
             })
                 .tabItem {
@@ -36,4 +27,3 @@ struct AppShellView: View {
         .tint(NRDesign.ColorToken.accent)
     }
 }
-

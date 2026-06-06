@@ -2,6 +2,7 @@ import SwiftUI
 
 struct UploadQueueView: View {
     @StateObject private var viewModel = UploadQueueViewModel()
+    private let thumbnailProvider: PhotoThumbnailProvider = PhotoKitThumbnailProvider()
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,7 @@ struct UploadQueueView: View {
                     .padding(.vertical, 40)
                 } else {
                     ForEach(viewModel.items) { item in
-                        UploadQueueRow(item: item)
+                        UploadQueueRow(item: item, thumbnailProvider: thumbnailProvider)
                     }
                 }
 
@@ -55,8 +56,8 @@ struct UploadQueueView: View {
 
 private struct UploadQueueRow: View {
     let item: UploadQueueItem
+    let thumbnailProvider: PhotoThumbnailProvider
     @State private var thumbnail: UIImage? = nil
-    private let thumbnailProvider: PhotoThumbnailProvider = PhotoKitThumbnailProvider()
 
     var body: some View {
         HStack(spacing: 12) {

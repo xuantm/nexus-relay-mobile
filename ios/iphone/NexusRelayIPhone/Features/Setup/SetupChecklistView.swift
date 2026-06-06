@@ -33,6 +33,9 @@ struct SetupChecklistView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(row.title), \(row.subtitle)")
+                .accessibilityValue(row.state == .complete ? "Complete" : (row.state == .failed ? "Needs attention" : "Pending"))
 
                 if row.id != rows.last?.id {
                     Divider().padding(.leading, 86)

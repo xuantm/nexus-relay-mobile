@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct LibrarySyncView: View {
-    @StateObject private var viewModel = LibrarySyncViewModel()
+    @StateObject private var viewModel: LibrarySyncViewModel
+
+    init(syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel()) {
+        _viewModel = StateObject(wrappedValue: LibrarySyncViewModel(syncStatusViewModel: syncStatusViewModel))
+    }
 
     var body: some View {
         NavigationStack {
