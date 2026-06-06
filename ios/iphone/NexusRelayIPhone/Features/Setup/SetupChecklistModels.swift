@@ -40,9 +40,11 @@ struct SetupChecklistRow: Identifiable, Equatable {
             SetupChecklistRow(
                 id: "server",
                 title: "Server",
-                subtitle: URL(string: serverURL)?.host ?? "Add server URL",
+                subtitle: BackendURLValidator.isValid(serverURL)
+                    ? (URL(string: serverURL)?.host ?? "Add server URL")
+                    : "Add server URL",
                 systemImage: "server.rack",
-                state: URL(string: serverURL) == nil ? .pending : .complete
+                state: BackendURLValidator.isValid(serverURL) ? .complete : .pending
             ),
             SetupChecklistRow(
                 id: "signin",

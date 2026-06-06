@@ -16,4 +16,16 @@ final class SetupChecklistModelTests: XCTestCase {
         XCTAssertEqual(rows[2].subtitle, "Full access")
         XCTAssertEqual(rows[3].subtitle, "iPhone Uploads")
     }
+
+    func testChecklistMarksInvalidServerAsPending() {
+        let rows = SetupChecklistRow.makeRows(
+            serverURL: "relay.example.com",
+            username: "xuan",
+            photosStatus: .authorized,
+            destinationFolderName: "iPhone Uploads"
+        )
+
+        XCTAssertEqual(rows[0].subtitle, "Add server URL")
+        XCTAssertEqual(rows[0].state, .pending)
+    }
 }

@@ -2,9 +2,14 @@ import SwiftUI
 
 struct LibrarySyncView: View {
     @StateObject private var viewModel: LibrarySyncViewModel
+    private let onRepairSignIn: () -> Void
 
-    init(syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel()) {
+    init(
+        syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel(),
+        onRepairSignIn: @escaping () -> Void = {}
+    ) {
         _viewModel = StateObject(wrappedValue: LibrarySyncViewModel(syncStatusViewModel: syncStatusViewModel))
+        self.onRepairSignIn = onRepairSignIn
     }
 
     var body: some View {
@@ -46,18 +51,29 @@ struct LibrarySyncView: View {
                             .foregroundStyle(NRDesign.ColorToken.error)
                     }
 
+                    if viewModel.requiresSignInRepair {
+                        Button("Repair Sign-In") {
+                            onRepairSignIn()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
                     Button {
-                        Task { await viewModel.syncNow() }
+                        if viewModel.activeStatus == .scanning || viewModel.activeStatus == .exporting || viewModel.activeStatus == .uploading {
+                            viewModel.pauseSync()
+                        } else if viewModel.activeStatus == .idle || viewModel.activeStatus == .error {
+                            Task { await viewModel.syncNow() }
+                        }
                     } label: {
-                        Label(viewModel.activeStatus == .idle ? "Sync" : "Syncing", systemImage: "icloud.and.arrow.up")
+                        Label(primaryActionTitle, systemImage: "icloud.and.arrow.up")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .tint(NRDesign.ColorToken.accent)
-                    .disabled(viewModel.activeStatus != .idle)
-                    .accessibilityLabel("Start NexusRelay sync")
-                    .accessibilityHint("Scans Photos and uploads pending items to the selected NexusRelay folder")
+                    .disabled(viewModel.activeStatus == .pausing)
+                    .accessibilityLabel(viewModel.activeStatus == .idle || viewModel.activeStatus == .error ? "Start NexusRelay sync" : "Pause NexusRelay sync")
+                    .accessibilityHint(viewModel.activeStatus == .idle || viewModel.activeStatus == .error ? "Scans Photos and uploads pending items to the selected NexusRelay folder" : "Stops the queue after the current item finishes")
                 }
                 .padding(NRDesign.Spacing.page)
             }
@@ -77,6 +93,17 @@ struct LibrarySyncView: View {
                 viewModel.refreshFromSyncViewModel()
                 await viewModel.loadMosaicImages()
             }
+        }
+    }
+
+    private var primaryActionTitle: String {
+        switch viewModel.activeStatus {
+        case .idle, .error:
+            return "Sync"
+        case .pausing:
+            return "Pausing"
+        case .scanning, .exporting, .uploading:
+            return "Pause"
         }
     }
 }

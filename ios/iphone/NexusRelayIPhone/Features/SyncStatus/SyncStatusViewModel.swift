@@ -6,6 +6,7 @@ enum ActiveSyncStatus: String {
     case scanning = "Scanning"
     case exporting = "Exporting"
     case uploading = "Uploading"
+    case pausing = "Pausing"
     case error = "Error"
 }
 
@@ -22,6 +23,7 @@ final class SyncStatusViewModel: ObservableObject {
     @Published var activeStatus: ActiveSyncStatus = .idle
     @Published var lastSyncDate: Date? = nil
     @Published var errorMessage: String? = nil
+    @Published var requiresSignInRepair = false
     @Published var isLoggedOut = false
     
     private let settingsStore: SettingsStore
@@ -89,7 +91,7 @@ final class SyncStatusViewModel: ObservableObject {
             self.uploadingCount = counts.uploading
             
             // Adjust active status dynamically if syncing
-            if activeStatus != .idle && activeStatus != .error {
+            if activeStatus != .idle && activeStatus != .error && activeStatus != .pausing {
                 if counts.uploading > 0 {
                     activeStatus = .uploading
                 } else if counts.exporting > 0 {
@@ -109,6 +111,7 @@ final class SyncStatusViewModel: ObservableObject {
         }
         
         errorMessage = nil
+        requiresSignInRepair = false
         activeStatus = .scanning
         
         let pollingTask = Task {
@@ -123,12 +126,23 @@ final class SyncStatusViewModel: ObservableObject {
             lastSyncDate = Date()
             activeStatus = .idle
         } catch {
-            errorMessage = error.localizedDescription
+            let issue = UserFacingSyncIssue.from(error: error)
+            errorMessage = issue.message
+            requiresSignInRepair = issue.requiresRepairAction
             activeStatus = .error
         }
         
         pollingTask.cancel()
         await refreshCounts()
+    }
+
+    func pauseSync() {
+        guard activeStatus == .scanning || activeStatus == .exporting || activeStatus == .uploading else {
+            return
+        }
+
+        orchestrator?.cancelSync()
+        activeStatus = .pausing
     }
     
     func reconcile() async {
@@ -140,6 +154,7 @@ final class SyncStatusViewModel: ObservableObject {
         }
         
         errorMessage = nil
+        requiresSignInRepair = false
         activeStatus = .scanning
         
         do {
@@ -147,7 +162,9 @@ final class SyncStatusViewModel: ObservableObject {
             lastSyncDate = Date()
             activeStatus = .idle
         } catch {
-            errorMessage = error.localizedDescription
+            let issue = UserFacingSyncIssue.from(error: error)
+            errorMessage = issue.message
+            requiresSignInRepair = issue.requiresRepairAction
             activeStatus = .error
         }
         
@@ -188,6 +205,7 @@ final class SyncStatusViewModel: ObservableObject {
         self.activeStatus = .idle
         self.lastSyncDate = nil
         self.errorMessage = nil
+        self.requiresSignInRepair = false
         
         self.isLoggedOut = true
     }

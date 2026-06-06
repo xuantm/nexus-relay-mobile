@@ -8,6 +8,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Account") {
+                    LabeledContent("Account", value: viewModel.username)
                     LabeledContent("Server", value: viewModel.serverURLString)
                     Button(role: .destructive) {
                         onLogout()

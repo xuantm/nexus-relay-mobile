@@ -3,11 +3,11 @@ import XCTest
 
 final class UploadQueueViewModelTests: XCTestCase {
     func testQueueItemMapsStatusLabels() {
-        let failed = UploadQueueItem(record: makeRecord(status: .failed, lastError: "Network error"))
+        let failed = UploadQueueItem(record: makeRecord(status: .failed, lastError: "Failed to get current user"))
         let uploading = UploadQueueItem(record: makeRecord(status: .uploading, lastError: nil))
         let waiting = UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil))
 
-        XCTAssertEqual(failed.statusText, "Network error")
+        XCTAssertEqual(failed.statusText, "Sign in required")
         XCTAssertEqual(uploading.statusText, "Uploading")
         XCTAssertEqual(waiting.statusText, "Waiting to upload")
     }
@@ -67,6 +67,20 @@ final class UploadQueueViewModelTests: XCTestCase {
         XCTAssertEqual(ledger.retriedIds, ["1", "2"])
     }
 
+    @MainActor
+    func testRetryRetriesSingleFailedId() async throws {
+        let ledger = FakeQueueLedger(records: [
+            makeRecord(id: "1", status: .failed),
+            makeRecord(id: "2", status: .failed)
+        ])
+        let viewModel = UploadQueueViewModel(ledger: ledger)
+
+        await viewModel.load()
+        await viewModel.retry(id: "2")
+
+        XCTAssertEqual(ledger.retriedIds, ["2"])
+    }
+
     private func makeRecord(id: String, status: UploadStatus) -> UploadLedgerRecord {
         UploadLedgerRecord(
             id: id,
@@ -120,4 +134,3 @@ final class FakeQueueLedger: UploadLedger {
         LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)
     }
 }
-

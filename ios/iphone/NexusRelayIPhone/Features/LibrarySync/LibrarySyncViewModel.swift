@@ -32,6 +32,7 @@ final class LibrarySyncViewModel: ObservableObject {
     @Published var activeStatus: ActiveSyncStatus = .idle
     @Published var lastSyncDate: Date?
     @Published var errorMessage: String?
+    @Published var requiresSignInRepair = false
     @Published var mosaicImages: [UIImage] = []
 
     private let syncStatusViewModel: SyncStatusViewModel
@@ -45,14 +46,33 @@ final class LibrarySyncViewModel: ObservableObject {
         self.syncStatusViewModel = syncStatusViewModel
         self.thumbnailProvider = thumbnailProvider
         refreshFromSyncViewModel()
-        
-        // Reactively observe changes in the underlying sync status view model
-        syncStatusViewModel.objectWillChange
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.refreshFromSyncViewModel()
-                }
-            }
+
+        syncStatusViewModel.$queuedCount
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$uploadedCount
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$failedCount
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$exportingCount
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$uploadingCount
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$activeStatus
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$lastSyncDate
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$errorMessage
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+            .store(in: &cancellables)
+        syncStatusViewModel.$requiresSignInRepair
+            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
     }
 
@@ -66,6 +86,7 @@ final class LibrarySyncViewModel: ObservableObject {
         activeStatus = syncStatusViewModel.activeStatus
         lastSyncDate = syncStatusViewModel.lastSyncDate
         errorMessage = syncStatusViewModel.errorMessage
+        requiresSignInRepair = syncStatusViewModel.requiresSignInRepair
     }
 
     func loadMosaicImages() async {
@@ -88,6 +109,11 @@ final class LibrarySyncViewModel: ObservableObject {
         await syncStatusViewModel.syncNow()
         refreshFromSyncViewModel()
         await loadMosaicImages()
+    }
+
+    func pauseSync() {
+        syncStatusViewModel.pauseSync()
+        refreshFromSyncViewModel()
     }
 
     func reconcile() async {

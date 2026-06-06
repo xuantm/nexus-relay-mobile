@@ -45,7 +45,7 @@ final class SetupViewModel: ObservableObject {
     }
 
     func saveAndLogin() async {
-        guard let url = URL(string: serverURL), url.scheme == "http" || url.scheme == "https" else {
+        guard BackendURLValidator.isValid(serverURL), let url = URL(string: serverURL) else {
             errorMessage = "Invalid Server URL (must start with http/https)"
             return
         }

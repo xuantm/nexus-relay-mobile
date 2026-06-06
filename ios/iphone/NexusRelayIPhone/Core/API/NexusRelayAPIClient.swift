@@ -1,9 +1,26 @@
 import Foundation
 
-enum APIError: Error {
+enum APIError: Error, LocalizedError {
     case loginFailed(statusCode: Int)
     case requestFailed(statusCode: Int, message: String)
     case invalidURL
+
+    var errorDescription: String? {
+        switch self {
+        case .loginFailed(let statusCode):
+            return "Sign in failed"
+        case .requestFailed(let statusCode, let message):
+            if statusCode == 401 || statusCode == 403 {
+                return UserFacingSyncIssue.signInRequired.message
+            }
+            if statusCode >= 500 {
+                return UserFacingSyncIssue.serverUnavailable.message
+            }
+            return message
+        case .invalidURL:
+            return "Invalid server URL"
+        }
+    }
 }
 
 protocol NexusRelayAPI {

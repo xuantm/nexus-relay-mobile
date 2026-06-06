@@ -52,7 +52,7 @@ Developers running on macOS can execute the following steps to verify full funct
 ### Blocked State Checks
 
 1. With Wi-Fi only enabled on cellular, the sync home should show `Waiting for Wi-Fi` or trigger a cellular-lockout error description.
-2. With expired auth cookies, the app should pause sync and show `Sign in required`.
+2. With expired auth cookies, the app should pause sync, show `Sign in required`, and offer `Repair Sign-In`.
 3. With failed rows in the queue, the `Failed` filter should expose `Retry all`.
 
 ### Step 1: Authentication & Setup View
@@ -75,6 +75,7 @@ Developers running on macOS can execute the following steps to verify full funct
 2. **Expected Outcome**:
    - The progress percentage text and bar update reactively.
    - Recent photos load in the Photo Mosaic grid dynamically.
+   - While active, the primary action changes from **Sync** to **Pause**.
    - The `Queue` list registers items, showing preparing and upload progress.
    - Synced items automatically clear out from active queues.
 
@@ -92,4 +93,5 @@ Developers running on macOS can execute the following steps to verify full funct
 4. **Expected Outcome**:
    - The items return to `Waiting to upload` (discovered) status in the ledger, with attempt counts reset to 0.
    - The item reload immediately refreshes in the list.
+   - Tapping a queue row opens a detail sheet with status, size, upload mode, destination, and retry action.
 

@@ -6,12 +6,18 @@ struct AppShellView: View {
 
     var body: some View {
         TabView {
-            LibrarySyncView(syncStatusViewModel: syncStatusViewModel)
+            LibrarySyncView(
+                syncStatusViewModel: syncStatusViewModel,
+                onRepairSignIn: {
+                    syncStatusViewModel.logout()
+                    onLogout()
+                }
+            )
                 .tabItem {
                     Label("Sync", systemImage: "icloud.and.arrow.up")
                 }
 
-            UploadQueueView()
+            UploadQueueView(syncStatusViewModel: syncStatusViewModel)
                 .tabItem {
                     Label("Queue", systemImage: "list.bullet")
                 }

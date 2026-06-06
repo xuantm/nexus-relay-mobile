@@ -80,8 +80,13 @@ final class MockTemporaryFileStore: TemporaryFileStore {
 final class MockUploadEngine: UploadEngine {
     var uploadCount = 0
     var shouldFail = false
+    var delayNanoseconds: UInt64 = 0
+
     func upload(record: UploadLedgerRecord, folderId: UUID) async throws -> UUID {
         uploadCount += 1
+        if delayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: delayNanoseconds)
+        }
         if shouldFail {
             throw APIError.requestFailed(statusCode: 500, message: "mock-server-failure")
         }
@@ -390,5 +395,58 @@ final class SyncOrchestratorTests: XCTestCase {
             XCTAssertTrue(error is SyncError)
             XCTAssertEqual(error.localizedDescription, "Photos access is required before sync can start.")
         }
+    }
+
+    func testCancelStopsAfterCurrentItem() async throws {
+        orchestrator = SystemSyncOrchestrator(
+            apiClient: api, photosScanner: scanner, ledger: ledger,
+            exporter: exporter, tempFileStore: tempStore, uploadEngine: engine,
+            settingsStore: settingsStore,
+            wifiChecker: { true }
+        )
+
+        let folderId = UUID()
+        settingsStore.settings.destinationFolderId = folderId
+        engine.delayNanoseconds = 200_000_000
+
+        scanner.candidates = [
+            PhotoAssetCandidate(
+                assetLocalIdentifier: "asset-1",
+                resourceKind: .image,
+                originalFilename: "first.jpg",
+                uniformTypeIdentifier: "public.jpeg",
+                mimeType: "image/jpeg",
+                creationDate: Date(),
+                modificationDate: nil,
+                pixelWidth: 800,
+                pixelHeight: 600,
+                durationSeconds: nil,
+                resourceFileSize: 500
+            ),
+            PhotoAssetCandidate(
+                assetLocalIdentifier: "asset-2",
+                resourceKind: .image,
+                originalFilename: "second.jpg",
+                uniformTypeIdentifier: "public.jpeg",
+                mimeType: "image/jpeg",
+                creationDate: Date(),
+                modificationDate: nil,
+                pixelWidth: 800,
+                pixelHeight: 600,
+                durationSeconds: nil,
+                resourceFileSize: 500
+            )
+        ]
+
+        let syncTask = Task { try await orchestrator.startSync() }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        orchestrator.cancelSync()
+
+        let uploadedCount = try await syncTask.value
+
+        XCTAssertEqual(uploadedCount, 1)
+        XCTAssertEqual(engine.uploadCount, 1)
+        XCTAssertEqual(ledger.records.filter { $0.status == .uploaded }.count, 1)
+        XCTAssertEqual(ledger.records.filter { $0.status == .discovered }.count, 1)
     }
 }

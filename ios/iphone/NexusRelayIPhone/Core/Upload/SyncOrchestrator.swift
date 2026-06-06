@@ -4,6 +4,7 @@ import Network
 protocol SyncOrchestrator: AnyObject {
     var isSyncing: Bool { get }
     func startSync() async throws -> Int // Returns number of successfully uploaded assets
+    func cancelSync()
 }
 
 final class SystemSyncOrchestrator: SyncOrchestrator {
@@ -18,11 +19,18 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     private let wifiChecker: () -> Bool
     private let lock = NSLock()
     private var _isSyncing = false
+    private var _cancelRequested = false
 
     var isSyncing: Bool {
         lock.lock()
         defer { lock.unlock() }
         return _isSyncing
+    }
+
+    func cancelSync() {
+        lock.lock()
+        _cancelRequested = true
+        lock.unlock()
     }
 
     init(
@@ -65,6 +73,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             return 0
         }
         _isSyncing = true
+        _cancelRequested = false
         lock.unlock()
         
         defer {
@@ -88,20 +97,29 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             throw SyncError.cellularConnectionBlocked
         }
 
+        var uploadedCount = 0
+
         // 2. Scan and register new files
         let candidates = try await photosScanner.fetchCandidates(
             includeVideos: settings.includeVideos,
             includeLivePhotoVideo: settings.includeLivePhotoVideo
         )
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
+        if isCancellationRequested() {
+            try? tempFileStore.cleanStaleFiles()
+            return uploadedCount
+        }
 
         // 3. Process batches
-        var uploadedCount = 0
         var hasMore = true
         let batchLimit = 10
         var processedRecordIds = Set<String>()
 
         while hasMore {
+            if isCancellationRequested() {
+                break
+            }
+
             // Respect low power mode during queue execution
             if ProcessInfo.processInfo.isLowPowerModeEnabled {
                 break
@@ -115,6 +133,10 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             }
 
             for record in pendingBatch {
+                if isCancellationRequested() {
+                    break
+                }
+
                 processedRecordIds.insert(record.id)
                 do {
                     // Stage: mark exporting
@@ -182,9 +204,14 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                 } catch {
                     // Mark failed (retryable or terminal depending on error)
                     let retryable = isRetryableError(error)
-                    try await ledger.markFailed(id: record.id, error: error.localizedDescription, retryable: retryable)
+                    let userFacingMessage = UserFacingSyncIssue.from(error: error).message
+                    try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
                     try? tempFileStore.deleteStagedFile(recordId: record.id)
                 }
+            }
+
+            if isCancellationRequested() {
+                break
             }
         }
 
@@ -192,6 +219,12 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         try? tempFileStore.cleanStaleFiles()
         
         return uploadedCount
+    }
+
+    private func isCancellationRequested() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _cancelRequested
     }
 
     private func isWifiConnected() -> Bool {

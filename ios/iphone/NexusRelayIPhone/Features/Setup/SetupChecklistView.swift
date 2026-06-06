@@ -25,11 +25,7 @@ struct SetupChecklistView: View {
                             .font(.caption)
                             .foregroundStyle(NRDesign.ColorToken.secondaryText)
                     }
-
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(NRDesign.ColorToken.secondaryText)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
