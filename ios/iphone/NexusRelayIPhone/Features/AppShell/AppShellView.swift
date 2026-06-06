@@ -1,7 +1,17 @@
 import SwiftUI
 
+@MainActor
+final class SessionActions: ObservableObject {
+    private let syncStatusViewModel = SyncStatusViewModel()
+
+    func logout() {
+        syncStatusViewModel.logout()
+    }
+}
+
 struct AppShellView: View {
     var onLogout: () -> Void
+    @StateObject private var sessionActions = SessionActions()
 
     var body: some View {
         TabView {
@@ -15,7 +25,10 @@ struct AppShellView: View {
                     Label("Queue", systemImage: "list.bullet")
                 }
 
-            SettingsView(onLogout: onLogout)
+            SettingsView(onLogout: {
+                sessionActions.logout()
+                onLogout()
+            })
                 .tabItem {
                     Label("Settings", systemImage: "gearshape")
                 }
@@ -23,3 +36,4 @@ struct AppShellView: View {
         .tint(NRDesign.ColorToken.accent)
     }
 }
+
