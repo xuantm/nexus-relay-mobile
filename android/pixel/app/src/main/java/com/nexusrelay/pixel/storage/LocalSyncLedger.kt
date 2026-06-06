@@ -52,6 +52,17 @@ class LocalSyncLedger(
     )
     private val adapter = moshi.adapter<Map<String, LocalSyncRecord>>(mapType)
 
+    val recentRecordsFlow: kotlinx.coroutines.flow.Flow<List<LocalSyncRecord>> = dataStore.data.map { preferences ->
+        val json = preferences[KEY_LEDGER_DATA] ?: return@map emptyList()
+        try {
+            adapter.fromJson(json)?.values
+                ?.sortedByDescending { it.lastAttemptAt }
+                ?.take(50) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     private suspend fun getRecordsMap(): Map<String, LocalSyncRecord> {
         val json = dataStore.data.map { preferences ->
             preferences[KEY_LEDGER_DATA]

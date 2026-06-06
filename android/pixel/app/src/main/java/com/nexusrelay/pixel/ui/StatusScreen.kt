@@ -45,11 +45,7 @@ fun StatusScreen(
     val syncScope by appSettingsStore.syncScopeFlow.collectAsState(initial = "")
     val scopedFolderId by appSettingsStore.scopedFolderIdFlow.collectAsState(initial = "")
 
-    var recentJobs by remember { mutableStateOf<List<LocalSyncRecord>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        recentJobs = ledger.listRecent(20)
-    }
+    val recentJobs by ledger.recentRecordsFlow.collectAsState(initial = emptyList())
 
     val confirmedCount = recentJobs.count { it.status == LocalSyncStatus.Confirmed }
     val failedCount = recentJobs.count { it.status == LocalSyncStatus.Failed }
@@ -215,8 +211,6 @@ fun StatusScreen(
                 onClick = {
                     coroutineScope.launch {
                         SyncWorker.enqueueOneTimeSync(context)
-                        kotlinx.coroutines.delay(1000)
-                        recentJobs = ledger.listRecent(20)
                     }
                 },
                 modifier = Modifier
