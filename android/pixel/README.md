@@ -2,6 +2,8 @@
 
 This is the Android Pixel companion app for receiving media sync jobs from the NexusRelay backend, downloading them, and importing them into the Android MediaStore.
 
+Release builds default to https://relay.xuantruong.org. Debug builds keep the backend URL field visible for local testing.
+
 ## Features
 
 - **Setup & Device Registration**: Simple Compose UI to pair the device using its backend URL and name.

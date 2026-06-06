@@ -34,7 +34,9 @@ Request:
 {
   "deviceName": "Pixel XL",
   "fcmToken": "fcm-token-from-firebase",
-  "wifiOnly": true
+  "wifiOnly": true,
+  "syncScope": "Folder",
+  "scopedFolderId": "2f1cbb66-4a8d-4d62-b14d-67d821742958"
 }
 ```
 
@@ -43,9 +45,15 @@ Response:
 ```json
 {
   "targetId": "4d6b0f2e-47b6-49fd-8daa-c87e70307f9f",
-  "deviceToken": "raw-device-token-returned-once"
+  "deviceToken": "raw-device-token-returned-once",
+  "syncScope": "Folder",
+  "scopedFolderId": "2f1cbb66-4a8d-4d62-b14d-67d821742958"
 }
 ```
+
+Allowed syncScope values:
+- AccountUploads: sync completed media uploaded by the registering account.
+- Folder: sync completed media uploaded by the registering account only when the media belongs to scopedFolderId.
 
 ### List Pending Jobs
 

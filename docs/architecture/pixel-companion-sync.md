@@ -6,6 +6,10 @@ Build an Android Pixel companion app that receives media uploaded into NexusRela
 
 The first mobile milestone is Pixel-only. iPhone uploader work should be planned separately after the Pixel receiver path is stable.
 
+## Sync Scope
+
+The backend is the source of truth for sync scope. Pixel never receives all jobs and filters locally. DeviceSyncService creates jobs only for targets whose account and scope match the completed media item.
+
 ## Recommended Design
 
 Use:
