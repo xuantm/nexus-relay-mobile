@@ -42,6 +42,8 @@ fun StatusScreen(
     val targetId by appSettingsStore.targetIdFlow.collectAsState(initial = "")
     val wifiOnly by appSettingsStore.wifiOnlyFlow.collectAsState(initial = true)
     val lastSyncAt by appSettingsStore.lastSuccessfulSyncAtFlow.collectAsState(initial = 0L)
+    val syncScope by appSettingsStore.syncScopeFlow.collectAsState(initial = "")
+    val scopedFolderId by appSettingsStore.scopedFolderIdFlow.collectAsState(initial = "")
 
     var recentJobs by remember { mutableStateOf<List<LocalSyncRecord>>(emptyList()) }
 
@@ -128,6 +130,19 @@ fun StatusScreen(
                     ) {
                         Text("Target ID", color = Color.LightGray, fontSize = 14.sp)
                         Text(targetId?.take(8) ?: "None", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Sync Scope", color = Color.LightGray, fontSize = 14.sp)
+                        val scopeText = when (syncScope) {
+                            "Folder" -> "Folder ${scopedFolderId?.take(8) ?: ""}"
+                            "AccountUploads" -> "Account uploads"
+                            else -> "Account uploads"
+                        }
+                        Text(scopeText, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     }
 
                     Row(
