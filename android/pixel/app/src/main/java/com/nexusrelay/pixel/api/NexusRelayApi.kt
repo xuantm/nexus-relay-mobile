@@ -9,7 +9,7 @@ import retrofit2.http.Path
 import retrofit2.http.Streaming
 
 interface NexusRelayApi {
-    @POST("api/auth/login")
+    @POST("api/auth/mobile/login")
     suspend fun login(
         @Body request: LoginRequest
     ): LoginResponse

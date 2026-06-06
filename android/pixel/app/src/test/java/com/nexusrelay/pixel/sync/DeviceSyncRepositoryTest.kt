@@ -50,6 +50,12 @@ class DeviceSyncRepositoryTest {
     private suspend fun setupConfiguredMocks(deviceToken: String = "token-123") {
         whenever(mockSettingsStore.backendBaseUrlFlow).thenReturn(flowOf("http://backend.url"))
         whenever(mockTokenStore.getDeviceToken()).thenReturn(deviceToken)
+        whenever(
+            mockLedger.listByStatuses(
+                LocalSyncStatus.ConfirmPending,
+                LocalSyncStatus.Imported
+            )
+        ).thenReturn(emptyList())
     }
 
     @Test
@@ -181,6 +187,44 @@ class DeviceSyncRepositoryTest {
         
         // Ensure no downloading or importing occurs
         verify(mockApi, never()).downloadJob(any(), eq("job-4"))
+        verify(mockImporter, never()).importMedia(any(), any(), any(), any())
+    }
+
+    @Test
+    fun testSyncPendingJobs_ConfirmPendingLocalJobWithNoBackendPendingJobs_ConfirmsFromLedger() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+
+        val record = LocalSyncRecord(
+            jobId = "job-local-confirm",
+            mediaId = "media-local-confirm",
+            fileName = "test.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 123L,
+            sha256 = null,
+            status = LocalSyncStatus.ConfirmPending,
+            localUri = "content://media/external/images/media/local-confirm",
+            lastAttemptAt = 0L,
+            lastError = null
+        )
+        whenever(
+            mockLedger.listByStatuses(
+                LocalSyncStatus.ConfirmPending,
+                LocalSyncStatus.Imported
+            )
+        ).thenReturn(listOf(record))
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+        assertTrue(result)
+
+        verify(mockApi).confirm(
+            eq("token-123"),
+            eq("job-local-confirm"),
+            eq(ConfirmDeviceSyncJobRequest("content://media/external/images/media/local-confirm", 123L))
+        )
+        verify(mockLedger).markConfirmed("job-local-confirm")
+        verify(mockApi, never()).downloadJob(any(), eq("job-local-confirm"))
         verify(mockImporter, never()).importMedia(any(), any(), any(), any())
     }
 

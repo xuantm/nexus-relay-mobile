@@ -1,14 +1,43 @@
 package com.nexusrelay.pixel.api
 
+import com.nexusrelay.pixel.ui.resolveFcmTokenForRegistration
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.http.POST
 
 class DeviceSyncDtoTest {
+
+    @Test
+    fun fcmTokenResolutionFallsBackToStoredTokenWhenCurrentFetchFails() = runTest {
+        var saveCalled = false
+
+        val token = resolveFcmTokenForRegistration(
+            storedFcmToken = "stored-token",
+            fetchCurrentFcmToken = { error("Firebase token unavailable") },
+            saveFcmToken = {
+                saveCalled = true
+            }
+        )
+
+        assertEquals("stored-token", token)
+        assertEquals(false, saveCalled)
+    }
+
+    @Test
+    fun loginUsesMobileTokenEndpoint() {
+        val post = NexusRelayApi::class.java
+            .declaredMethods
+            .single { it.name == "login" }
+            .getAnnotation(POST::class.java)
+
+        assertEquals("api/auth/mobile/login", post?.value)
+    }
 
     @Test
     fun testPendingJobsJsonDeserialization() {

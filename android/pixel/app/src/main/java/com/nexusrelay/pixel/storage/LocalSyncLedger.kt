@@ -130,6 +130,13 @@ class LocalSyncLedger(
             .take(limit)
     }
 
+    suspend fun listByStatuses(vararg statuses: LocalSyncStatus): List<LocalSyncRecord> {
+        val statusSet = statuses.toSet()
+        return getRecordsMap().values
+            .filter { it.status in statusSet }
+            .sortedByDescending { it.lastAttemptAt }
+    }
+
     suspend fun clear() {
         dataStore.edit { preferences ->
             preferences.clear()

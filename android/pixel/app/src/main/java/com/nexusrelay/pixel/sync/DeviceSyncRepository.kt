@@ -48,6 +48,32 @@ class DeviceSyncRepository(
         }
     }
 
+    private suspend fun retryLocalConfirmation(
+        api: NexusRelayApi,
+        deviceToken: String,
+        record: LocalSyncRecord
+    ): Boolean? {
+        val localUri = record.localUri ?: return null
+
+        return try {
+            api.confirm(deviceToken, record.jobId, ConfirmDeviceSyncJobRequest(localUri, record.sizeBytes))
+            ledger.markConfirmed(record.jobId)
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "Re-confirming job ${record.jobId} failed, will retry later", e)
+            throwOrPropagateIfRetriable(e)
+
+            val errorMsg = e.localizedMessage ?: "Terminal confirmation error"
+            ledger.markFailed(record.jobId, errorMsg)
+            try {
+                api.fail(deviceToken, record.jobId, FailDeviceSyncJobRequest(errorMsg))
+            } catch (failEx: Exception) {
+                Log.e(tag, "Failed to report job failure to backend for job ${record.jobId}", failEx)
+            }
+            false
+        }
+    }
+
     suspend fun syncPendingJobs(): Boolean {
         val backendUrl = appSettingsStore.backendBaseUrlFlow.first()
         val deviceToken = deviceTokenStore.getDeviceToken()
@@ -68,7 +94,24 @@ class DeviceSyncRepository(
 
         var allSucceeded = true
 
+        val locallyHandledJobIds = mutableSetOf<String>()
+        val localConfirmations = ledger.listByStatuses(
+            LocalSyncStatus.ConfirmPending,
+            LocalSyncStatus.Imported
+        )
+        for (record in localConfirmations) {
+            val confirmationSucceeded = retryLocalConfirmation(api, deviceToken, record) ?: continue
+            locallyHandledJobIds += record.jobId
+            if (!confirmationSucceeded) {
+                allSucceeded = false
+            }
+        }
+
         for (job in pendingJobs) {
+            if (job.jobId in locallyHandledJobIds) {
+                continue
+            }
+
             var ledgerRecord = ledger.get(job.jobId)
             if (ledgerRecord == null) {
                 ledgerRecord = LocalSyncRecord(
@@ -91,26 +134,12 @@ class DeviceSyncRepository(
             }
 
             if (ledgerRecord.status == LocalSyncStatus.ConfirmPending || ledgerRecord.status == LocalSyncStatus.Imported) {
-                val localUri = ledgerRecord.localUri
-                if (localUri != null) {
-                    try {
-                        api.confirm(deviceToken, job.jobId, ConfirmDeviceSyncJobRequest(localUri, job.sizeBytes))
-                        ledger.markConfirmed(job.jobId)
-                        continue
-                    } catch (e: Exception) {
-                        Log.e(tag, "Re-confirming job ${job.jobId} failed, will retry later", e)
-                        throwOrPropagateIfRetriable(e)
-
-                        val errorMsg = e.localizedMessage ?: "Terminal confirmation error"
-                        ledger.markFailed(job.jobId, errorMsg)
-                        try {
-                            api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(errorMsg))
-                        } catch (failEx: Exception) {
-                            Log.e(tag, "Failed to report job failure to backend for job ${job.jobId}", failEx)
-                        }
+                val confirmationSucceeded = retryLocalConfirmation(api, deviceToken, ledgerRecord)
+                if (confirmationSucceeded != null) {
+                    if (!confirmationSucceeded) {
                         allSucceeded = false
-                        continue
                     }
+                    continue
                 }
             }
 
