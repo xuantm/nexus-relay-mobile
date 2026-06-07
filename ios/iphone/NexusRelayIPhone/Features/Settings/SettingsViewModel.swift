@@ -27,7 +27,15 @@ final class SettingsViewModel: ObservableObject {
 
     func load() {
         let settings = settingsStore.settings
-        username = sessionStore.currentSession?.username ?? "Not signed in"
+        if let session = sessionStore.currentSession {
+            if session.authProvider == "Google" {
+                username = session.email.map { "Google: \($0)" } ?? session.username
+            } else {
+                username = session.username
+            }
+        } else {
+            username = "Not signed in"
+        }
         serverURLString = settings.backendBaseURL?.absoluteString ?? "Not set"
         folderName = settings.destinationFolderName
         wifiOnly = settings.wifiOnly

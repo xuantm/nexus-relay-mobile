@@ -20,11 +20,11 @@ This guide details how to perform manual integration testing for the Pixel compa
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 2. Open the **NexusRelay Pixel** app.
-3. Observe that the **Register Device** setup screen is shown.
-4. Enter your backend URL (e.g. `https://my-nexus-relay-server.com`) and device name (e.g. `Pixel Emulator`).
-5. Tap **Register**.
+3. Observe that the **Pair your Pixel** setup screen is shown.
+4. Enter your backend URL (if visible), pairing code (generated from the NexusRelay web client), and device name (e.g. `Pixel Emulator`).
+5. Tap **Pair Pixel**.
 6. Verify:
-   - A success message appears on screen.
+   - A success message "Pixel paired" appears on screen.
    - The app transitions to the **Status Screen**.
    - Under Settings, verify the Backend URL, Device Name, and Target ID are populated.
 

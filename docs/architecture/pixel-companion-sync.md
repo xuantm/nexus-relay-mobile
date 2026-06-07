@@ -44,7 +44,7 @@ The app needs a small setup flow:
 
 - backend base URL;
 - device name;
-- user login or pairing token;
+- temporary pairing code or QR code;
 - Wi-Fi only toggle;
 - registration status;
 - manual sync button.
@@ -60,7 +60,7 @@ The app sends `X-Device-Token` for device job endpoints. It stores the device to
 The receiver handles `device_sync_job_available` and enqueues sync work. The FCM payload contains only a job id and routing type. It does not contain download URLs, auth tokens, Google Drive ids, or media metadata beyond the job id.
 
 > [!NOTE]
-> FCM token refresh/rotation is not yet supported in the current mobile MVP. Device registration requires user credentials (Authorization: Bearer token), which are not persisted or managed on the device. Rotated FCM tokens are stored locally and will be used during the next manual/explicit registration flow.
+> FCM token refresh/rotation is handled automatically. Rotated FCM tokens are updated on the backend using the device token via the FCM token update endpoint (`POST /api/device-sync/fcm-token`). Device registration is performed anonymously using a pairing code, meaning user credentials are never stored or managed on the device.
 
 ### WorkManager Sync
 

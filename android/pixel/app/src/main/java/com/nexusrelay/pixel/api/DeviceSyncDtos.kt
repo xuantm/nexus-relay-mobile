@@ -54,14 +54,24 @@ data class FailDeviceSyncJobRequest(
 )
 
 @JsonClass(generateAdapter = true)
-data class LoginRequest(
-    val username: String,
-    val password: String
+data class RedeemPairingCodeRequest(
+    val code: String,
+    val deviceName: String,
+    val platform: String = "Android",
+    val fcmToken: String?
 )
 
 @JsonClass(generateAdapter = true)
-data class LoginResponse(
-    val token: String,
-    val refreshToken: String? = null,
-    val username: String? = null
+data class PairingCodePayload(
+    val baseUrl: String,
+    val code: String
+)
+
+@JsonClass(generateAdapter = true)
+data class RedeemPairingCodeResponse(
+    val targetId: String,
+    val deviceToken: String,
+    val syncScope: DeviceSyncScope = DeviceSyncScope.AccountUploads,
+    val scopedFolderId: String? = null,
+    val wifiOnly: Boolean = true
 )

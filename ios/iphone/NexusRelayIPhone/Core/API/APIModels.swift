@@ -6,11 +6,16 @@ struct LoginRequest: Encodable {
     let password: String
 }
 
+struct IosSessionExchangeRequest: Encodable {
+    let code: String
+}
+
 struct BrowserAuthResponse: Codable, Equatable {
     let id: UUID
     let username: String
     let email: String?
     let role: String
+    let authProvider: String?
 }
 
 struct CSRFResponse: Codable {

@@ -32,7 +32,8 @@ struct SetupChecklistRow: Identifiable, Equatable {
 
     static func makeRows(
         serverURL: String,
-        username: String,
+        isSignedIn: Bool,
+        userEmail: String?,
         photosStatus: PhotoLibraryAuthorizationStatus,
         destinationFolderName: String
     ) -> [SetupChecklistRow] {
@@ -49,9 +50,9 @@ struct SetupChecklistRow: Identifiable, Equatable {
             SetupChecklistRow(
                 id: "signin",
                 title: "Sign in",
-                subtitle: username.isEmpty ? "NexusRelay account" : username,
+                subtitle: isSignedIn ? (userEmail ?? "Signed in") : "Google account",
                 systemImage: "person.crop.circle",
-                state: username.isEmpty ? .pending : .complete
+                state: isSignedIn ? .complete : .pending
             ),
             SetupChecklistRow(
                 id: "photos",

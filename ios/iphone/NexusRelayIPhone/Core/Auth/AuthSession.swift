@@ -38,6 +38,8 @@ struct AuthSession: Codable, Equatable {
     let username: String
     let role: String
     let codableCookies: [CodableCookie]
+    let email: String?
+    let authProvider: String?
 
     var isAuthenticated: Bool {
         !codableCookies.isEmpty
@@ -47,10 +49,31 @@ struct AuthSession: Codable, Equatable {
         codableCookies.compactMap { $0.toHTTPCookie() }
     }
 
-    init(userId: UUID, username: String, role: String, cookies: [HTTPCookie]) {
+    init(userId: UUID, username: String, role: String, cookies: [HTTPCookie], email: String? = nil, authProvider: String? = nil) {
         self.userId = userId
         self.username = username
         self.role = role
         self.codableCookies = cookies.map { CodableCookie(cookie: $0) }
+        self.email = email
+        self.authProvider = authProvider
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userId
+        case username
+        case role
+        case codableCookies
+        case email
+        case authProvider
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.userId = try container.decode(UUID.self, forKey: .userId)
+        self.username = try container.decode(String.self, forKey: .username)
+        self.role = try container.decode(String.self, forKey: .role)
+        self.codableCookies = try container.decode([CodableCookie].self, forKey: .codableCookies)
+        self.email = try container.decodeIfPresent(String.self, forKey: .email)
+        self.authProvider = try container.decodeIfPresent(String.self, forKey: .authProvider)
     }
 }

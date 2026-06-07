@@ -5,6 +5,7 @@ A native iOS application built with Swift and SwiftUI to upload photos and video
 ## Features
 
 - **SwiftUI Dashboard**: Clean, modern dark mode dashboard utilizing cards and glowing visual status alerts.
+- **Google Sign-In & Cookie Session**: Redirects to the system browser using `ASWebAuthenticationSession` to authorize with Google, exchanging a one-time code to retrieve and secure NexusRelay cookies in the Keychain without storing user passwords or Google tokens on the device.
 - **SQLite Ledger**: Persistent local queue database utilizing `libsqlite3` via C APIs to ensure state survives app restarts, crashes, or low memory events.
 - **PhotoKit Integration**: Scans and discovers local photos/videos safely, including support for limited access permissions.
 - **Fingerprinting & De-duplication**: Generates deterministic fingerprint suffixes (`__nr-<16-hex>`) to prevent duplicate uploads.

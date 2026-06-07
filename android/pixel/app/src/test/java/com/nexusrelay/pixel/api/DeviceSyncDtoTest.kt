@@ -7,6 +7,7 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.http.POST
@@ -46,13 +47,13 @@ class DeviceSyncDtoTest {
     }
 
     @Test
-    fun loginUsesMobileTokenEndpoint() {
+    fun redeemPairingCodeUsesCorrectEndpoint() {
         val post = NexusRelayApi::class.java
             .declaredMethods
-            .single { it.name == "login" }
+            .single { it.name == "redeemPairingCode" }
             .getAnnotation(POST::class.java)
 
-        assertEquals("api/auth/mobile/login", post?.value)
+        assertEquals("api/device-sync/pairing-codes/redeem", post?.value)
     }
 
     @Test
@@ -125,5 +126,43 @@ class DeviceSyncDtoTest {
 
         assertTrue(json.contains("\"syncScope\":\"Folder\""))
         assertTrue(json.contains("\"scopedFolderId\":\"folder-123\""))
+    }
+
+    @Test
+    fun testPairingCodeParser_withValidJson_returnsPayload() {
+        val json = """
+            {
+              "baseUrl": "https://relay.xuantruong.org",
+              "code": "12345678"
+            }
+        """.trimIndent()
+        val parsed = PairingCodeParser.parse(json)
+        assertNotNull(parsed)
+        assertEquals("https://relay.xuantruong.org", parsed!!.baseUrl)
+        assertEquals("12345678", parsed.code)
+    }
+
+    @Test
+    fun testPairingCodeParser_withRawCode_returnsPayloadWithEmptyBaseUrl() {
+        val rawCode = " 87654321 "
+        val parsed = PairingCodeParser.parse(rawCode)
+        assertNotNull(parsed)
+        assertEquals("", parsed!!.baseUrl)
+        assertEquals("87654321", parsed.code)
+    }
+
+    @Test
+    fun testPairingCodeParser_withEmptyCode_returnsNull() {
+        assertNull(PairingCodeParser.parse(""))
+        assertNull(PairingCodeParser.parse("   "))
+    }
+
+    @Test
+    fun testPairingCodeParser_withMalformedJson_returnsNull() {
+        val badJson = "{\"baseUrl\": \"url\", \"code\": \"\"}"
+        assertNull(PairingCodeParser.parse(badJson))
+
+        val brokenJson = "{\"baseUrl\": "
+        assertNull(PairingCodeParser.parse(brokenJson))
     }
 }

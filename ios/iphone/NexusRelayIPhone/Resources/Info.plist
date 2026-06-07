@@ -26,5 +26,18 @@
   <array>
     <string>processing</string>
   </array>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleURLName</key>
+      <string>com.nexusrelay.iphone</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>nexusrelay</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

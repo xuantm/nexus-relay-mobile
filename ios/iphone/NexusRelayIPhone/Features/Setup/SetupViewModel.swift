@@ -4,8 +4,6 @@ import SwiftUI
 @MainActor
 final class SetupViewModel: ObservableObject {
     @Published var serverURL = ""
-    @Published var username = ""
-    @Published var password = ""
     @Published var wifiOnly = true
     @Published var includeVideos = true
     @Published var includeLivePhotos = false
@@ -20,7 +18,8 @@ final class SetupViewModel: ObservableObject {
     var checklistRows: [SetupChecklistRow] {
         SetupChecklistRow.makeRows(
             serverURL: serverURL,
-            username: username,
+            isSignedIn: sessionStore.currentSession != nil,
+            userEmail: sessionStore.currentSession?.email ?? sessionStore.currentSession?.username,
             photosStatus: photosStatus,
             destinationFolderName: destinationFolderName
         )
@@ -28,13 +27,19 @@ final class SetupViewModel: ObservableObject {
     
     private let settingsStore: SettingsStore
     private let photosScanner: PhotoLibraryClient
+    private let sessionStore: SessionStore
+    private let authCoordinator: GoogleAuthCoordinating
     
     init(
         settingsStore: SettingsStore = UserDefaultsSettingsStore(),
-        photosScanner: PhotoLibraryClient = PhotoKitPhotoLibraryClient()
+        photosScanner: PhotoLibraryClient = PhotoKitPhotoLibraryClient(),
+        sessionStore: SessionStore = CookieSessionStore(),
+        authCoordinator: GoogleAuthCoordinating = GoogleAuthCoordinator()
     ) {
         self.settingsStore = settingsStore
         self.photosScanner = photosScanner
+        self.sessionStore = sessionStore
+        self.authCoordinator = authCoordinator
         let s = settingsStore.settings
         self.serverURL = s.backendBaseURL?.absoluteString ?? ""
         self.wifiOnly = s.wifiOnly
@@ -61,13 +66,32 @@ final class SetupViewModel: ObservableObject {
             s.includeLivePhotoVideo = includeLivePhotos
             settingsStore.settings = s
             
+            let authResult = try await authCoordinator.signIn(baseURL: url)
+            
+            let code: String
+            switch authResult {
+            case .success(let callbackCode):
+                code = callbackCode
+            case .pending:
+                errorMessage = "Access request sent. An admin must approve this Google account before uploads can start."
+                isLoading = false
+                return
+            case .denied(let reason):
+                errorMessage = "Google sign-in was denied: \(reason ?? "No reason provided")"
+                isLoading = false
+                return
+            case .invalid:
+                errorMessage = "Invalid redirect received from sign-in."
+                isLoading = false
+                return
+            }
+            
             let keychain = SystemKeychainStore()
-            let sessionStore = CookieSessionStore(keychain: keychain)
             let csrfProvider = SystemCSRFTokenProvider()
             let httpClient = SystemHTTPClient(baseURL: url, sessionStore: sessionStore, csrfProvider: csrfProvider)
             let apiClient = SystemNexusRelayAPIClient(baseURL: url, httpClient: httpClient, sessionStore: sessionStore)
             
-            _ = try await apiClient.login(username: username, password: password)
+            _ = try await apiClient.exchangeIosSession(code: code)
             
             let folders = try await apiClient.listRootFolders()
             let defaultName = s.destinationFolderName

@@ -16,6 +16,7 @@ struct HTTPResponse {
 protocol HTTPClient {
     func send(_ request: HTTPRequest) async throws -> HTTPResponse
     func uploadFile(_ request: HTTPRequest, fileURL: URL) async throws -> HTTPResponse
+    func clearCSRFToken()
 }
 
 final class SystemHTTPClient: HTTPClient {
@@ -42,6 +43,10 @@ final class SystemHTTPClient: HTTPClient {
 
     func uploadFile(_ request: HTTPRequest, fileURL: URL) async throws -> HTTPResponse {
         return try await sendWithRetry(request, fileURL: fileURL)
+    }
+
+    func clearCSRFToken() {
+        csrfProvider.clearToken()
     }
 
     private func sendWithRetry(_ request: HTTPRequest, fileURL: URL?, isRetry: Bool = false) async throws -> HTTPResponse {

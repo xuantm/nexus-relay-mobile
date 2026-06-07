@@ -13,6 +13,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
     var completeUploadResult: Result<Void, Error> = .success(())
 
     func login(username: String, password: String) async throws -> AuthSession { fatalError() }
+    func exchangeIosSession(code: String) async throws -> AuthSession { fatalError() }
     func currentUser() async throws -> BrowserAuthResponse { fatalError() }
     func listRootFolders() async throws -> [FolderDTO] { fatalError() }
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }

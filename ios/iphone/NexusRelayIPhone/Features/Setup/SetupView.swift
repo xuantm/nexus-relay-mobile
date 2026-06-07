@@ -29,7 +29,7 @@ struct SetupView: View {
                             .foregroundStyle(NRDesign.ColorToken.error)
                     }
 
-                    Text("Password is not stored after login. Photos stay local until upload starts.")
+                    Text("Google sign-in opens in the system browser. NexusRelay stores only its own session cookies.")
                         .font(.caption)
                         .foregroundStyle(NRDesign.ColorToken.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -42,7 +42,7 @@ struct SetupView: View {
                             }
                         }
                     } label: {
-                        Label(viewModel.isLoading ? "Connecting..." : "Continue", systemImage: "arrow.right")
+                        Label(viewModel.isLoading ? "Connecting..." : "Continue with Google", systemImage: "arrow.right")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -65,24 +65,6 @@ struct SetupView: View {
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
-                    .multilineTextAlignment(.trailing)
-            }
-            .padding(.vertical, 12)
-            
-            Divider()
-            
-            LabeledContent("Username") {
-                TextField("xuan", text: $viewModel.username)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .multilineTextAlignment(.trailing)
-            }
-            .padding(.vertical, 12)
-            
-            Divider()
-            
-            LabeledContent("Password") {
-                SecureField("Required", text: $viewModel.password)
                     .multilineTextAlignment(.trailing)
             }
             .padding(.vertical, 12)

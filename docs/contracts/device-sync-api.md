@@ -12,19 +12,18 @@ X-Device-Token: <device-token>
 
 The backend stores only a hash of the device token. The raw token is returned once during registration and stored on the Pixel with encrypted storage.
 
-Device registration is initiated by an authenticated NexusRelay user:
+Device registration is performed anonymously using a temporary pairing code created in an authenticated web session:
 
 ```text
-POST /api/device-sync/register
+POST /api/device-sync/pairing-codes/redeem
 ```
 
 ## Endpoints
 
-### Register Device
+### Redeem Pairing Code
 
 ```http
-POST /api/device-sync/register
-Authorization: Bearer <user-access-token>
+POST /api/device-sync/pairing-codes/redeem
 Content-Type: application/json
 ```
 
@@ -32,11 +31,10 @@ Request:
 
 ```json
 {
+  "code": "12345678",
   "deviceName": "Pixel XL",
-  "fcmToken": "fcm-token-from-firebase",
-  "wifiOnly": true,
-  "syncScope": "Folder",
-  "scopedFolderId": "2f1cbb66-4a8d-4d62-b14d-67d821742958"
+  "platform": "Android",
+  "fcmToken": "fcm-token-from-firebase"
 }
 ```
 
@@ -47,7 +45,8 @@ Response:
   "targetId": "4d6b0f2e-47b6-49fd-8daa-c87e70307f9f",
   "deviceToken": "raw-device-token-returned-once",
   "syncScope": "Folder",
-  "scopedFolderId": "2f1cbb66-4a8d-4d62-b14d-67d821742958"
+  "scopedFolderId": "2f1cbb66-4a8d-4d62-b14d-67d821742958",
+  "wifiOnly": true
 }
 ```
 

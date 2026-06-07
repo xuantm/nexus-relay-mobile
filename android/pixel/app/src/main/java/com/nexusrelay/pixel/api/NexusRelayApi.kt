@@ -9,16 +9,10 @@ import retrofit2.http.Path
 import retrofit2.http.Streaming
 
 interface NexusRelayApi {
-    @POST("api/auth/mobile/login")
-    suspend fun login(
-        @Body request: LoginRequest
-    ): LoginResponse
-
-    @POST("api/device-sync/register")
-    suspend fun registerDevice(
-        @Header("Authorization") authorization: String,
-        @Body request: RegisterDeviceRequest
-    ): RegisterDeviceResponse
+    @POST("api/device-sync/pairing-codes/redeem")
+    suspend fun redeemPairingCode(
+        @Body request: RedeemPairingCodeRequest
+    ): RedeemPairingCodeResponse
 
     @POST("api/device-sync/fcm-token")
     suspend fun updateFcmToken(

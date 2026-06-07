@@ -57,11 +57,14 @@ Developers running on macOS can execute the following steps to verify full funct
 
 ### Step 1: Authentication & Setup View
 1. Launch the app for the first time. The **Setup Screen** checklist should appear.
-2. Enter the NexusRelay server URL, username, and password.
+2. Enter the NexusRelay server URL (e.g. `https://relay.xuantruong.org`).
 3. Keep **Wi-Fi Only** and **Sync Videos** toggled **On**.
-4. Tap **Continue**.
+4. Tap **Continue with Google**.
 5. **Expected Outcome**:
-   - The checklist rows update to reflect connection status: `Server` host updates, `Sign in` displays the username, `Photos Access` status prompts and updates to `Full access`/`Limited access`, `Destination Folder` shows the folder name.
+   - The app opens a system browser session (`ASWebAuthenticationSession`) pointing to the backend's Google OAuth page.
+   - Complete Google login. If the user is pending admin approval, the browser redirects back to `nexusrelay://auth/pending` and the app displays the pending message: "Access request sent. An admin must approve this Google account before uploads can start."
+   - If the user is approved, the browser redirects back to `nexusrelay://auth/success?code=...` with a one-time session exchange code. The app captures it, exchanges it for session cookies, saves the session, and proceeds.
+   - The checklist rows update: `Server` host updates, `Sign in` displays the user's Google email (e.g. `Google: user@gmail.com`), `Photos Access` prompts and updates to `Full access`/`Limited access`, `Destination Folder` shows the folder name.
    - On login success, Keychain and settings are updated and the view routes to the three-tab **App Shell**.
 
 ### Step 2: Tab Navigation & App Shell

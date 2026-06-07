@@ -20,9 +20,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,13 +32,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nexusrelay.pixel.BuildConfig
 import com.nexusrelay.pixel.api.ApiClientFactory
-import com.nexusrelay.pixel.api.DeviceSyncScope
-import com.nexusrelay.pixel.api.LoginRequest
-import com.nexusrelay.pixel.api.RegisterDeviceRequest
+import com.nexusrelay.pixel.api.PairingCodeParser
+import com.nexusrelay.pixel.api.RedeemPairingCodeRequest
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.sync.PollWorker
@@ -59,12 +54,9 @@ fun SetupScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var backendUrl by remember { mutableStateOf(BuildConfig.DEFAULT_BACKEND_BASE_URL) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var pairingCode by remember { mutableStateOf("") }
     var deviceName by remember { mutableStateOf("Pixel Client") }
     var wifiOnly by remember { mutableStateOf(true) }
-    var syncScope by remember { mutableStateOf(DeviceSyncScope.AccountUploads) }
-    var scopedFolderId by remember { mutableStateOf("") }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -91,8 +83,8 @@ fun SetupScreen(
             )
 
             ReadyStatusPanel(
-                lastSyncLabel = "Not registered",
-                scopeLabel = "Choose during setup"
+                lastSyncLabel = "Not paired",
+                scopeLabel = "Resolved during pairing"
             )
 
             Card(
@@ -110,7 +102,7 @@ fun SetupScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Use your NexusRelay account once. This app stores a device token for future sync.",
+                        "Create a pairing code from NexusRelay, then enter it here.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
@@ -125,20 +117,11 @@ fun SetupScreen(
                     }
 
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Username") },
+                        value = pairingCode,
+                        onValueChange = { pairingCode = it },
+                        label = { Text("Pairing code") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = PasswordVisualTransformation()
                     )
 
                     OutlinedTextField(
@@ -161,33 +144,6 @@ fun SetupScreen(
                         )
                     }
 
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = syncScope == DeviceSyncScope.AccountUploads,
-                            onClick = { syncScope = DeviceSyncScope.AccountUploads },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                        ) {
-                            Text("Account")
-                        }
-                        SegmentedButton(
-                            selected = syncScope == DeviceSyncScope.Folder,
-                            onClick = { syncScope = DeviceSyncScope.Folder },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                        ) {
-                            Text("Folder")
-                        }
-                    }
-
-                    if (syncScope == DeviceSyncScope.Folder) {
-                        OutlinedTextField(
-                            value = scopedFolderId,
-                            onValueChange = { scopedFolderId = it },
-                            label = { Text("Folder ID") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
                     if (errorMessage != null) {
                         Text(
                             text = errorMessage!!,
@@ -206,44 +162,41 @@ fun SetupScreen(
 
                     Button(
                         onClick = {
-                            if (backendUrl.isBlank() || deviceName.isBlank() || username.isBlank() || password.isBlank()) {
-                                errorMessage = "Server, account, and device name are required"
+                            val parsed = PairingCodeParser.parse(pairingCode)
+                            val actualCode = parsed?.code ?: pairingCode.trim()
+                            val actualBackendUrl = if (!parsed?.baseUrl.isNullOrBlank()) parsed.baseUrl else backendUrl
+
+                            if (actualBackendUrl.isBlank() || actualCode.isBlank() || deviceName.isBlank()) {
+                                errorMessage = "Server, pairing code, and device name are required"
                                 return@Button
                             }
-                            if (syncScope == DeviceSyncScope.Folder && scopedFolderId.isBlank()) {
-                                errorMessage = "Folder ID is required for folder sync"
-                                return@Button
-                            }
+
                             isLoading = true
                             errorMessage = null
                             successMessage = null
 
                             coroutineScope.launch {
                                 try {
-                                    val api = ApiClientFactory.create(backendUrl, BuildConfig.DEBUG)
-                                    val loginResponse = api.login(LoginRequest(username = username, password = password))
+                                    val api = ApiClientFactory.create(actualBackendUrl, BuildConfig.DEBUG)
                                     val storedFcmToken = appSettingsStore.fcmTokenFlow.first()
                                     val currentFcmToken = resolveFcmTokenForRegistration(
                                         storedFcmToken = storedFcmToken,
                                         fetchCurrentFcmToken = ::fetchCurrentFcmToken,
                                         saveFcmToken = appSettingsStore::saveFcmToken
                                     )
-                                    val response = api.registerDevice(
-                                        authorization = "Bearer ${loginResponse.token}",
-                                        request = RegisterDeviceRequest(
+
+                                    val response = api.redeemPairingCode(
+                                        RedeemPairingCodeRequest(
+                                            code = actualCode,
                                             deviceName = deviceName,
-                                            fcmToken = currentFcmToken,
-                                            wifiOnly = wifiOnly,
-                                            syncScope = syncScope,
-                                            scopedFolderId = scopedFolderId.takeIf {
-                                                syncScope == DeviceSyncScope.Folder && it.isNotBlank()
-                                            }
+                                            platform = "Android",
+                                            fcmToken = currentFcmToken
                                         )
                                     )
 
-                                    appSettingsStore.saveBackendBaseUrl(backendUrl)
+                                    appSettingsStore.saveBackendBaseUrl(actualBackendUrl)
                                     appSettingsStore.saveDeviceName(deviceName)
-                                    appSettingsStore.saveWifiOnly(wifiOnly)
+                                    appSettingsStore.saveWifiOnly(response.wifiOnly)
                                     appSettingsStore.saveTargetId(response.targetId)
                                     appSettingsStore.saveSyncScope(response.syncScope.name)
                                     appSettingsStore.saveScopedFolderId(response.scopedFolderId)
@@ -253,10 +206,10 @@ fun SetupScreen(
                                     PollWorker.schedulePeriodicPoll(context)
                                     SyncWorker.enqueueOneTimeSync(context)
 
-                                    successMessage = "Pixel registered"
+                                    successMessage = "Pixel paired"
                                     onRegistrationSuccess()
                                 } catch (e: Exception) {
-                                    errorMessage = "Registration failed: ${e.localizedMessage ?: "Unknown error"}"
+                                    errorMessage = "Pairing failed: ${e.localizedMessage ?: "Unknown error"}"
                                 } finally {
                                     isLoading = false
                                 }
@@ -275,9 +228,9 @@ fun SetupScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                             Spacer(Modifier.size(8.dp))
-                            Text("Registering…", fontWeight = FontWeight.Bold)
+                            Text("Pairing…", fontWeight = FontWeight.Bold)
                         } else {
-                            Text("Register Pixel", fontWeight = FontWeight.Bold)
+                            Text("Pair Pixel", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

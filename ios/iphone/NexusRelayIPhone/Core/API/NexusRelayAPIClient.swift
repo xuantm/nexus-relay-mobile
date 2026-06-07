@@ -25,6 +25,7 @@ enum APIError: Error, LocalizedError {
 
 protocol NexusRelayAPI {
     func login(username: String, password: String) async throws -> AuthSession
+    func exchangeIosSession(code: String) async throws -> AuthSession
     func currentUser() async throws -> BrowserAuthResponse
     func listRootFolders() async throws -> [FolderDTO]
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO
@@ -100,6 +101,39 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         let cookies = responseCookies.isEmpty ? (HTTPCookieStorage.shared.cookies(for: baseURL) ?? []) : responseCookies
         let session = AuthSession(userId: authResponse.id, username: authResponse.username, role: authResponse.role, cookies: cookies)
         try sessionStore.saveSession(session)
+        return session
+    }
+
+    func exchangeIosSession(code: String) async throws -> AuthSession {
+        let req = IosSessionExchangeRequest(code: code)
+        let body = try JSONEncoder().encode(req)
+        let request = HTTPRequest(method: "POST", path: "api/auth/ios/session-exchange", headers: [:], body: body)
+        let response = try await httpClient.send(request)
+        
+        guard response.statusCode == 200 else {
+            throw APIError.requestFailed(statusCode: response.statusCode, message: "Session exchange failed")
+        }
+        
+        let decoder = JSONDecoder.apiDecoder
+        let authResponse = try decoder.decode(BrowserAuthResponse.self, from: response.body)
+        
+        let responseCookies = Self.cookies(from: response.headers, for: baseURL)
+        let cookies = responseCookies.isEmpty ? (HTTPCookieStorage.shared.cookies(for: baseURL) ?? []) : responseCookies
+        
+        guard !cookies.isEmpty else {
+            throw APIError.loginFailed(statusCode: response.statusCode)
+        }
+        
+        let session = AuthSession(
+            userId: authResponse.id,
+            username: authResponse.username,
+            role: authResponse.role,
+            cookies: cookies,
+            email: authResponse.email,
+            authProvider: authResponse.authProvider
+        )
+        try sessionStore.saveSession(session)
+        httpClient.clearCSRFToken()
         return session
     }
 
