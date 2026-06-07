@@ -4,6 +4,7 @@ import SQLite3
 final class SQLiteUploadLedger: UploadLedger {
     private var db: OpaquePointer?
     private let dbURL: URL
+    private let lock = NSLock()
 
     init(dbURL: URL) throws {
         self.dbURL = dbURL
@@ -59,9 +60,7 @@ final class SQLiteUploadLedger: UploadLedger {
             last_attempt_at INTEGER,
             last_error TEXT
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_unique ON upload_ledger(
-            asset_local_identifier, resource_kind, fingerprint_suffix, backend_folder_id
-        );
+        DROP INDEX IF EXISTS idx_ledger_unique;
         """
         
         try execute(sql)
@@ -80,6 +79,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func upsertDiscovered(_ candidates: [PhotoAssetCandidate], folderId: UUID) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         guard !candidates.isEmpty else { return }
         
         let sql = """
@@ -88,7 +89,7 @@ final class SQLiteUploadLedger: UploadLedger {
             original_filename, uploaded_file_name, mime_type, size_bytes,
             status, backend_folder_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'discovered', ?)
-        ON CONFLICT(asset_local_identifier, resource_kind, fingerprint_suffix, backend_folder_id) DO UPDATE SET
+        ON CONFLICT(id) DO UPDATE SET
             original_filename = excluded.original_filename,
             uploaded_file_name = excluded.uploaded_file_name,
             mime_type = excluded.mime_type,
@@ -102,18 +103,19 @@ final class SQLiteUploadLedger: UploadLedger {
         
         defer { sqlite3_finalize(stmt) }
 
-        try execute("BEGIN TRANSACTION;")
+        try execute("BEGIN IMMEDIATE TRANSACTION;")
 
         do {
             for candidate in candidates {
                 let fingerprint = AssetFingerprinter.generateFingerprint(candidate: candidate)
                 let suffix = AssetFingerprinter.getFingerprintSuffix(fingerprint: fingerprint)
                 let uploadedName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: suffix)
+                let recordId = "\(candidate.assetLocalIdentifier):\(candidate.resourceKind.rawValue):\(suffix):\(folderId.uuidString.lowercased())"
                 
                 sqlite3_reset(stmt)
                 sqlite3_clear_bindings(stmt)
                 
-                sqlite3_bind_text(stmt, 1, candidate.id, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 1, recordId, -1, SQLITE_TRANSIENT)
                 sqlite3_bind_text(stmt, 2, candidate.assetLocalIdentifier, -1, SQLITE_TRANSIENT)
                 sqlite3_bind_text(stmt, 3, candidate.resourceKind.rawValue, -1, SQLITE_TRANSIENT)
                 sqlite3_bind_text(stmt, 4, suffix, -1, SQLITE_TRANSIENT)
@@ -139,6 +141,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func nextUploadBatch(limit: Int) async throws -> [UploadLedgerRecord] {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = """
         SELECT id, asset_local_identifier, resource_kind, fingerprint_suffix,
                original_filename, uploaded_file_name, mime_type, size_bytes,
@@ -154,6 +158,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func listQueueRecords(filter: UploadQueueFilter, limit: Int) async throws -> [UploadLedgerRecord] {
+        lock.lock()
+        defer { lock.unlock() }
         let statusClause: String
         switch filter {
         case .all:
@@ -188,6 +194,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func retryFailed(ids: [String]) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         guard !ids.isEmpty else { return }
 
         let sql = """
@@ -205,7 +213,7 @@ final class SQLiteUploadLedger: UploadLedger {
         }
         defer { sqlite3_finalize(stmt) }
 
-        try execute("BEGIN TRANSACTION;")
+        try execute("BEGIN IMMEDIATE TRANSACTION;")
         do {
             for id in ids {
                 sqlite3_reset(stmt)
@@ -291,35 +299,45 @@ final class SQLiteUploadLedger: UploadLedger {
 
 
     func markExporting(id: String) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE upload_ledger SET status = 'exporting' WHERE id = ?;"
         try runUpdate(sql, params: [id])
     }
 
     func markReady(id: String, stagedFileURL: URL, sizeBytes: Int64) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE upload_ledger SET status = 'readyToUpload', local_staged_file_url = ?, size_bytes = ? WHERE id = ?;"
         try runUpdate(sql, params: [stagedFileURL.absoluteString, sizeBytes, id])
     }
 
     func markUploading(id: String) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE upload_ledger SET status = 'uploading' WHERE id = ?;"
         try runUpdate(sql, params: [id])
     }
 
     func markUploaded(id: String, backendUploadId: UUID) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = "UPDATE upload_ledger SET status = 'uploaded', backend_upload_id = ? WHERE id = ?;"
         try runUpdate(sql, params: [backendUploadId.uuidString.lowercased(), id])
     }
 
     func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         guard !suffixes.isEmpty else { return }
         
         // SQLite transaction for bulk updates
-        try execute("BEGIN TRANSACTION;")
+        try execute("BEGIN IMMEDIATE TRANSACTION;")
         
         let sql = "UPDATE upload_ledger SET status = 'synced' WHERE fingerprint_suffix = ? AND backend_folder_id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            try execute("ROLLBACK;")
+            try? execute("ROLLBACK;")
             throw DatabaseError.prepareFailed(errorMessage())
         }
         
@@ -331,7 +349,7 @@ final class SQLiteUploadLedger: UploadLedger {
             sqlite3_bind_text(stmt, 2, folderId.uuidString.lowercased(), -1, SQLITE_TRANSIENT)
             
             if sqlite3_step(stmt) != SQLITE_DONE {
-                try execute("ROLLBACK;")
+                try? execute("ROLLBACK;")
                 throw DatabaseError.executionFailed(errorMessage())
             }
         }
@@ -340,6 +358,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func markFailed(id: String, error: String, retryable: Bool) async throws {
+        lock.lock()
+        defer { lock.unlock() }
         let status = "failed"
         let attemptCountUpdate = retryable ? "attempt_count = attempt_count + 1" : "attempt_count = 99"
         let timestamp = Int64(Date().timeIntervalSince1970)
@@ -349,6 +369,8 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     func getLedgerCounts() async throws -> LedgerCounts {
+        lock.lock()
+        defer { lock.unlock() }
         let sql = """
         SELECT 
             SUM(case when status IN ('discovered', 'readyToUpload') then 1 else 0 end),
@@ -407,10 +429,21 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 }
 
-enum DatabaseError: Error {
+enum DatabaseError: Error, LocalizedError {
     case openFailed(String)
     case prepareFailed(String)
     case executionFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .openFailed(let msg):
+            return "Database open failed: \(msg)"
+        case .prepareFailed(let msg):
+            return "Database prepare failed: \(msg)"
+        case .executionFailed(let msg):
+            return "Database execution failed: \(msg)"
+        }
+    }
 }
 
 // SQLITE_TRANSIENT binding helper helper

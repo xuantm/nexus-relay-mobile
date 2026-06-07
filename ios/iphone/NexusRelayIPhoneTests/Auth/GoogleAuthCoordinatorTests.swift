@@ -19,6 +19,7 @@ final class MockWebAuthenticationSession: WebAuthenticationSession {
     }
 }
 
+@MainActor
 final class GoogleAuthCoordinatorTests: XCTestCase {
     func testSignInBuildsCorrectURLAndReturnsResult() async throws {
         let mockSession = MockWebAuthenticationSession()

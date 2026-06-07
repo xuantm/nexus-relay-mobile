@@ -5,7 +5,8 @@ final class SetupChecklistModelTests: XCTestCase {
     func testChecklistRowsExposeUserFacingLabels() {
         let rows = SetupChecklistRow.makeRows(
             serverURL: "https://relay.example.com",
-            username: "xuan",
+            isSignedIn: true,
+            userEmail: "xuan",
             photosStatus: .authorized,
             destinationFolderName: "iPhone Uploads"
         )
@@ -20,7 +21,8 @@ final class SetupChecklistModelTests: XCTestCase {
     func testChecklistMarksInvalidServerAsPending() {
         let rows = SetupChecklistRow.makeRows(
             serverURL: "relay.example.com",
-            username: "xuan",
+            isSignedIn: true,
+            userEmail: "xuan",
             photosStatus: .authorized,
             destinationFolderName: "iPhone Uploads"
         )

@@ -26,6 +26,7 @@
 		2DD58A60F1BBE4CA42A853B0 /* ChunkFileBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A64DD42D2D1B5925BE4693 /* ChunkFileBuilder.swift */; };
 		306A084390361BE25CF27700 /* ChunkFileBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F05C14CD007FC841272FEABC /* ChunkFileBuilderTests.swift */; };
 		33A871526BE823334BAE0D0D /* ReconciliationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B0ADC677255EF254753983 /* ReconciliationService.swift */; };
+		34DC3B95CFC0CAC13D388C58 /* NexusRelayAPIClientExchangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4898493C9F9633850A5154 /* NexusRelayAPIClientExchangeTests.swift */; };
 		3862A3FB4E62C70066C94F25 /* BackendURLValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4764951FBAFC3B2F1F8B18 /* BackendURLValidator.swift */; };
 		3C7EDC133E2EF830A6268357 /* NRDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90519145152B8E83D4148BA0 /* NRDesignSystem.swift */; };
 		3F0F2EB8E51E656F154B0F64 /* CookieSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */; };
@@ -34,6 +35,8 @@
 		4D330F4260FCF421860FE1FB /* NexusRelayIPhoneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE48578FD2B80DC81ACA71E6 /* NexusRelayIPhoneApp.swift */; };
 		4E415F7D25C63B7211CED53A /* UploadEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E39FC6FBEBB72CFB7C24471 /* UploadEngineTests.swift */; };
 		50DD9705BA754D9FF26163E5 /* UploadQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C93416521CF37634A61D64 /* UploadQueueView.swift */; };
+		5AAB2A42BD3A6754A704B79D /* AuthCallbackURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E186491BE30B7ECDE7DC7BB /* AuthCallbackURL.swift */; };
+		5B615DEC577892907EE1D53B /* AuthCallbackURLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DBD923C38BCD1F470DED59F /* AuthCallbackURLTests.swift */; };
 		5C910A3347B43F4E814DA439 /* SyncOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF241309A6EC487A8F3FBF93 /* SyncOrchestrator.swift */; };
 		5D675E4FB6E164FC488A91ED /* AssetFingerprinterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9364E2E7A158FAC9624AB519 /* AssetFingerprinterTests.swift */; };
 		5F0489B61812340E92B87DF1 /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8722FB4387D6C9A2BE9AA3F /* FolderPickerView.swift */; };
@@ -53,6 +56,7 @@
 		9A0EBC7B2AEAA5C2963E13BE /* PhotoAssetCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C96FD3C26021DCEE650A10 /* PhotoAssetCandidate.swift */; };
 		9BB8C29E477AF1B79EE4EB7D /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75522948B30395A06641443C /* SmokeTests.swift */; };
 		A1CA0ABF4AEC02E89CD56BA6 /* PhotoLibraryClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F854D7BA421153D87D93D1 /* PhotoLibraryClient.swift */; };
+		AA52618F87F181D7D1E21241 /* GoogleAuthCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71289B6AC8D49E97152D1192 /* GoogleAuthCoordinator.swift */; };
 		AAE44F20C02BE5DA97657C38 /* SQLiteUploadLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF871FBBE4DB1482FC33DD6 /* SQLiteUploadLedgerTests.swift */; };
 		ABDC8B7BF6BB7C6056C738E7 /* SyncStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1C3A8FF20D69BCB36A90CB /* SyncStatusViewModelTests.swift */; };
 		B16F7BF5B43A1883F8153914 /* LibrarySyncViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCCA8F844FE6DAECBA87DC17 /* LibrarySyncViewModel.swift */; };
@@ -66,6 +70,7 @@
 		DA877F0201BFF3A0BFD02BB8 /* SyncStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8568EC846EEE8C24E176F41 /* SyncStatusViewModel.swift */; };
 		DE6161CE8D855FA2D75C8CDF /* BackendURLValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */; };
 		E659C48E741F68F46AAA8AE9 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFA212748D27EF8520F84AD /* SettingsViewModel.swift */; };
+		E6D25B54615D4BF4E8770D08 /* GoogleAuthCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDF6CB1E96EFD402565534D /* GoogleAuthCoordinatorTests.swift */; };
 		E97405F8DD2C64013E25FEC9 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607DB365E1BC6EE77D2F3864 /* AppShellView.swift */; };
 		E9AE67C50FD1DF6F980AE910 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C731549D8BBABAA66E7C64F4 /* KeychainStore.swift */; };
 		EBB2D99CA268A2BED156B7B1 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4145640D67002909C040E2B0 /* SetupView.swift */; };
@@ -94,6 +99,7 @@
 		1D47794323A1DE8603841FA2 /* AssetFingerprinter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetFingerprinter.swift; sourceTree = "<group>"; };
 		232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieSessionStore.swift; sourceTree = "<group>"; };
 		24F0BB2EEE8F0E39A262F46D /* TemporaryFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStore.swift; sourceTree = "<group>"; };
+		2DBD923C38BCD1F470DED59F /* AuthCallbackURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthCallbackURLTests.swift; sourceTree = "<group>"; };
 		2EFA212748D27EF8520F84AD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		38A57693FF3F9362F360AD2F /* UploadQueueModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueModels.swift; sourceTree = "<group>"; };
 		392FB570D775AC3EEFE60405 /* TemporaryFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStoreTests.swift; sourceTree = "<group>"; };
@@ -103,14 +109,16 @@
 		4145640D67002909C040E2B0 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		43D39BD89E8E95A3D9658051 /* NexusRelayIPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NexusRelayIPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A3D3CCC6E7E4151EA56E28D /* SetupChecklistModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecklistModels.swift; sourceTree = "<group>"; };
+		4E186491BE30B7ECDE7DC7BB /* AuthCallbackURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthCallbackURL.swift; sourceTree = "<group>"; };
 		5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClientTests.swift; sourceTree = "<group>"; };
-		5A19CCE0D407E32FC0F67822 /* NexusRelayIPhoneTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NexusRelayIPhoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A19CCE0D407E32FC0F67822 /* NexusRelayIPhoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexusRelayIPhoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D33F2A1123FDB5B6BBCC733 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		5FF871FBBE4DB1482FC33DD6 /* SQLiteUploadLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteUploadLedgerTests.swift; sourceTree = "<group>"; };
 		607DB365E1BC6EE77D2F3864 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		67EEFD21C7557C5A76FE5313 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		6910A335C4268DFBE9C75AE1 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		6F514666D744FEFE44E2D43A /* HTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClient.swift; sourceTree = "<group>"; };
+		71289B6AC8D49E97152D1192 /* GoogleAuthCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthCoordinator.swift; sourceTree = "<group>"; };
 		75522948B30395A06641443C /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		76891BC50773D51A6BD88F42 /* AuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
 		7B1C3A8FF20D69BCB36A90CB /* SyncStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusViewModelTests.swift; sourceTree = "<group>"; };
@@ -125,6 +133,7 @@
 		9B4F07BD56E7FB7AF98D041A /* NexusRelayAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClient.swift; sourceTree = "<group>"; };
 		9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendURLValidatorTests.swift; sourceTree = "<group>"; };
 		9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSRFTokenProviderTests.swift; sourceTree = "<group>"; };
+		9E4898493C9F9633850A5154 /* NexusRelayAPIClientExchangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClientExchangeTests.swift; sourceTree = "<group>"; };
 		9FBF810683A68740CB5F17BA /* PhotoThumbnailProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoThumbnailProvider.swift; sourceTree = "<group>"; };
 		A68EEE7CD6A376253D8E007F /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
 		BACF56BED20C420F05C3313E /* ReconciliationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconciliationServiceTests.swift; sourceTree = "<group>"; };
@@ -143,6 +152,7 @@
 		DDA0F47CCA5AC7A88E910A7E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		DEE1D3F6797F95DBDD864B36 /* SetupChecklistModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecklistModelTests.swift; sourceTree = "<group>"; };
 		DF241309A6EC487A8F3FBF93 /* SyncOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncOrchestrator.swift; sourceTree = "<group>"; };
+		DFDF6CB1E96EFD402565534D /* GoogleAuthCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthCoordinatorTests.swift; sourceTree = "<group>"; };
 		E9A64DD42D2D1B5925BE4693 /* ChunkFileBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkFileBuilder.swift; sourceTree = "<group>"; };
 		EB4764951FBAFC3B2F1F8B18 /* BackendURLValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendURLValidator.swift; sourceTree = "<group>"; };
 		EB90F17380CAC2658187CBFF /* UploadLedgerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLedgerModels.swift; sourceTree = "<group>"; };
@@ -318,6 +328,7 @@
 		7B8A336A2A6582AD525DA43E /* API */ = {
 			isa = PBXGroup;
 			children = (
+				9E4898493C9F9633850A5154 /* NexusRelayAPIClientExchangeTests.swift */,
 				5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */,
 			);
 			path = API;
@@ -390,9 +401,11 @@
 		ADEE42F3D08235F179456E83 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				4E186491BE30B7ECDE7DC7BB /* AuthCallbackURL.swift */,
 				76891BC50773D51A6BD88F42 /* AuthSession.swift */,
 				232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */,
 				DB310C0BFF985F4F623F5ED4 /* CSRFTokenProvider.swift */,
+				71289B6AC8D49E97152D1192 /* GoogleAuthCoordinator.swift */,
 				C731549D8BBABAA66E7C64F4 /* KeychainStore.swift */,
 			);
 			path = Auth;
@@ -511,7 +524,9 @@
 		FFB26337E12A95054D11281C /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				2DBD923C38BCD1F470DED59F /* AuthCallbackURLTests.swift */,
 				9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */,
+				DFDF6CB1E96EFD402565534D /* GoogleAuthCoordinatorTests.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -590,10 +605,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				5D675E4FB6E164FC488A91ED /* AssetFingerprinterTests.swift in Sources */,
+				5B615DEC577892907EE1D53B /* AuthCallbackURLTests.swift in Sources */,
 				DE6161CE8D855FA2D75C8CDF /* BackendURLValidatorTests.swift in Sources */,
 				046E07745DF0AC02C22A5FD8 /* CSRFTokenProviderTests.swift in Sources */,
 				306A084390361BE25CF27700 /* ChunkFileBuilderTests.swift in Sources */,
+				E6D25B54615D4BF4E8770D08 /* GoogleAuthCoordinatorTests.swift in Sources */,
 				2C4C67B59DF63BF71ECFB245 /* LibrarySyncViewModelTests.swift in Sources */,
+				34DC3B95CFC0CAC13D388C58 /* NexusRelayAPIClientExchangeTests.swift in Sources */,
 				8FA5692080BFF530ABADED02 /* NexusRelayAPIClientTests.swift in Sources */,
 				453EA34845CBDABAB6174739 /* ReconciliationServiceTests.swift in Sources */,
 				AAE44F20C02BE5DA97657C38 /* SQLiteUploadLedgerTests.swift in Sources */,
@@ -620,6 +638,7 @@
 				E97405F8DD2C64013E25FEC9 /* AppShellView.swift in Sources */,
 				D657A8BC2ED0892A62DF81E1 /* AssetExporter.swift in Sources */,
 				BFF3B4471B3832DE77C045F3 /* AssetFingerprinter.swift in Sources */,
+				5AAB2A42BD3A6754A704B79D /* AuthCallbackURL.swift in Sources */,
 				49C9F0A6840B1126086D856E /* AuthSession.swift in Sources */,
 				3862A3FB4E62C70066C94F25 /* BackendURLValidator.swift in Sources */,
 				734962C67399879390B71AB0 /* BackgroundSyncScheduler.swift in Sources */,
@@ -627,6 +646,7 @@
 				2DD58A60F1BBE4CA42A853B0 /* ChunkFileBuilder.swift in Sources */,
 				3F0F2EB8E51E656F154B0F64 /* CookieSessionStore.swift in Sources */,
 				5F0489B61812340E92B87DF1 /* FolderPickerView.swift in Sources */,
+				AA52618F87F181D7D1E21241 /* GoogleAuthCoordinator.swift in Sources */,
 				09637A2F32197CF8B46E81E3 /* HTTPClient.swift in Sources */,
 				E9AE67C50FD1DF6F980AE910 /* KeychainStore.swift in Sources */,
 				2411BEA0289486AF725AAC88 /* LibrarySyncView.swift in Sources */,
@@ -773,7 +793,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -854,7 +874,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

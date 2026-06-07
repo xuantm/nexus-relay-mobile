@@ -82,11 +82,13 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         )
 
         try await ledger.upsertDiscovered([candidate], folderId: folderId)
-        let id = candidate.id
+        var batch = try await ledger.nextUploadBatch(limit: 10)
+        XCTAssertEqual(batch.count, 1)
+        let id = try XCTUnwrap(batch.first?.id)
         
         // discovered -> exporting
         try await ledger.markExporting(id: id)
-        var batch = try await ledger.nextUploadBatch(limit: 10)
+        batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertEqual(batch.count, 1)
         XCTAssertEqual(batch.first?.status, .exporting)
         
@@ -111,7 +113,8 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         XCTAssertTrue(batch.isEmpty) // uploaded items are not in next upload batch
         
         // markSyncedByFingerprintSuffixes
-        let suffix = batch.first?.fingerprintSuffix ?? AssetFingerprinter.getFingerprintSuffix(fingerprint: AssetFingerprinter.generateFingerprint(candidate: candidate))
+        let fp = AssetFingerprinter.generateFingerprint(candidate: candidate)
+        let suffix = AssetFingerprinter.getFingerprintSuffix(fingerprint: fp)
         try await ledger.markSyncedByFingerprintSuffixes([suffix], folderId: folderId)
         
         // Verify synced items are no longer fetched for upload.
@@ -136,7 +139,8 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         )
 
         try await ledger.upsertDiscovered([candidate], folderId: folderId)
-        let id = candidate.id
+        let batchForId = try await ledger.nextUploadBatch(limit: 10)
+        let id = try XCTUnwrap(batchForId.first?.id)
         
         // First retryable failure
         try await ledger.markFailed(id: id, error: "Network timed out", retryable: true)
@@ -174,7 +178,8 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         )
 
         try await ledger.upsertDiscovered([candidate], folderId: folderId)
-        let id = candidate.id
+        let batchForId = try await ledger.nextUploadBatch(limit: 10)
+        let id = try XCTUnwrap(batchForId.first?.id)
         
         // Non-retryable failure (e.g. invalid file format)
         try await ledger.markFailed(id: id, error: "File corrupted", retryable: false)
@@ -189,8 +194,16 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         let candidate3 = makeCandidate(assetId: "asset-failed", fileName: "failed.jpg")
 
         try await ledger.upsertDiscovered([candidate1, candidate2, candidate3], folderId: folderId)
-        try await ledger.markUploading(id: candidate1.id)
-        try await ledger.markFailed(id: candidate3.id, error: "Network error", retryable: true)
+        
+        let allDiscovered = try await ledger.listQueueRecords(filter: .all, limit: 10)
+        guard let idActive = allDiscovered.first(where: { $0.assetLocalIdentifier == "asset-active" })?.id,
+              let idFailed = allDiscovered.first(where: { $0.assetLocalIdentifier == "asset-failed" })?.id else {
+            XCTFail("Failed to find inserted record IDs")
+            return
+        }
+        
+        try await ledger.markUploading(id: idActive)
+        try await ledger.markFailed(id: idFailed, error: "Network error", retryable: true)
 
         let all = try await ledger.listQueueRecords(filter: .all, limit: 10)
         let active = try await ledger.listQueueRecords(filter: .active, limit: 10)
@@ -206,8 +219,10 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         let candidate = makeCandidate(assetId: "asset-failed", fileName: "failed.jpg")
 
         try await ledger.upsertDiscovered([candidate], folderId: folderId)
-        try await ledger.markFailed(id: candidate.id, error: "Server unavailable", retryable: false)
-        try await ledger.retryFailed(ids: [candidate.id])
+        let batch = try await ledger.listQueueRecords(filter: .all, limit: 10)
+        let id = try XCTUnwrap(batch.first?.id)
+        try await ledger.markFailed(id: id, error: "Server unavailable", retryable: false)
+        try await ledger.retryFailed(ids: [id])
 
         let records = try await ledger.listQueueRecords(filter: .all, limit: 10)
         XCTAssertEqual(records.first?.status, .discovered)

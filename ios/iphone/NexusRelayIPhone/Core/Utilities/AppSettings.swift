@@ -9,7 +9,7 @@ struct AppSettings: Codable, Equatable {
     var includeLivePhotoVideo: Bool
 
     static let defaults = AppSettings(
-        backendBaseURL: nil,
+        backendBaseURL: URL(string: "https://relay.xuantruong.org"),
         destinationFolderId: nil,
         destinationFolderName: "iPhone Uploads",
         wifiOnly: true,

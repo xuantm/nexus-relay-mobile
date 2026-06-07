@@ -61,7 +61,7 @@ struct SetupView: View {
     private var setupFields: some View {
         VStack(spacing: 0) {
             LabeledContent("Server") {
-                TextField("https://relay.example.com", text: $viewModel.serverURL)
+                TextField("https://relay.xuantruong.org", text: $viewModel.serverURL)
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)

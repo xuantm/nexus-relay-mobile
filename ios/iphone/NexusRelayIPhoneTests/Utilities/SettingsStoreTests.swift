@@ -22,7 +22,7 @@ final class SettingsStoreTests: XCTestCase {
     func testDefaultSettings() {
         let settings = store.settings
         XCTAssertEqual(settings, AppSettings.defaults)
-        XCTAssertNil(settings.backendBaseURL)
+        XCTAssertEqual(settings.backendBaseURL, URL(string: "https://relay.xuantruong.org"))
         XCTAssertNil(settings.destinationFolderId)
         XCTAssertEqual(settings.destinationFolderName, "iPhone Uploads")
         XCTAssertTrue(settings.wifiOnly)
