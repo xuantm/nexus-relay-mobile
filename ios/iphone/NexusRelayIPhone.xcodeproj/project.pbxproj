@@ -53,6 +53,7 @@
 		8FA5692080BFF530ABADED02 /* NexusRelayAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */; };
 		92460BDA3359B4CBED23A624 /* SyncOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13DEFB4497684C77EC40C544 /* SyncOrchestratorTests.swift */; };
 		99C614919CDFD5D9CA557162 /* UploadPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE17F5E722201260C7E33DD4 /* UploadPolicy.swift */; };
+		A00000000000000000000001 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* LaunchScreen.storyboard */; };
 		9A0EBC7B2AEAA5C2963E13BE /* PhotoAssetCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C96FD3C26021DCEE650A10 /* PhotoAssetCandidate.swift */; };
 		9BB8C29E477AF1B79EE4EB7D /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75522948B30395A06641443C /* SmokeTests.swift */; };
 		A1CA0ABF4AEC02E89CD56BA6 /* PhotoLibraryClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F854D7BA421153D87D93D1 /* PhotoLibraryClient.swift */; };
@@ -105,6 +106,7 @@
 		392FB570D775AC3EEFE60405 /* TemporaryFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStoreTests.swift; sourceTree = "<group>"; };
 		3BE978B52AC781A6C103DF1B /* UploadQueueViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueViewModel.swift; sourceTree = "<group>"; };
 		3C40538C66CE032FE1F521CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A00000000000000000000002 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		3D3EAC11D9A093851C7FC939 /* SQLiteUploadLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteUploadLedger.swift; sourceTree = "<group>"; };
 		4145640D67002909C040E2B0 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		43D39BD89E8E95A3D9658051 /* NexusRelayIPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NexusRelayIPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -368,6 +370,7 @@
 			isa = PBXGroup;
 			children = (
 				3C40538C66CE032FE1F521CF /* Info.plist */,
+				A00000000000000000000002 /* LaunchScreen.storyboard */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -540,6 +543,7 @@
 			buildPhases = (
 				E07F9BD0A54E3FC6A1A7B23B /* Sources */,
 				0BB354C0C34ABC35A736EF08 /* Frameworks */,
+				A00000000000000000000003 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -571,6 +575,17 @@
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000001 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXProject section */
 		3C341407CB7AF4A10B3AE3E0 /* Project object */ = {

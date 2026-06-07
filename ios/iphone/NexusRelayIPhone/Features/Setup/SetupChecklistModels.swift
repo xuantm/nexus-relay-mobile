@@ -31,22 +31,12 @@ struct SetupChecklistRow: Identifiable, Equatable {
     let state: SetupChecklistState
 
     static func makeRows(
-        serverURL: String,
         isSignedIn: Bool,
         userEmail: String?,
         photosStatus: PhotoLibraryAuthorizationStatus,
         destinationFolderName: String
     ) -> [SetupChecklistRow] {
         [
-            SetupChecklistRow(
-                id: "server",
-                title: "Server",
-                subtitle: BackendURLValidator.isValid(serverURL)
-                    ? (URL(string: serverURL)?.host ?? "Add server URL")
-                    : "Add server URL",
-                systemImage: "server.rack",
-                state: BackendURLValidator.isValid(serverURL) ? .complete : .pending
-            ),
             SetupChecklistRow(
                 id: "signin",
                 title: "Sign in",
@@ -64,7 +54,7 @@ struct SetupChecklistRow: Identifiable, Equatable {
             ),
             SetupChecklistRow(
                 id: "folder",
-                title: "Destination Folder",
+                title: "Destination",
                 subtitle: destinationFolderName.isEmpty ? "Not configured" : destinationFolderName,
                 systemImage: "folder",
                 state: destinationFolderName.isEmpty ? .pending : .complete

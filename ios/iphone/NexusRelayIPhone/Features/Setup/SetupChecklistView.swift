@@ -6,20 +6,20 @@ struct SetupChecklistView: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(rows) { row in
-                HStack(spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
                     Image(systemName: row.state.iconName)
-                        .font(.title3)
+                        .font(.system(size: NRDesign.IconSize.status, weight: .semibold))
                         .foregroundStyle(row.state.tint)
-                        .frame(width: 28)
+                        .frame(width: 24)
 
                     Image(systemName: row.systemImage)
-                        .font(.title3)
+                        .font(.system(size: NRDesign.IconSize.row, weight: .regular))
                         .foregroundStyle(NRDesign.ColorToken.accent)
-                        .frame(width: 28)
+                        .frame(width: 26)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(row.title)
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(NRDesign.ColorToken.primaryText)
                         Text(row.subtitle)
                             .font(.caption)
@@ -28,13 +28,13 @@ struct SetupChecklistView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.vertical, 12)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(row.title), \(row.subtitle)")
                 .accessibilityValue(row.state == .complete ? "Complete" : (row.state == .failed ? "Needs attention" : "Pending"))
 
                 if row.id != rows.last?.id {
-                    Divider().padding(.leading, 86)
+                    Divider().padding(.leading, 72)
                 }
             }
         }

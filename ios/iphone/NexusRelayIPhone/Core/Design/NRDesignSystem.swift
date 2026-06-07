@@ -15,14 +15,20 @@ enum NRDesign {
 
     enum Radius {
         static let thumbnail: CGFloat = 8
-        static let row: CGFloat = 12
+        static let row: CGFloat = 10
         static let capsule: CGFloat = 24
     }
 
     enum Spacing {
-        static let page: CGFloat = 20
-        static let row: CGFloat = 12
-        static let section: CGFloat = 24
+        static let page: CGFloat = 16
+        static let row: CGFloat = 10
+        static let section: CGFloat = 20
+    }
+
+    enum IconSize {
+        static let status: CGFloat = 19
+        static let row: CGFloat = 21
+        static let action: CGFloat = 18
     }
 }
 

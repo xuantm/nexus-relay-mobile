@@ -3,7 +3,6 @@ import Foundation
 @MainActor
 final class SettingsViewModel: ObservableObject {
     @Published var username = "Not signed in"
-    @Published var serverURLString = ""
     @Published var folderName = ""
     @Published var wifiOnly = true
     @Published var includeVideos = true
@@ -36,7 +35,6 @@ final class SettingsViewModel: ObservableObject {
         } else {
             username = "Not signed in"
         }
-        serverURLString = settings.backendBaseURL?.absoluteString ?? "Not set"
         folderName = settings.destinationFolderName
         wifiOnly = settings.wifiOnly
         includeVideos = settings.includeVideos

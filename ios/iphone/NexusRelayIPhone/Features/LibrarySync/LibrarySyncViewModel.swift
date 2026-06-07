@@ -26,6 +26,34 @@ struct LibrarySyncSummary: Equatable {
     }
 }
 
+enum LibraryPreviewMediaType: String, Equatable {
+    case image
+    case video
+
+    var symbolName: String {
+        switch self {
+        case .image: return "photo"
+        case .video: return "play.fill"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .image: return "Photo"
+        case .video: return "Video"
+        }
+    }
+}
+
+struct LibraryPreviewItem: Identifiable {
+    let id: String
+    let assetLocalIdentifier: String
+    let image: UIImage
+    let mediaType: LibraryPreviewMediaType
+    let creationDate: Date?
+    let filename: String?
+}
+
 @MainActor
 final class LibrarySyncViewModel: ObservableObject {
     @Published var summary = LibrarySyncSummary(uploaded: 0, waiting: 0, failed: 0, active: 0)
@@ -33,19 +61,23 @@ final class LibrarySyncViewModel: ObservableObject {
     @Published var lastSyncDate: Date?
     @Published var errorMessage: String?
     @Published var requiresSignInRepair = false
-    @Published var mosaicImages: [UIImage] = []
+    @Published var previewItems: [LibraryPreviewItem] = []
+    @Published var selectedPreviewItem: LibraryPreviewItem?
 
     private let syncStatusViewModel: SyncStatusViewModel
     private let thumbnailProvider: PhotoThumbnailProvider
+    private let settingsStore: SettingsStore
     private var cancellables = Set<AnyCancellable>()
 
     init(
         syncStatusViewModel: SyncStatusViewModel? = nil,
-        thumbnailProvider: PhotoThumbnailProvider? = nil
+        thumbnailProvider: PhotoThumbnailProvider? = nil,
+        settingsStore: SettingsStore = UserDefaultsSettingsStore()
     ) {
         let svm = syncStatusViewModel ?? SyncStatusViewModel()
         self.syncStatusViewModel = svm
         self.thumbnailProvider = thumbnailProvider ?? PhotoKitThumbnailProvider()
+        self.settingsStore = settingsStore
         refreshFromSyncViewModel()
 
         svm.$queuedCount
@@ -90,26 +122,58 @@ final class LibrarySyncViewModel: ObservableObject {
         requiresSignInRepair = syncStatusViewModel.requiresSignInRepair
     }
 
-    func loadMosaicImages() async {
+    func loadPreviewItems() async {
+        let includeVideos = settingsStore.settings.includeVideos
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.fetchLimit = 5
-        let assets = PHAsset.fetchAssets(with: .image, options: options)
-        
-        var images: [UIImage] = []
+        if !includeVideos {
+            options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+        }
+        let assets = PHAsset.fetchAssets(with: options)
+
+        var items: [LibraryPreviewItem] = []
         for i in 0..<assets.count {
             let asset = assets.object(at: i)
-            if let img = await thumbnailProvider.thumbnail(forAssetLocalIdentifier: asset.localIdentifier, targetSize: CGSize(width: 200, height: 200)) {
-                images.append(img)
+            guard asset.mediaType == .image || asset.mediaType == .video else {
+                continue
+            }
+            if asset.mediaType == .video && !includeVideos {
+                continue
+            }
+
+            if let img = await thumbnailProvider.thumbnail(
+                forAssetLocalIdentifier: asset.localIdentifier,
+                targetSize: CGSize(width: 280, height: 280)
+            ) {
+                let resources = PHAssetResource.assetResources(for: asset)
+                let filename = resources.first?.originalFilename
+                let mediaType: LibraryPreviewMediaType = asset.mediaType == .video ? .video : .image
+
+                items.append(
+                    LibraryPreviewItem(
+                        id: asset.localIdentifier,
+                        assetLocalIdentifier: asset.localIdentifier,
+                        image: img,
+                        mediaType: mediaType,
+                        creationDate: asset.creationDate,
+                        filename: filename
+                    )
+                )
             }
         }
-        self.mosaicImages = images
+
+        previewItems = items
+
+        if let selectedPreviewItem, !items.contains(where: { $0.id == selectedPreviewItem.id }) {
+            self.selectedPreviewItem = nil
+        }
     }
 
     func syncNow() async {
         await syncStatusViewModel.syncNow()
         refreshFromSyncViewModel()
-        await loadMosaicImages()
+        await loadPreviewItems()
     }
 
     func pauseSync() {
@@ -120,6 +184,6 @@ final class LibrarySyncViewModel: ObservableObject {
     func reconcile() async {
         await syncStatusViewModel.reconcile()
         refreshFromSyncViewModel()
-        await loadMosaicImages()
+        await loadPreviewItems()
     }
 }

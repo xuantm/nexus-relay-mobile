@@ -18,6 +18,8 @@
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>NSPhotoLibraryUsageDescription</key>
   <string>NexusRelay needs access to upload selected photos and videos to your NexusRelay server.</string>
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>
     <string>com.nexusrelay.iphone.sync</string>

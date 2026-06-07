@@ -17,7 +17,6 @@ final class SetupViewModel: ObservableObject {
     
     var checklistRows: [SetupChecklistRow] {
         SetupChecklistRow.makeRows(
-            serverURL: serverURL,
             isSignedIn: sessionStore.currentSession != nil,
             userEmail: sessionStore.currentSession?.email ?? sessionStore.currentSession?.username,
             photosStatus: photosStatus,
@@ -41,7 +40,9 @@ final class SetupViewModel: ObservableObject {
         self.sessionStore = sessionStore
         self.authCoordinator = authCoordinator ?? GoogleAuthCoordinator()
         let s = settingsStore.settings
-        self.serverURL = s.backendBaseURL?.absoluteString ?? ""
+        self.serverURL = s.backendBaseURL?.absoluteString
+            ?? AppSettings.defaults.backendBaseURL?.absoluteString
+            ?? ""
         self.wifiOnly = s.wifiOnly
         self.includeVideos = s.includeVideos
         self.includeLivePhotos = s.includeLivePhotoVideo
@@ -50,8 +51,8 @@ final class SetupViewModel: ObservableObject {
     }
 
     func saveAndLogin() async {
-        guard BackendURLValidator.isValid(serverURL), let url = URL(string: serverURL) else {
-            errorMessage = "Invalid Server URL (must start with http/https)"
+        guard let backendURL = resolvedBackendURL else {
+            errorMessage = "Invalid server configuration"
             return
         }
         
@@ -60,13 +61,13 @@ final class SetupViewModel: ObservableObject {
         
         do {
             var s = settingsStore.settings
-            s.backendBaseURL = url
+            s.backendBaseURL = backendURL
             s.wifiOnly = wifiOnly
             s.includeVideos = includeVideos
             s.includeLivePhotoVideo = includeLivePhotos
             settingsStore.settings = s
             
-            let authResult = try await authCoordinator.signIn(baseURL: url)
+            let authResult = try await authCoordinator.signIn(baseURL: backendURL)
             
             let code: String
             switch authResult {
@@ -88,8 +89,8 @@ final class SetupViewModel: ObservableObject {
             
             let keychain = SystemKeychainStore()
             let csrfProvider = SystemCSRFTokenProvider()
-            let httpClient = SystemHTTPClient(baseURL: url, sessionStore: sessionStore, csrfProvider: csrfProvider)
-            let apiClient = SystemNexusRelayAPIClient(baseURL: url, httpClient: httpClient, sessionStore: sessionStore)
+            let httpClient = SystemHTTPClient(baseURL: backendURL, sessionStore: sessionStore, csrfProvider: csrfProvider)
+            let apiClient = SystemNexusRelayAPIClient(baseURL: backendURL, httpClient: httpClient, sessionStore: sessionStore)
             
             _ = try await apiClient.exchangeIosSession(code: code)
             
@@ -128,5 +129,17 @@ final class SetupViewModel: ObservableObject {
         }
 
         return currentStatus
+    }
+
+    private var resolvedBackendURL: URL? {
+        if let defaultURL = AppSettings.defaults.backendBaseURL {
+            return defaultURL
+        }
+
+        guard BackendURLValidator.isValid(serverURL) else {
+            return nil
+        }
+
+        return URL(string: serverURL)
     }
 }

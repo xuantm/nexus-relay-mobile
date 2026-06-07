@@ -53,14 +53,30 @@ final class SystemHTTPClient: HTTPClient {
         let urlRequest = try await prepareRequest(request)
         let response: HTTPResponse
 
-        if let fileURL = fileURL {
-            let (data, urlResponse) = try await urlSession.upload(for: urlRequest, fromFile: fileURL)
-            let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
-            response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
-        } else {
-            let (data, urlResponse) = try await urlSession.data(for: urlRequest)
-            let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
-            response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
+        do {
+            if let fileURL = fileURL {
+                let (data, urlResponse) = try await urlSession.upload(for: urlRequest, fromFile: fileURL)
+                let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
+                response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
+            } else {
+                let (data, urlResponse) = try await urlSession.data(for: urlRequest)
+                let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
+                response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
+            }
+        } catch {
+            let nsError = error as NSError
+            if let fileURL = fileURL, !isRetry,
+               (nsError.domain == NSURLErrorDomain &&
+                (nsError.code == NSURLErrorCannotParseResponse ||
+                 nsError.code == NSURLErrorNetworkConnectionLost ||
+                 nsError.code == NSURLErrorTimedOut)) {
+                // Connection was reset or timed out (often due to server rejecting request early on 401)
+                // Proactively attempt to refresh the token and retry the upload
+                if let refreshSuccess = try? await performRefresh(), refreshSuccess {
+                    return try await sendWithRetry(request, fileURL: fileURL, isRetry: true)
+                }
+            }
+            throw error
         }
 
         saveCookies(for: baseURL)
@@ -157,6 +173,10 @@ final class SystemHTTPClient: HTTPClient {
 
     private func performRefresh() async throws -> Bool {
         guard let session = sessionStore.currentSession else { return false }
+        
+        // Sync cookies first to ensure getting the CSRF token and the refresh request use the current session cookies
+        syncCookies(for: baseURL)
+        
         let refreshURL = baseURL.appendingPathComponent("api/auth/refresh")
         var refreshRequest = URLRequest(url: refreshURL)
         refreshRequest.httpMethod = "POST"
@@ -166,8 +186,6 @@ final class SystemHTTPClient: HTTPClient {
         if let csrf = try? await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: true) {
             refreshRequest.setValue(csrf, forHTTPHeaderField: "X-NexusRelay-CSRF")
         }
-
-        syncCookies(for: baseURL)
 
         let (_, response) = try await urlSession.data(for: refreshRequest)
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
@@ -182,11 +200,10 @@ final class SystemHTTPClient: HTTPClient {
     private func saveCookies(from response: HTTPURLResponse) {
         guard let session = sessionStore.currentSession else { return }
 
-        let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields(from: response.allHeaderFields), for: baseURL)
-        if !cookies.isEmpty {
-            let newSession = AuthSession(userId: session.userId, username: session.username, role: session.role, cookies: cookies)
-            try? sessionStore.saveSession(newSession)
-            return
+        let responseCookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields(from: response.allHeaderFields), for: baseURL)
+        let storage = HTTPCookieStorage.shared
+        for cookie in responseCookies {
+            storage.setCookie(cookie)
         }
 
         saveCookies(for: baseURL)

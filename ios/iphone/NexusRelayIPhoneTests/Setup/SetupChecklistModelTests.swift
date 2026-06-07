@@ -4,30 +4,27 @@ import XCTest
 final class SetupChecklistModelTests: XCTestCase {
     func testChecklistRowsExposeUserFacingLabels() {
         let rows = SetupChecklistRow.makeRows(
-            serverURL: "https://relay.example.com",
             isSignedIn: true,
             userEmail: "xuan",
             photosStatus: .authorized,
             destinationFolderName: "iPhone Uploads"
         )
 
-        XCTAssertEqual(rows.map(\.title), ["Server", "Sign in", "Photos Access", "Destination Folder"])
-        XCTAssertEqual(rows[0].subtitle, "relay.example.com")
-        XCTAssertEqual(rows[1].subtitle, "xuan")
-        XCTAssertEqual(rows[2].subtitle, "Full access")
-        XCTAssertEqual(rows[3].subtitle, "iPhone Uploads")
+        XCTAssertEqual(rows.map(\.title), ["Sign in", "Photos Access", "Destination"])
+        XCTAssertEqual(rows[0].subtitle, "xuan")
+        XCTAssertEqual(rows[1].subtitle, "Full access")
+        XCTAssertEqual(rows[2].subtitle, "iPhone Uploads")
     }
 
-    func testChecklistMarksInvalidServerAsPending() {
+    func testChecklistMarksUnsignedAccountAsPending() {
         let rows = SetupChecklistRow.makeRows(
-            serverURL: "relay.example.com",
-            isSignedIn: true,
-            userEmail: "xuan",
+            isSignedIn: false,
+            userEmail: nil,
             photosStatus: .authorized,
             destinationFolderName: "iPhone Uploads"
         )
 
-        XCTAssertEqual(rows[0].subtitle, "Add server URL")
+        XCTAssertEqual(rows[0].subtitle, "Google account")
         XCTAssertEqual(rows[0].state, .pending)
     }
 }

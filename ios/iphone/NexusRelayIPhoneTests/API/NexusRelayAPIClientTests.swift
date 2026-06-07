@@ -297,4 +297,159 @@ final class NexusRelayAPIClientTests: XCTestCase {
         XCTAssertEqual(requestCount, 3) // 1: GET folders (401), 2: POST refresh (200), 3: GET folders (200)
         XCTAssertEqual(sessionStore.currentSession?.cookies.first?.value, "new_jwt")
     }
+
+    func testHTTPClientTransparent401RefreshPreservesOtherCookies() async throws {
+        sessionStore.currentSession = AuthSession(
+            userId: UUID(),
+            username: "xuan",
+            role: "Admin",
+            cookies: [
+                HTTPCookie(properties: [.name: "access_token", .value: "old_jwt", .domain: "relay.xuantruong.org", .path: "/"])!,
+                HTTPCookie(properties: [.name: "refresh_token", .value: "my_refresh_token", .domain: "relay.xuantruong.org", .path: "/"])!
+            ]
+        )
+        
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            
+            if request.url?.path == "/api/folders" {
+                if requestCount == 1 {
+                    // Fail with 401 Unauthorized
+                    let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+                    return (response, Data())
+                } else {
+                    // Retry succeeds
+                    let json = "[]".data(using: .utf8)!
+                    let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                    return (response, json)
+                }
+            } else if request.url?.path == "/api/auth/refresh" {
+                XCTAssertEqual(request.httpMethod, "POST")
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Set-Cookie": "access_token=new_jwt; Path=/; HttpOnly"]
+                )!
+                return (response, Data())
+            } else {
+                XCTFail("Unexpected request: \(request.url?.path ?? "")")
+                throw NSError(domain: "test", code: -1)
+            }
+        }
+
+        let folders = try await apiClient.listRootFolders()
+        XCTAssertTrue(folders.isEmpty)
+        XCTAssertEqual(requestCount, 3)
+        
+        let cookies = sessionStore.currentSession?.cookies ?? []
+        XCTAssertEqual(cookies.count, 2)
+        XCTAssertTrue(cookies.contains(where: { $0.name == "access_token" && $0.value == "new_jwt" }))
+        XCTAssertTrue(cookies.contains(where: { $0.name == "refresh_token" && $0.value == "my_refresh_token" }))
+    }
+
+    func testHTTPClientTransparent401RefreshRetryFailurePreservesOtherCookies() async throws {
+        sessionStore.currentSession = AuthSession(
+            userId: UUID(),
+            username: "xuan",
+            role: "Admin",
+            cookies: [
+                HTTPCookie(properties: [.name: "access_token", .value: "old_jwt", .domain: "relay.xuantruong.org", .path: "/"])!,
+                HTTPCookie(properties: [.name: "refresh_token", .value: "my_refresh_token", .domain: "relay.xuantruong.org", .path: "/"])!
+            ]
+        )
+        
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            
+            if request.url?.path == "/api/folders" {
+                if requestCount == 1 {
+                    // Fail with 401 Unauthorized
+                    let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+                    return (response, Data())
+                } else {
+                    // Retry fails with network error
+                    throw NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: nil)
+                }
+            } else if request.url?.path == "/api/auth/refresh" {
+                XCTAssertEqual(request.httpMethod, "POST")
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Set-Cookie": "access_token=new_jwt; Path=/; HttpOnly"]
+                )!
+                return (response, Data())
+            } else {
+                XCTFail("Unexpected request: \(request.url?.path ?? "")")
+                throw NSError(domain: "test", code: -1)
+            }
+        }
+
+        do {
+            _ = try await apiClient.listRootFolders()
+            XCTFail("Should have thrown 500 error")
+        } catch {
+            // Expected
+        }
+        
+        XCTAssertEqual(requestCount, 3)
+        
+        let cookies = sessionStore.currentSession?.cookies ?? []
+        XCTAssertEqual(cookies.count, 2)
+        XCTAssertTrue(cookies.contains(where: { $0.name == "access_token" && $0.value == "new_jwt" }))
+        XCTAssertTrue(cookies.contains(where: { $0.name == "refresh_token" && $0.value == "my_refresh_token" }))
+    }
+
+
+
+    func testHTTPClientTransparentUploadNetworkErrorRefreshSuccess() async throws {
+        sessionStore.currentSession = AuthSession(
+            userId: UUID(),
+            username: "xuan",
+            role: "Admin",
+            cookies: [HTTPCookie(properties: [.name: "access_token", .value: "old_jwt", .domain: "relay.xuantruong.org", .path: "/"])!]
+        )
+        
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            
+            if request.url?.path == "/api/upload/stream" {
+                if requestCount == 1 {
+                    // Fail with Cannot Parse Response (-1017)
+                    throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotParseResponse, userInfo: nil)
+                } else {
+                    // Retry succeeds
+                    let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                    return (response, "{\"uploadId\":\"\(UUID().uuidString)\"}".data(using: .utf8)!)
+                }
+            } else if request.url?.path == "/api/auth/refresh" {
+                XCTAssertEqual(request.httpMethod, "POST")
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Set-Cookie": "access_token=new_jwt; Path=/; HttpOnly"]
+                )!
+                return (response, Data())
+            } else {
+                XCTFail("Unexpected request: \(request.url?.path ?? "")")
+                throw NSError(domain: "test", code: -1)
+            }
+        }
+
+        // We need a dummy file to upload
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try "dummy-content".data(using: .utf8)!.write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let req = HTTPRequest(method: "POST", path: "api/upload/stream", headers: [:], body: nil)
+        let response = try await httpClient.uploadFile(req, fileURL: fileURL)
+        XCTAssertEqual(response.statusCode, 200)
+        XCTAssertEqual(requestCount, 3) // 1: POST upload (fail -1017), 2: POST refresh (200), 3: POST upload (200)
+        XCTAssertEqual(sessionStore.currentSession?.cookies.first?.value, "new_jwt")
+    }
 }
