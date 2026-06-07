@@ -42,8 +42,9 @@ final class GoogleAuthCoordinator: GoogleAuthCoordinating {
     private let session: WebAuthenticationSession
     private let callbackScheme = "nexusrelay"
 
-    init(session: WebAuthenticationSession = SystemWebAuthenticationSession()) {
-        self.session = session
+    @MainActor
+    init(session: WebAuthenticationSession? = nil) {
+        self.session = session ?? SystemWebAuthenticationSession()
     }
 
     func signIn(baseURL: URL) async throws -> AuthCallbackResult {

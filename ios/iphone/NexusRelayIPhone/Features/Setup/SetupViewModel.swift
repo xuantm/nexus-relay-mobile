@@ -34,12 +34,12 @@ final class SetupViewModel: ObservableObject {
         settingsStore: SettingsStore = UserDefaultsSettingsStore(),
         photosScanner: PhotoLibraryClient = PhotoKitPhotoLibraryClient(),
         sessionStore: SessionStore = CookieSessionStore(),
-        authCoordinator: GoogleAuthCoordinating = GoogleAuthCoordinator()
+        authCoordinator: GoogleAuthCoordinating? = nil
     ) {
         self.settingsStore = settingsStore
         self.photosScanner = photosScanner
         self.sessionStore = sessionStore
-        self.authCoordinator = authCoordinator
+        self.authCoordinator = authCoordinator ?? GoogleAuthCoordinator()
         let s = settingsStore.settings
         self.serverURL = s.backendBaseURL?.absoluteString ?? ""
         self.wifiOnly = s.wifiOnly
