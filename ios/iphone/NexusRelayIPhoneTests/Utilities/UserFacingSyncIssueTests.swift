@@ -19,10 +19,12 @@ final class UserFacingSyncIssueTests: XCTestCase {
             UserFacingSyncIssue.from(error: SyncError.cellularConnectionBlocked),
             .waitingForWiFi
         )
-        XCTAssertEqual(
-            UserFacingSyncIssue.from(error: NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)),
-            .waitingForConnection
-        )
+        let issue = UserFacingSyncIssue.from(error: NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet))
+        if case .waitingForConnection = issue {
+            // pass
+        } else {
+            XCTFail("Expected .waitingForConnection")
+        }
         XCTAssertEqual(
             UserFacingSyncIssue.from(error: APIError.requestFailed(statusCode: 503, message: "Backend unavailable")),
             .serverUnavailable
@@ -34,10 +36,12 @@ final class UserFacingSyncIssueTests: XCTestCase {
             UserFacingSyncIssue.fromStoredMessage("Failed to get current user"),
             .signInRequired
         )
-        XCTAssertEqual(
-            UserFacingSyncIssue.fromStoredMessage("The Internet connection appears to be offline."),
-            .waitingForConnection
-        )
+        let storedIssue = UserFacingSyncIssue.fromStoredMessage("The Internet connection appears to be offline.")
+        if case .waitingForConnection = storedIssue {
+            // pass
+        } else {
+            XCTFail("Expected .waitingForConnection")
+        }
         XCTAssertEqual(
             UserFacingSyncIssue.fromStoredMessage("iCloud download required but network access is disabled."),
             .needsICloudDownload

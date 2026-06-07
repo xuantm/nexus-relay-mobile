@@ -112,10 +112,9 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertTrue(batch.isEmpty) // uploaded items are not in next upload batch
         
-        // markSyncedByFingerprintSuffixes
-        let fp = AssetFingerprinter.generateFingerprint(candidate: candidate)
-        let suffix = AssetFingerprinter.getFingerprintSuffix(fingerprint: fp)
-        try await ledger.markSyncedByFingerprintSuffixes([suffix], folderId: folderId)
+        // markSyncedByUploadedFileNames
+        let fileName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: "")
+        try await ledger.markSyncedByUploadedFileNames([fileName], folderId: folderId)
         
         // Verify synced items are no longer fetched for upload.
         batch = try await ledger.nextUploadBatch(limit: 10)

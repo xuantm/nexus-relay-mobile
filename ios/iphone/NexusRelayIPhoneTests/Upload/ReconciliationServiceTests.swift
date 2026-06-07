@@ -82,14 +82,6 @@ final class ReconciliationServiceTests: XCTestCase {
         super.tearDown()
     }
 
-    func testExtractSuffix() {
-        XCTAssertEqual(service.extractSuffix(from: "photo__nr-bd02941f22ac9170.jpg"), "bd02941f22ac9170")
-        XCTAssertEqual(service.extractSuffix(from: "photo__nr-BD02941F22AC9170.PNG"), "bd02941f22ac9170")
-        XCTAssertNil(service.extractSuffix(from: "photo.jpg"))
-        XCTAssertNil(service.extractSuffix(from: "photo__nr-short.jpg"))
-        XCTAssertNil(service.extractSuffix(from: "photo__nr-nonhex123456789g.jpg"))
-    }
-
     func testReconciliationMarksSynced() async throws {
         let folderId = UUID()
         let date = Date()
@@ -124,14 +116,10 @@ final class ReconciliationServiceTests: XCTestCase {
         
         scanner.candidates = [candidate1, candidate2]
         
-        // Suffix of candidate1:
-        let fp1 = AssetFingerprinter.generateFingerprint(candidate: candidate1)
-        let suffix1 = AssetFingerprinter.getFingerprintSuffix(fingerprint: fp1)
-        
         let mockRemoteMedia = MediaItemDTO(
             id: UUID(),
             folderId: folderId,
-            fileName: "photo1__nr-\(suffix1).jpg",
+            fileName: "photo1.jpg",
             size: 1024,
             mimeType: "image/jpeg",
             width: 800,

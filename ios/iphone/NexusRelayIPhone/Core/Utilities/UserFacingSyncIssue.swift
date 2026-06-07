@@ -3,7 +3,7 @@ import Foundation
 enum UserFacingSyncIssue: Equatable {
     case signInRequired
     case waitingForWiFi
-    case waitingForConnection
+    case waitingForConnection(String)
     case serverUnavailable
     case needsICloudDownload
     case photosAccessRequired
@@ -15,8 +15,8 @@ enum UserFacingSyncIssue: Equatable {
             return "Sign in required"
         case .waitingForWiFi:
             return "Waiting for Wi-Fi"
-        case .waitingForConnection:
-            return "Waiting for connection"
+        case .waitingForConnection(let details):
+            return "Waiting for connection: \(details)"
         case .serverUnavailable:
             return "Server unavailable"
         case .needsICloudDownload:
@@ -81,7 +81,7 @@ enum UserFacingSyncIssue: Equatable {
                  NSURLErrorCannotConnectToHost,
                  NSURLErrorNetworkConnectionLost,
                  NSURLErrorNotConnectedToInternet:
-                return .waitingForConnection
+                return .waitingForConnection(error.localizedDescription)
             default:
                 break
             }
@@ -113,7 +113,7 @@ enum UserFacingSyncIssue: Equatable {
             normalized.contains("cannot connect to host") ||
             normalized.contains("cannot find host") ||
             normalized.contains("waiting for connection") {
-            return .waitingForConnection
+            return .waitingForConnection(rawMessage)
         }
         if normalized.contains("server unavailable") ||
             normalized.contains("status code 500") ||

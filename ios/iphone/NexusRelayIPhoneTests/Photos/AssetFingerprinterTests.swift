@@ -98,7 +98,7 @@ final class AssetFingerprinterTests: XCTestCase {
         XCTAssertFalse(uploadedName.contains("\n"))
         
         XCTAssertTrue(uploadedName.hasSuffix(".HEIC"))
-        XCTAssertTrue(uploadedName.contains("__nr-\(suffix)"))
+        XCTAssertFalse(uploadedName.contains("__nr-"))
     }
     
     func testUploadedFilenameOverwritesPreviousMarker() {
@@ -120,7 +120,7 @@ final class AssetFingerprinterTests: XCTestCase {
         let suffix = "bd02941f22ac9170"
         let uploadedName = AssetFingerprinter.generateUploadedFilename(candidate: candidate, suffix: suffix)
         
-        XCTAssertEqual(uploadedName, "IMG_1001__nr-bd02941f22ac9170.HEIC")
+        XCTAssertEqual(uploadedName, "IMG_1001.HEIC")
     }
 
     func testPublicFileSizeResolverReadsImageFileURLSize() throws {

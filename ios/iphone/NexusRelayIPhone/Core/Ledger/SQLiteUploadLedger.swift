@@ -326,15 +326,15 @@ final class SQLiteUploadLedger: UploadLedger {
         try runUpdate(sql, params: [backendUploadId.uuidString.lowercased(), id])
     }
 
-    func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws {
+    func markSyncedByUploadedFileNames(_ fileNames: Set<String>, folderId: UUID) async throws {
         lock.lock()
         defer { lock.unlock() }
-        guard !suffixes.isEmpty else { return }
+        guard !fileNames.isEmpty else { return }
         
         // SQLite transaction for bulk updates
         try execute("BEGIN IMMEDIATE TRANSACTION;")
         
-        let sql = "UPDATE upload_ledger SET status = 'synced' WHERE fingerprint_suffix = ? AND backend_folder_id = ?;"
+        let sql = "UPDATE upload_ledger SET status = 'synced' WHERE uploaded_file_name = ? AND backend_folder_id = ?;"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             try? execute("ROLLBACK;")
@@ -343,9 +343,9 @@ final class SQLiteUploadLedger: UploadLedger {
         
         defer { sqlite3_finalize(stmt) }
         
-        for suffix in suffixes {
+        for fileName in fileNames {
             sqlite3_reset(stmt)
-            sqlite3_bind_text(stmt, 1, suffix, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, fileName, -1, SQLITE_TRANSIENT)
             sqlite3_bind_text(stmt, 2, folderId.uuidString.lowercased(), -1, SQLITE_TRANSIENT)
             
             if sqlite3_step(stmt) != SQLITE_DONE {

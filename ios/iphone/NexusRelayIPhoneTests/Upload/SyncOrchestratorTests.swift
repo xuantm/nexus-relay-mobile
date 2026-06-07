@@ -188,7 +188,7 @@ final class MockUploadLedger: UploadLedger {
         }
     }
 
-    func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws {}
+    func markSyncedByUploadedFileNames(_ fileNames: Set<String>, folderId: UUID) async throws {}
 
     func markFailed(id: String, error: String, retryable: Bool) async throws {
         if let idx = records.firstIndex(where: { $0.id == id }) {

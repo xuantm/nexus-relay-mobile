@@ -23,7 +23,7 @@ protocol UploadLedger: AnyObject {
     func markReady(id: String, stagedFileURL: URL, sizeBytes: Int64) async throws
     func markUploading(id: String) async throws
     func markUploaded(id: String, backendUploadId: UUID) async throws
-    func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws
+    func markSyncedByUploadedFileNames(_ fileNames: Set<String>, folderId: UUID) async throws
     func markFailed(id: String, error: String, retryable: Bool) async throws
     func getLedgerCounts() async throws -> LedgerCounts
 }

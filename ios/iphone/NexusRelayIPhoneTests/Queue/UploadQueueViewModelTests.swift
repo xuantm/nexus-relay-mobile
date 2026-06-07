@@ -128,7 +128,7 @@ final class FakeQueueLedger: UploadLedger {
     func markReady(id: String, stagedFileURL: URL, sizeBytes: Int64) async throws {}
     func markUploading(id: String) async throws {}
     func markUploaded(id: String, backendUploadId: UUID) async throws {}
-    func markSyncedByFingerprintSuffixes(_ suffixes: Set<String>, folderId: UUID) async throws {}
+    func markSyncedByUploadedFileNames(_ fileNames: Set<String>, folderId: UUID) async throws {}
     func markFailed(id: String, error: String, retryable: Bool) async throws {}
     func getLedgerCounts() async throws -> LedgerCounts {
         LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)

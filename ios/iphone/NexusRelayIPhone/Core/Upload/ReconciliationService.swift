@@ -30,8 +30,8 @@ final class ReconciliationService {
     }
 
     func reconcile(folderId: UUID) async throws {
-        // 1. Fetch backend suffixes
-        var allSuffixes = Set<String>()
+        // 1. Fetch backend file names
+        var allRemoteFileNames = Set<String>()
         var cursor: String? = nil
         var hasMore = true
         
@@ -42,9 +42,7 @@ final class ReconciliationService {
             let items = content.mediaItems ?? content.media?.items ?? []
             
             for item in items {
-                if let suffix = extractSuffix(from: item.fileName) {
-                    allSuffixes.insert(suffix)
-                }
+                allRemoteFileNames.insert(item.fileName)
             }
             
             cursor = content.media?.nextCursor
@@ -58,20 +56,6 @@ final class ReconciliationService {
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
         
         // 4. Mark matches as synced
-        try await ledger.markSyncedByFingerprintSuffixes(allSuffixes, folderId: folderId)
-    }
-
-    func extractSuffix(from fileName: String) -> String? {
-        let fileURL = URL(fileURLWithPath: fileName)
-        let baseName = fileURL.deletingPathExtension().lastPathComponent
-        guard let nrIndex = baseName.range(of: "__nr-") else {
-            return nil
-        }
-        let suffix = String(baseName[nrIndex.upperBound...])
-        // Suffix must be 16 characters and hex
-        guard suffix.count == 16, suffix.allSatisfy({ $0.isHexDigit }) else {
-            return nil
-        }
-        return suffix.lowercased()
+        try await ledger.markSyncedByUploadedFileNames(allRemoteFileNames, folderId: folderId)
     }
 }

@@ -53,9 +53,9 @@ struct AssetFingerprinter {
         let safeExt = sanitizeFilename(ext)
         
         if safeExt.isEmpty {
-            return "\(baseName)__nr-\(suffix)"
+            return baseName
         } else {
-            return "\(baseName)__nr-\(suffix).\(safeExt)"
+            return "\(baseName).\(safeExt)"
         }
     }
     
