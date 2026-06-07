@@ -81,7 +81,8 @@ fun StatusScreen(
     val scopedFolderId by appSettingsStore.scopedFolderIdFlow.collectAsState(initial = "")
     val autoDeleteEnabled by appSettingsStore.autoDeleteEnabledFlow.collectAsState(initial = false)
     val autoDeleteDelayMinutes by appSettingsStore.autoDeleteDelayMinutesFlow.collectAsState(initial = 24 * 60)
-    val recentJobs by ledger.recentRecordsFlow.collectAsState(initial = emptyList())
+    val allJobs by ledger.allRecordsFlow.collectAsState(initial = emptyList())
+    val recentJobs = remember(allJobs) { allJobs.take(50) }
 
     val scopeLabel = when (syncScope) {
         "Folder" -> "Folder ${scopedFolderId?.take(8) ?: ""}"
@@ -92,7 +93,7 @@ fun StatusScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCleanupDialog by remember { mutableStateOf(false) }
     var selectedTab by rememberSaveable(stateSaver = PixelTabSaver) { mutableStateOf(PixelTab.Sync) }
-    val cleanupPreview = buildCleanupPreview(recentJobs)
+    val cleanupPreview = remember(allJobs) { buildCleanupPreview(allJobs) }
 
     if (showCleanupDialog) {
         CleanupConfirmDialog(
@@ -150,7 +151,7 @@ fun StatusScreen(
         when (selectedTab) {
             PixelTab.Sync -> SyncTab(
                 modifier = Modifier.padding(padding),
-                recentJobs = recentJobs,
+                allJobs = allJobs,
                 lastSyncAt = lastSyncAt,
                 scopeLabel = scopeLabel,
                 onSyncNow = {
@@ -192,12 +193,12 @@ fun StatusScreen(
 @Composable
 private fun SyncTab(
     modifier: Modifier = Modifier,
-    recentJobs: List<LocalSyncRecord>,
+    allJobs: List<LocalSyncRecord>,
     lastSyncAt: Long,
     scopeLabel: String,
     onSyncNow: () -> Unit
 ) {
-    val metrics = buildSyncMetrics(recentJobs)
+    val metrics = buildSyncMetrics(allJobs)
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -230,12 +231,12 @@ private fun SyncTab(
         item {
             Text("Recent ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        if (recentJobs.isEmpty()) {
+        if (allJobs.isEmpty()) {
             item {
                 Text("No sync records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            items(recentJobs.take(5), key = { it.jobId }) { record ->
+            items(allJobs.take(5), key = { it.jobId }) { record ->
                 LedgerRecordRow(record)
             }
         }

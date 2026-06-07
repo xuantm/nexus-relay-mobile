@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Rule
@@ -74,5 +75,44 @@ class LocalSyncLedgerTest {
         assertNotNull(failed)
         assertEquals(LocalSyncStatus.Failed, failed!!.status)
         assertEquals("Network error", failed.lastError)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun testLedgerFlowLimits() = runTest {
+        val tempFile = File(tempFolder.root, "test_ledger_flow.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        // Insert 60 records
+        for (i in 1..60) {
+            val record = LocalSyncRecord(
+                jobId = "job-$i",
+                mediaId = "media-$i",
+                fileName = "image-$i.png",
+                mimeType = "image/png",
+                sizeBytes = 100L,
+                sha256 = "hash-$i",
+                status = LocalSyncStatus.Confirmed,
+                localUri = "content://media/$i",
+                lastAttemptAt = i.toLong(),
+                lastError = null
+            )
+            ledger.upsert(record)
+        }
+
+        // Verify allRecordsFlow returns 60
+        val allRecords = ledger.allRecordsFlow.first()
+        assertEquals(60, allRecords.size)
+
+        // Verify recentRecordsFlow returns 50
+        val recentRecords = ledger.recentRecordsFlow.first()
+        assertEquals(50, recentRecords.size)
+
+        // Verify sorting (descending by lastAttemptAt)
+        assertEquals("job-60", allRecords.first().jobId)
+        assertEquals("job-1", allRecords.last().jobId)
+        assertEquals("job-60", recentRecords.first().jobId)
+        assertEquals("job-11", recentRecords.last().jobId)
     }
 }
