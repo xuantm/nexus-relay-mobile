@@ -17,7 +17,7 @@ struct LibrarySyncView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: NRDesign.Spacing.section) {
-                    if viewModel.summary.total == 0 {
+                    if viewModel.summary.total == 0 && viewModel.mosaicImages.isEmpty {
                         ContentUnavailableView(
                             "No items ready to upload",
                             systemImage: "photo.on.rectangle",
@@ -28,21 +28,31 @@ struct LibrarySyncView: View {
                         PhotoMosaicView(images: viewModel.mosaicImages)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(viewModel.summary.progressPercentText)
-                                .font(.largeTitle.bold())
-                                .foregroundStyle(NRDesign.ColorToken.primaryText)
+                            if viewModel.summary.total == 0 {
+                                Text("Ready to Sync")
+                                    .font(.largeTitle.bold())
+                                    .foregroundStyle(NRDesign.ColorToken.primaryText)
 
-                            ProgressView(value: viewModel.summary.progressFraction)
-                                .tint(NRDesign.ColorToken.accent)
-
-                            Text(viewModel.summary.summaryText)
-                                .font(.callout)
-                                .foregroundStyle(NRDesign.ColorToken.primaryText)
-
-                            if let lastSync = viewModel.lastSyncDate {
-                                Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.caption)
+                                Text("Tap Sync below to scan your library and start uploading.")
+                                    .font(.callout)
                                     .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                            } else {
+                                Text(viewModel.summary.progressPercentText)
+                                    .font(.largeTitle.bold())
+                                    .foregroundStyle(NRDesign.ColorToken.primaryText)
+
+                                ProgressView(value: viewModel.summary.progressFraction)
+                                    .tint(NRDesign.ColorToken.accent)
+
+                                Text(viewModel.summary.summaryText)
+                                    .font(.callout)
+                                    .foregroundStyle(NRDesign.ColorToken.primaryText)
+
+                                if let lastSync = viewModel.lastSyncDate {
+                                    Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.caption)
+                                        .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                                }
                             }
                         }
                     }
