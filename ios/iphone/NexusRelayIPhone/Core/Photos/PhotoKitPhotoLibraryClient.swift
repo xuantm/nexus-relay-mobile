@@ -41,7 +41,6 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
                 continue
             }
 
-            let publicSizes = await resolvePublicFileSizes(for: asset)
             let resources = PHAssetResource.assetResources(for: asset)
 
             for res in resources {
@@ -69,6 +68,7 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
 
                 // Get MIME type from UTI
                 let mimeType = UTType(uti)?.preferredMIMEType ?? "application/octet-stream"
+                let fileSize = res.value(forKey: "fileSize") as? Int64 ?? (res.value(forKey: "fileSize") as? NSNumber)?.int64Value
 
                 let candidate = PhotoAssetCandidate(
                     assetLocalIdentifier: asset.localIdentifier,
@@ -81,7 +81,7 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
                     pixelWidth: asset.pixelWidth,
                     pixelHeight: asset.pixelHeight,
                     durationSeconds: asset.mediaType == .video ? asset.duration : nil,
-                    resourceFileSize: publicFileSize(for: kind, sizes: publicSizes)
+                    resourceFileSize: fileSize
                 )
 
                 candidates.append(candidate)
@@ -89,32 +89,6 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
         }
 
         return candidates
-    }
-
-    private func resolvePublicFileSizes(for asset: PHAsset) async -> ResolvedPublicAssetSizes {
-        let options = PHContentEditingInputRequestOptions()
-        options.isNetworkAccessAllowed = false
-        options.canHandleAdjustmentData = { _ in true }
-
-        let input = await withCheckedContinuation { continuation in
-            asset.requestContentEditingInput(with: options) { input, _ in
-                continuation.resume(returning: input)
-            }
-        }
-
-        return ResolvedPublicAssetSizes(
-            imageSize: fileSizeResolver.fileSize(forImageFileURL: input?.fullSizeImageURL),
-            videoSize: fileSizeResolver.fileSize(forAudiovisualAsset: input?.audiovisualAsset)
-        )
-    }
-
-    private func publicFileSize(for kind: PhotoResourceKind, sizes: ResolvedPublicAssetSizes) -> Int64? {
-        switch kind {
-        case .image:
-            return sizes.imageSize
-        case .video, .livePhotoVideo:
-            return sizes.videoSize
-        }
     }
 
     private func mapStatus(_ status: PHAuthorizationStatus) -> PhotoLibraryAuthorizationStatus {

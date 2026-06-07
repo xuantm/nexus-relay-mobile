@@ -51,7 +51,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             }
             let queue = DispatchQueue(label: "reachability")
             monitor.start(queue: queue)
-            _ = semaphore.wait(timeout: .now() + 0.3)
+            _ = semaphore.wait(timeout: .now() + 2.0)
             monitor.cancel()
             return isWifi
         }
