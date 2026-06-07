@@ -40,38 +40,39 @@ final class LibrarySyncViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init(
-        syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel(),
-        thumbnailProvider: PhotoThumbnailProvider = PhotoKitThumbnailProvider()
+        syncStatusViewModel: SyncStatusViewModel? = nil,
+        thumbnailProvider: PhotoThumbnailProvider? = nil
     ) {
-        self.syncStatusViewModel = syncStatusViewModel
-        self.thumbnailProvider = thumbnailProvider
+        let svm = syncStatusViewModel ?? SyncStatusViewModel()
+        self.syncStatusViewModel = svm
+        self.thumbnailProvider = thumbnailProvider ?? PhotoKitThumbnailProvider()
         refreshFromSyncViewModel()
 
-        syncStatusViewModel.$queuedCount
+        svm.$queuedCount
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$uploadedCount
+        svm.$uploadedCount
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$failedCount
+        svm.$failedCount
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$exportingCount
+        svm.$exportingCount
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$uploadingCount
+        svm.$uploadingCount
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$activeStatus
+        svm.$activeStatus
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$lastSyncDate
+        svm.$lastSyncDate
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$errorMessage
+        svm.$errorMessage
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
-        syncStatusViewModel.$requiresSignInRepair
+        svm.$requiresSignInRepair
             .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
             .store(in: &cancellables)
     }

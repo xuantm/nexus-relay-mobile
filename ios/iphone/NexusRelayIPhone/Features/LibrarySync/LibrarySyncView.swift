@@ -1,14 +1,15 @@
 import SwiftUI
 
+@MainActor
 struct LibrarySyncView: View {
     @StateObject private var viewModel: LibrarySyncViewModel
     private let onRepairSignIn: () -> Void
 
     init(
-        syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel(),
+        syncStatusViewModel: SyncStatusViewModel? = nil,
         onRepairSignIn: @escaping () -> Void = {}
     ) {
-        _viewModel = StateObject(wrappedValue: LibrarySyncViewModel(syncStatusViewModel: syncStatusViewModel))
+        _viewModel = StateObject(wrappedValue: LibrarySyncViewModel(syncStatusViewModel: syncStatusViewModel ?? SyncStatusViewModel()))
         self.onRepairSignIn = onRepairSignIn
     }
 

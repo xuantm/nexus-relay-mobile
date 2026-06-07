@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct AppShellView: View {
     var onLogout: () -> Void
     @StateObject private var syncStatusViewModel = SyncStatusViewModel()

@@ -213,6 +213,35 @@ final class MockUploadLedger: UploadLedger {
         let uploading = records.filter { $0.status == .uploading }.count
         return LedgerCounts(queued: queued, uploaded: uploaded, failed: failed, exporting: exporting, uploading: uploading)
     }
+
+    func listQueueRecords(filter: UploadQueueFilter, limit: Int) async throws -> [UploadLedgerRecord] {
+        let filtered: [UploadLedgerRecord]
+        switch filter {
+        case .all:
+            filtered = records
+        case .active:
+            filtered = records.filter { $0.status == .exporting || $0.status == .readyToUpload || $0.status == .uploading }
+        case .failed:
+            filtered = records.filter { $0.status == .failed }
+        }
+        return Array(filtered.prefix(limit))
+    }
+
+    func retryFailed(ids: [String]) async throws {
+        for id in ids {
+            if let idx = records.firstIndex(where: { $0.id == id }) {
+                let r = records[idx]
+                records[idx] = UploadLedgerRecord(
+                    id: r.id, assetLocalIdentifier: r.assetLocalIdentifier, resourceKind: r.resourceKind,
+                    fingerprintSuffix: r.fingerprintSuffix, originalFilename: r.originalFilename,
+                    uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
+                    status: .discovered, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
+                    localStagedFileURL: r.localStagedFileURL, attemptCount: 0,
+                    lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                )
+            }
+        }
+    }
 }
 
 // MARK: - Orchestrator Tests

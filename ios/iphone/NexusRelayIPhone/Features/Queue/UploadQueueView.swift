@@ -1,13 +1,14 @@
 import SwiftUI
 
+@MainActor
 struct UploadQueueView: View {
     @StateObject private var viewModel = UploadQueueViewModel()
     @ObservedObject private var syncStatusViewModel: SyncStatusViewModel
     private let thumbnailProvider: PhotoThumbnailProvider = PhotoKitThumbnailProvider()
     @State private var selectedItem: UploadQueueItem?
 
-    init(syncStatusViewModel: SyncStatusViewModel = SyncStatusViewModel()) {
-        _syncStatusViewModel = ObservedObject(wrappedValue: syncStatusViewModel)
+    init(syncStatusViewModel: SyncStatusViewModel? = nil) {
+        _syncStatusViewModel = ObservedObject(wrappedValue: syncStatusViewModel ?? SyncStatusViewModel())
     }
 
     var body: some View {

@@ -1,0 +1,902 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		031934535DE74199A332A6E1 /* SetupChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841472B02355501B4E06B815 /* SetupChecklistView.swift */; };
+		046E07745DF0AC02C22A5FD8 /* CSRFTokenProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */; };
+		05F22D700A14D3548E938FDD /* SyncStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8452F3ECB114BA5E2F8C4A50 /* SyncStatusView.swift */; };
+		0764372D0D33CEEFA687D9D4 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6910A335C4268DFBE9C75AE1 /* SettingsViewModelTests.swift */; };
+		09637A2F32197CF8B46E81E3 /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F514666D744FEFE44E2D43A /* HTTPClient.swift */; };
+		0ADB3EFABF1024BE87A8048E /* UploadLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D350D562885AB10E37133164 /* UploadLedger.swift */; };
+		0BC15D8554C3F483DC12ECC5 /* PhotoKitPhotoLibraryClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDCEBAD0715EA8B0E86C5AD8 /* PhotoKitPhotoLibraryClient.swift */; };
+		104017150D262ECF6B0E5083 /* UploadQueueViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE49C4B34CF0286F01B76C89 /* UploadQueueViewModelTests.swift */; };
+		12B92B449A37282AA4DB4C50 /* SetupChecklistModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE1D3F6797F95DBDD864B36 /* SetupChecklistModelTests.swift */; };
+		16530D5E1E81CAECE925D67B /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68EEE7CD6A376253D8E007F /* APIModels.swift */; };
+		168F8E254F674D6E52C06B33 /* UploadQueueViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BE978B52AC781A6C103DF1B /* UploadQueueViewModel.swift */; };
+		1B5139E681161EBA62FBD945 /* UserFacingSyncIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1854EEECD0312DE5140AC5AA /* UserFacingSyncIssue.swift */; };
+		1DDC1978044FBF0768587F1C /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 99E5D532918CB716260D047F /* libsqlite3.tbd */; };
+		2411BEA0289486AF725AAC88 /* LibrarySyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3176985FB0DBA5D824BB57 /* LibrarySyncView.swift */; };
+		27B7391F8B72E6E55B0A62E7 /* UploadLedgerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB90F17380CAC2658187CBFF /* UploadLedgerModels.swift */; };
+		2C4C67B59DF63BF71ECFB245 /* LibrarySyncViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB696CA8C9A9428915ADBF /* LibrarySyncViewModelTests.swift */; };
+		2DD58A60F1BBE4CA42A853B0 /* ChunkFileBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A64DD42D2D1B5925BE4693 /* ChunkFileBuilder.swift */; };
+		306A084390361BE25CF27700 /* ChunkFileBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F05C14CD007FC841272FEABC /* ChunkFileBuilderTests.swift */; };
+		33A871526BE823334BAE0D0D /* ReconciliationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B0ADC677255EF254753983 /* ReconciliationService.swift */; };
+		3862A3FB4E62C70066C94F25 /* BackendURLValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4764951FBAFC3B2F1F8B18 /* BackendURLValidator.swift */; };
+		3C7EDC133E2EF830A6268357 /* NRDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90519145152B8E83D4148BA0 /* NRDesignSystem.swift */; };
+		3F0F2EB8E51E656F154B0F64 /* CookieSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */; };
+		453EA34845CBDABAB6174739 /* ReconciliationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BACF56BED20C420F05C3313E /* ReconciliationServiceTests.swift */; };
+		49C9F0A6840B1126086D856E /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76891BC50773D51A6BD88F42 /* AuthSession.swift */; };
+		4D330F4260FCF421860FE1FB /* NexusRelayIPhoneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE48578FD2B80DC81ACA71E6 /* NexusRelayIPhoneApp.swift */; };
+		4E415F7D25C63B7211CED53A /* UploadEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E39FC6FBEBB72CFB7C24471 /* UploadEngineTests.swift */; };
+		50DD9705BA754D9FF26163E5 /* UploadQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C93416521CF37634A61D64 /* UploadQueueView.swift */; };
+		5C910A3347B43F4E814DA439 /* SyncOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF241309A6EC487A8F3FBF93 /* SyncOrchestrator.swift */; };
+		5D675E4FB6E164FC488A91ED /* AssetFingerprinterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9364E2E7A158FAC9624AB519 /* AssetFingerprinterTests.swift */; };
+		5F0489B61812340E92B87DF1 /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8722FB4387D6C9A2BE9AA3F /* FolderPickerView.swift */; };
+		6071E88328F767CF014523EF /* SQLiteUploadLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D3EAC11D9A093851C7FC939 /* SQLiteUploadLedger.swift */; };
+		63BF689A8EF87B8B97661C7C /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB3316D39909DF58B54CE14 /* SettingsStoreTests.swift */; };
+		66D76672E210846B5F81919B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDA0F47CCA5AC7A88E910A7E /* SettingsView.swift */; };
+		6C1150392C10EEC540A1277A /* TemporaryFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392FB570D775AC3EEFE60405 /* TemporaryFileStoreTests.swift */; };
+		70E627F1748A61DA407B672D /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D33F2A1123FDB5B6BBCC733 /* SettingsStore.swift */; };
+		7311C990C0A49FD5D96BC34B /* UploadEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D36F194C6F41DA018000EC70 /* UploadEngine.swift */; };
+		734962C67399879390B71AB0 /* BackgroundSyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBFB9C6EA8EA7AC9E3607DA3 /* BackgroundSyncScheduler.swift */; };
+		7407FFC78CA0EA1051749D6E /* PhotoMosaicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93786F9E9B78772A50243C02 /* PhotoMosaicView.swift */; };
+		7BC6B692894B3C93013BBBDC /* SetupChecklistModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3D3CCC6E7E4151EA56E28D /* SetupChecklistModels.swift */; };
+		86EDAC5366E5A063BF94175B /* SetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F541C792B16D02BBF70C8C1 /* SetupViewModel.swift */; };
+		8FA5692080BFF530ABADED02 /* NexusRelayAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */; };
+		92460BDA3359B4CBED23A624 /* SyncOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13DEFB4497684C77EC40C544 /* SyncOrchestratorTests.swift */; };
+		99C614919CDFD5D9CA557162 /* UploadPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE17F5E722201260C7E33DD4 /* UploadPolicy.swift */; };
+		9A0EBC7B2AEAA5C2963E13BE /* PhotoAssetCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C96FD3C26021DCEE650A10 /* PhotoAssetCandidate.swift */; };
+		9BB8C29E477AF1B79EE4EB7D /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75522948B30395A06641443C /* SmokeTests.swift */; };
+		A1CA0ABF4AEC02E89CD56BA6 /* PhotoLibraryClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F854D7BA421153D87D93D1 /* PhotoLibraryClient.swift */; };
+		AAE44F20C02BE5DA97657C38 /* SQLiteUploadLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF871FBBE4DB1482FC33DD6 /* SQLiteUploadLedgerTests.swift */; };
+		ABDC8B7BF6BB7C6056C738E7 /* SyncStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1C3A8FF20D69BCB36A90CB /* SyncStatusViewModelTests.swift */; };
+		B16F7BF5B43A1883F8153914 /* LibrarySyncViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCCA8F844FE6DAECBA87DC17 /* LibrarySyncViewModel.swift */; };
+		BAFCB4ECF567734B5F0B8941 /* TemporaryFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F0BB2EEE8F0E39A262F46D /* TemporaryFileStore.swift */; };
+		BD5266128FC014509E2836DC /* NexusRelayAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4F07BD56E7FB7AF98D041A /* NexusRelayAPIClient.swift */; };
+		BEED807AEE659BAC56B7B31D /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043DF6855D66532EE93F93B5 /* AppSettings.swift */; };
+		BFF3B4471B3832DE77C045F3 /* AssetFingerprinter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D47794323A1DE8603841FA2 /* AssetFingerprinter.swift */; };
+		C8FD560DC88D1F010CC7B628 /* UserFacingSyncIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13EC5B1B3E52A14F577A2C6D /* UserFacingSyncIssueTests.swift */; };
+		D5A8C9999562521A77D0A49A /* UploadQueueModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38A57693FF3F9362F360AD2F /* UploadQueueModels.swift */; };
+		D657A8BC2ED0892A62DF81E1 /* AssetExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFDDDD0678B3FAB817874209 /* AssetExporter.swift */; };
+		DA877F0201BFF3A0BFD02BB8 /* SyncStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8568EC846EEE8C24E176F41 /* SyncStatusViewModel.swift */; };
+		DE6161CE8D855FA2D75C8CDF /* BackendURLValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */; };
+		E659C48E741F68F46AAA8AE9 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFA212748D27EF8520F84AD /* SettingsViewModel.swift */; };
+		E97405F8DD2C64013E25FEC9 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607DB365E1BC6EE77D2F3864 /* AppShellView.swift */; };
+		E9AE67C50FD1DF6F980AE910 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C731549D8BBABAA66E7C64F4 /* KeychainStore.swift */; };
+		EBB2D99CA268A2BED156B7B1 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4145640D67002909C040E2B0 /* SetupView.swift */; };
+		EE64AA18D62AFA2AD6CAF041 /* PhotoKitAssetExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC5297DE50969A729845080E /* PhotoKitAssetExporter.swift */; };
+		F1FC98E27DD8F9F381324FD8 /* CSRFTokenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB310C0BFF985F4F623F5ED4 /* CSRFTokenProvider.swift */; };
+		F38A67129B1932484E5E7FC7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67EEFD21C7557C5A76FE5313 /* AppDelegate.swift */; };
+		FB74D7D79125E175DCF69477 /* PhotoThumbnailProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FBF810683A68740CB5F17BA /* PhotoThumbnailProvider.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F37DA10BC8D6B015329C578F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3C341407CB7AF4A10B3AE3E0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7ECF3BD395D435361AD9677E;
+			remoteInfo = NexusRelayIPhone;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		043DF6855D66532EE93F93B5 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		13DEFB4497684C77EC40C544 /* SyncOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncOrchestratorTests.swift; sourceTree = "<group>"; };
+		13EC5B1B3E52A14F577A2C6D /* UserFacingSyncIssueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingSyncIssueTests.swift; sourceTree = "<group>"; };
+		14C96FD3C26021DCEE650A10 /* PhotoAssetCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoAssetCandidate.swift; sourceTree = "<group>"; };
+		1854EEECD0312DE5140AC5AA /* UserFacingSyncIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingSyncIssue.swift; sourceTree = "<group>"; };
+		1D47794323A1DE8603841FA2 /* AssetFingerprinter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetFingerprinter.swift; sourceTree = "<group>"; };
+		232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieSessionStore.swift; sourceTree = "<group>"; };
+		24F0BB2EEE8F0E39A262F46D /* TemporaryFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStore.swift; sourceTree = "<group>"; };
+		2EFA212748D27EF8520F84AD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		38A57693FF3F9362F360AD2F /* UploadQueueModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueModels.swift; sourceTree = "<group>"; };
+		392FB570D775AC3EEFE60405 /* TemporaryFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStoreTests.swift; sourceTree = "<group>"; };
+		3BE978B52AC781A6C103DF1B /* UploadQueueViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueViewModel.swift; sourceTree = "<group>"; };
+		3C40538C66CE032FE1F521CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3D3EAC11D9A093851C7FC939 /* SQLiteUploadLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteUploadLedger.swift; sourceTree = "<group>"; };
+		4145640D67002909C040E2B0 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		43D39BD89E8E95A3D9658051 /* NexusRelayIPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NexusRelayIPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A3D3CCC6E7E4151EA56E28D /* SetupChecklistModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecklistModels.swift; sourceTree = "<group>"; };
+		5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClientTests.swift; sourceTree = "<group>"; };
+		5A19CCE0D407E32FC0F67822 /* NexusRelayIPhoneTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NexusRelayIPhoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D33F2A1123FDB5B6BBCC733 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		5FF871FBBE4DB1482FC33DD6 /* SQLiteUploadLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteUploadLedgerTests.swift; sourceTree = "<group>"; };
+		607DB365E1BC6EE77D2F3864 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		67EEFD21C7557C5A76FE5313 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		6910A335C4268DFBE9C75AE1 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
+		6F514666D744FEFE44E2D43A /* HTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClient.swift; sourceTree = "<group>"; };
+		75522948B30395A06641443C /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
+		76891BC50773D51A6BD88F42 /* AuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
+		7B1C3A8FF20D69BCB36A90CB /* SyncStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusViewModelTests.swift; sourceTree = "<group>"; };
+		841472B02355501B4E06B815 /* SetupChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecklistView.swift; sourceTree = "<group>"; };
+		8452F3ECB114BA5E2F8C4A50 /* SyncStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusView.swift; sourceTree = "<group>"; };
+		8E39FC6FBEBB72CFB7C24471 /* UploadEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadEngineTests.swift; sourceTree = "<group>"; };
+		8F541C792B16D02BBF70C8C1 /* SetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupViewModel.swift; sourceTree = "<group>"; };
+		90519145152B8E83D4148BA0 /* NRDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NRDesignSystem.swift; sourceTree = "<group>"; };
+		9364E2E7A158FAC9624AB519 /* AssetFingerprinterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetFingerprinterTests.swift; sourceTree = "<group>"; };
+		93786F9E9B78772A50243C02 /* PhotoMosaicView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMosaicView.swift; sourceTree = "<group>"; };
+		99E5D532918CB716260D047F /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		9B4F07BD56E7FB7AF98D041A /* NexusRelayAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClient.swift; sourceTree = "<group>"; };
+		9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendURLValidatorTests.swift; sourceTree = "<group>"; };
+		9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSRFTokenProviderTests.swift; sourceTree = "<group>"; };
+		9FBF810683A68740CB5F17BA /* PhotoThumbnailProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoThumbnailProvider.swift; sourceTree = "<group>"; };
+		A68EEE7CD6A376253D8E007F /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		BACF56BED20C420F05C3313E /* ReconciliationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconciliationServiceTests.swift; sourceTree = "<group>"; };
+		BC5297DE50969A729845080E /* PhotoKitAssetExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoKitAssetExporter.swift; sourceTree = "<group>"; };
+		BCCA8F844FE6DAECBA87DC17 /* LibrarySyncViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySyncViewModel.swift; sourceTree = "<group>"; };
+		BCFB696CA8C9A9428915ADBF /* LibrarySyncViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySyncViewModelTests.swift; sourceTree = "<group>"; };
+		BF3176985FB0DBA5D824BB57 /* LibrarySyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySyncView.swift; sourceTree = "<group>"; };
+		C731549D8BBABAA66E7C64F4 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		C8722FB4387D6C9A2BE9AA3F /* FolderPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPickerView.swift; sourceTree = "<group>"; };
+		CBFB9C6EA8EA7AC9E3607DA3 /* BackgroundSyncScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSyncScheduler.swift; sourceTree = "<group>"; };
+		CDCEBAD0715EA8B0E86C5AD8 /* PhotoKitPhotoLibraryClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoKitPhotoLibraryClient.swift; sourceTree = "<group>"; };
+		D350D562885AB10E37133164 /* UploadLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLedger.swift; sourceTree = "<group>"; };
+		D36F194C6F41DA018000EC70 /* UploadEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadEngine.swift; sourceTree = "<group>"; };
+		D8568EC846EEE8C24E176F41 /* SyncStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusViewModel.swift; sourceTree = "<group>"; };
+		DB310C0BFF985F4F623F5ED4 /* CSRFTokenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSRFTokenProvider.swift; sourceTree = "<group>"; };
+		DDA0F47CCA5AC7A88E910A7E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DEE1D3F6797F95DBDD864B36 /* SetupChecklistModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupChecklistModelTests.swift; sourceTree = "<group>"; };
+		DF241309A6EC487A8F3FBF93 /* SyncOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncOrchestrator.swift; sourceTree = "<group>"; };
+		E9A64DD42D2D1B5925BE4693 /* ChunkFileBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkFileBuilder.swift; sourceTree = "<group>"; };
+		EB4764951FBAFC3B2F1F8B18 /* BackendURLValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendURLValidator.swift; sourceTree = "<group>"; };
+		EB90F17380CAC2658187CBFF /* UploadLedgerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLedgerModels.swift; sourceTree = "<group>"; };
+		ECB3316D39909DF58B54CE14 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
+		F05C14CD007FC841272FEABC /* ChunkFileBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkFileBuilderTests.swift; sourceTree = "<group>"; };
+		F2F854D7BA421153D87D93D1 /* PhotoLibraryClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryClient.swift; sourceTree = "<group>"; };
+		F4B0ADC677255EF254753983 /* ReconciliationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconciliationService.swift; sourceTree = "<group>"; };
+		F4C93416521CF37634A61D64 /* UploadQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueView.swift; sourceTree = "<group>"; };
+		FE17F5E722201260C7E33DD4 /* UploadPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadPolicy.swift; sourceTree = "<group>"; };
+		FE48578FD2B80DC81ACA71E6 /* NexusRelayIPhoneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayIPhoneApp.swift; sourceTree = "<group>"; };
+		FE49C4B34CF0286F01B76C89 /* UploadQueueViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueViewModelTests.swift; sourceTree = "<group>"; };
+		FFDDDD0678B3FAB817874209 /* AssetExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetExporter.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0BB354C0C34ABC35A736EF08 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1DDC1978044FBF0768587F1C /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		083E4B88A3AE8DE79971C86F /* FolderPicker */ = {
+			isa = PBXGroup;
+			children = (
+				C8722FB4387D6C9A2BE9AA3F /* FolderPickerView.swift */,
+			);
+			path = FolderPicker;
+			sourceTree = "<group>";
+		};
+		08F74DDD6CDB3031014343C2 /* SyncStatus */ = {
+			isa = PBXGroup;
+			children = (
+				7B1C3A8FF20D69BCB36A90CB /* SyncStatusViewModelTests.swift */,
+			);
+			path = SyncStatus;
+			sourceTree = "<group>";
+		};
+		08FBDF508740087A061C5E6D /* Background */ = {
+			isa = PBXGroup;
+			children = (
+				CBFB9C6EA8EA7AC9E3607DA3 /* BackgroundSyncScheduler.swift */,
+			);
+			path = Background;
+			sourceTree = "<group>";
+		};
+		2EA6D436D2A3AF359EB1C3AA /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AC7734F6BE984E2A96E09F80 /* API */,
+				ADEE42F3D08235F179456E83 /* Auth */,
+				08FBDF508740087A061C5E6D /* Background */,
+				CF9631DDD7B36D896ABC0C05 /* Design */,
+				F27416CBF5130B14F5B11D9C /* Ledger */,
+				3A933246D9C50495C5B3FA2D /* Photos */,
+				BC93BF154254A63905C67C35 /* Upload */,
+				36441E34D61F16B4D988784E /* Utilities */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		2EAB3A3492D400FB97A8D9F7 /* LibrarySync */ = {
+			isa = PBXGroup;
+			children = (
+				BCFB696CA8C9A9428915ADBF /* LibrarySyncViewModelTests.swift */,
+			);
+			path = LibrarySync;
+			sourceTree = "<group>";
+		};
+		30A6570EADFF1F01E5523CCD /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				C0AD9ADC6E29B81E3AD1EF11 /* AppShell */,
+				083E4B88A3AE8DE79971C86F /* FolderPicker */,
+				B2EBFE936E36770E4A5BB2BC /* LibrarySync */,
+				8BF73ECC4D8C685F64A73DD7 /* Queue */,
+				D9D3E0CFD27F1F61BF63B5C6 /* Settings */,
+				F9EBBB0EEEF5BDA730315655 /* Setup */,
+				DE4546B6E56736C39FD943DF /* SyncStatus */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		30B404DBD569F1AD61A65494 /* Ledger */ = {
+			isa = PBXGroup;
+			children = (
+				5FF871FBBE4DB1482FC33DD6 /* SQLiteUploadLedgerTests.swift */,
+			);
+			path = Ledger;
+			sourceTree = "<group>";
+		};
+		3135CAC4F15826EFCC9E8A3D /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */,
+				ECB3316D39909DF58B54CE14 /* SettingsStoreTests.swift */,
+				13EC5B1B3E52A14F577A2C6D /* UserFacingSyncIssueTests.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		36441E34D61F16B4D988784E /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				043DF6855D66532EE93F93B5 /* AppSettings.swift */,
+				EB4764951FBAFC3B2F1F8B18 /* BackendURLValidator.swift */,
+				5D33F2A1123FDB5B6BBCC733 /* SettingsStore.swift */,
+				1854EEECD0312DE5140AC5AA /* UserFacingSyncIssue.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		3A933246D9C50495C5B3FA2D /* Photos */ = {
+			isa = PBXGroup;
+			children = (
+				1D47794323A1DE8603841FA2 /* AssetFingerprinter.swift */,
+				14C96FD3C26021DCEE650A10 /* PhotoAssetCandidate.swift */,
+				CDCEBAD0715EA8B0E86C5AD8 /* PhotoKitPhotoLibraryClient.swift */,
+				F2F854D7BA421153D87D93D1 /* PhotoLibraryClient.swift */,
+				9FBF810683A68740CB5F17BA /* PhotoThumbnailProvider.swift */,
+			);
+			path = Photos;
+			sourceTree = "<group>";
+		};
+		582793E2AF236E7CC0AE2056 /* NexusRelayIPhoneTests */ = {
+			isa = PBXGroup;
+			children = (
+				75522948B30395A06641443C /* SmokeTests.swift */,
+				7B8A336A2A6582AD525DA43E /* API */,
+				FFB26337E12A95054D11281C /* Auth */,
+				30B404DBD569F1AD61A65494 /* Ledger */,
+				2EAB3A3492D400FB97A8D9F7 /* LibrarySync */,
+				6AA6B22ED9E40D4DBB88FBEA /* Photos */,
+				FF3BBF8ACCE09F6183598F2F /* Queue */,
+				A60DA498A72331E808A1029D /* Settings */,
+				6B61B465B9AED7F95B03A2A5 /* Setup */,
+				08F74DDD6CDB3031014343C2 /* SyncStatus */,
+				F72191BD3A14610F4CCB2BCB /* Upload */,
+				3135CAC4F15826EFCC9E8A3D /* Utilities */,
+			);
+			path = NexusRelayIPhoneTests;
+			sourceTree = "<group>";
+		};
+		6AA6B22ED9E40D4DBB88FBEA /* Photos */ = {
+			isa = PBXGroup;
+			children = (
+				9364E2E7A158FAC9624AB519 /* AssetFingerprinterTests.swift */,
+			);
+			path = Photos;
+			sourceTree = "<group>";
+		};
+		6B065EC27C62142FCA37BC8F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				67EEFD21C7557C5A76FE5313 /* AppDelegate.swift */,
+				FE48578FD2B80DC81ACA71E6 /* NexusRelayIPhoneApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		6B61B465B9AED7F95B03A2A5 /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				DEE1D3F6797F95DBDD864B36 /* SetupChecklistModelTests.swift */,
+			);
+			path = Setup;
+			sourceTree = "<group>";
+		};
+		7B8A336A2A6582AD525DA43E /* API */ = {
+			isa = PBXGroup;
+			children = (
+				5334E83EE7E43E05A23B79A4 /* NexusRelayAPIClientTests.swift */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		84ECFB61B89B0C1EECFE3D7D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				43D39BD89E8E95A3D9658051 /* NexusRelayIPhone.app */,
+				5A19CCE0D407E32FC0F67822 /* NexusRelayIPhoneTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8BF73ECC4D8C685F64A73DD7 /* Queue */ = {
+			isa = PBXGroup;
+			children = (
+				38A57693FF3F9362F360AD2F /* UploadQueueModels.swift */,
+				F4C93416521CF37634A61D64 /* UploadQueueView.swift */,
+				3BE978B52AC781A6C103DF1B /* UploadQueueViewModel.swift */,
+			);
+			path = Queue;
+			sourceTree = "<group>";
+		};
+		932605048B09226FBD150BD5 /* NexusRelayIPhone */ = {
+			isa = PBXGroup;
+			children = (
+				6B065EC27C62142FCA37BC8F /* App */,
+				2EA6D436D2A3AF359EB1C3AA /* Core */,
+				30A6570EADFF1F01E5523CCD /* Features */,
+				A1A1040F6313B9FF102D22CD /* Resources */,
+			);
+			path = NexusRelayIPhone;
+			sourceTree = "<group>";
+		};
+		A1A1040F6313B9FF102D22CD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3C40538C66CE032FE1F521CF /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A60DA498A72331E808A1029D /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				6910A335C4268DFBE9C75AE1 /* SettingsViewModelTests.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		AC7734F6BE984E2A96E09F80 /* API */ = {
+			isa = PBXGroup;
+			children = (
+				A68EEE7CD6A376253D8E007F /* APIModels.swift */,
+				6F514666D744FEFE44E2D43A /* HTTPClient.swift */,
+				9B4F07BD56E7FB7AF98D041A /* NexusRelayAPIClient.swift */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		AD88C0E2ED2E2FD52EC1614D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				99E5D532918CB716260D047F /* libsqlite3.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		ADEE42F3D08235F179456E83 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				76891BC50773D51A6BD88F42 /* AuthSession.swift */,
+				232E8FDC9011D5963BDEC19F /* CookieSessionStore.swift */,
+				DB310C0BFF985F4F623F5ED4 /* CSRFTokenProvider.swift */,
+				C731549D8BBABAA66E7C64F4 /* KeychainStore.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		B2EBFE936E36770E4A5BB2BC /* LibrarySync */ = {
+			isa = PBXGroup;
+			children = (
+				BF3176985FB0DBA5D824BB57 /* LibrarySyncView.swift */,
+				BCCA8F844FE6DAECBA87DC17 /* LibrarySyncViewModel.swift */,
+				93786F9E9B78772A50243C02 /* PhotoMosaicView.swift */,
+			);
+			path = LibrarySync;
+			sourceTree = "<group>";
+		};
+		BC93BF154254A63905C67C35 /* Upload */ = {
+			isa = PBXGroup;
+			children = (
+				FFDDDD0678B3FAB817874209 /* AssetExporter.swift */,
+				E9A64DD42D2D1B5925BE4693 /* ChunkFileBuilder.swift */,
+				BC5297DE50969A729845080E /* PhotoKitAssetExporter.swift */,
+				F4B0ADC677255EF254753983 /* ReconciliationService.swift */,
+				DF241309A6EC487A8F3FBF93 /* SyncOrchestrator.swift */,
+				24F0BB2EEE8F0E39A262F46D /* TemporaryFileStore.swift */,
+				D36F194C6F41DA018000EC70 /* UploadEngine.swift */,
+				FE17F5E722201260C7E33DD4 /* UploadPolicy.swift */,
+			);
+			path = Upload;
+			sourceTree = "<group>";
+		};
+		C0AD9ADC6E29B81E3AD1EF11 /* AppShell */ = {
+			isa = PBXGroup;
+			children = (
+				607DB365E1BC6EE77D2F3864 /* AppShellView.swift */,
+			);
+			path = AppShell;
+			sourceTree = "<group>";
+		};
+		CF9631DDD7B36D896ABC0C05 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				90519145152B8E83D4148BA0 /* NRDesignSystem.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		D9D3E0CFD27F1F61BF63B5C6 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				DDA0F47CCA5AC7A88E910A7E /* SettingsView.swift */,
+				2EFA212748D27EF8520F84AD /* SettingsViewModel.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		DE4546B6E56736C39FD943DF /* SyncStatus */ = {
+			isa = PBXGroup;
+			children = (
+				8452F3ECB114BA5E2F8C4A50 /* SyncStatusView.swift */,
+				D8568EC846EEE8C24E176F41 /* SyncStatusViewModel.swift */,
+			);
+			path = SyncStatus;
+			sourceTree = "<group>";
+		};
+		F27416CBF5130B14F5B11D9C /* Ledger */ = {
+			isa = PBXGroup;
+			children = (
+				3D3EAC11D9A093851C7FC939 /* SQLiteUploadLedger.swift */,
+				D350D562885AB10E37133164 /* UploadLedger.swift */,
+				EB90F17380CAC2658187CBFF /* UploadLedgerModels.swift */,
+			);
+			path = Ledger;
+			sourceTree = "<group>";
+		};
+		F72191BD3A14610F4CCB2BCB /* Upload */ = {
+			isa = PBXGroup;
+			children = (
+				F05C14CD007FC841272FEABC /* ChunkFileBuilderTests.swift */,
+				BACF56BED20C420F05C3313E /* ReconciliationServiceTests.swift */,
+				13DEFB4497684C77EC40C544 /* SyncOrchestratorTests.swift */,
+				392FB570D775AC3EEFE60405 /* TemporaryFileStoreTests.swift */,
+				8E39FC6FBEBB72CFB7C24471 /* UploadEngineTests.swift */,
+			);
+			path = Upload;
+			sourceTree = "<group>";
+		};
+		F9EBBB0EEEF5BDA730315655 /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				4A3D3CCC6E7E4151EA56E28D /* SetupChecklistModels.swift */,
+				841472B02355501B4E06B815 /* SetupChecklistView.swift */,
+				4145640D67002909C040E2B0 /* SetupView.swift */,
+				8F541C792B16D02BBF70C8C1 /* SetupViewModel.swift */,
+			);
+			path = Setup;
+			sourceTree = "<group>";
+		};
+		FD668EE7997BA1B609188FC3 = {
+			isa = PBXGroup;
+			children = (
+				932605048B09226FBD150BD5 /* NexusRelayIPhone */,
+				582793E2AF236E7CC0AE2056 /* NexusRelayIPhoneTests */,
+				AD88C0E2ED2E2FD52EC1614D /* Frameworks */,
+				84ECFB61B89B0C1EECFE3D7D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FF3BBF8ACCE09F6183598F2F /* Queue */ = {
+			isa = PBXGroup;
+			children = (
+				FE49C4B34CF0286F01B76C89 /* UploadQueueViewModelTests.swift */,
+			);
+			path = Queue;
+			sourceTree = "<group>";
+		};
+		FFB26337E12A95054D11281C /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7ECF3BD395D435361AD9677E /* NexusRelayIPhone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1F98C3C5E5E70F5C66051E62 /* Build configuration list for PBXNativeTarget "NexusRelayIPhone" */;
+			buildPhases = (
+				E07F9BD0A54E3FC6A1A7B23B /* Sources */,
+				0BB354C0C34ABC35A736EF08 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NexusRelayIPhone;
+			packageProductDependencies = (
+			);
+			productName = NexusRelayIPhone;
+			productReference = 43D39BD89E8E95A3D9658051 /* NexusRelayIPhone.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C1C7186D5D5AB28504F9D881 /* NexusRelayIPhoneTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D669682240B5FA43E33F974B /* Build configuration list for PBXNativeTarget "NexusRelayIPhoneTests" */;
+			buildPhases = (
+				CE4D389EFE3BD70CB1FBEC21 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				273D3823CC285AA3B60669A9 /* PBXTargetDependency */,
+			);
+			name = NexusRelayIPhoneTests;
+			packageProductDependencies = (
+			);
+			productName = NexusRelayIPhoneTests;
+			productReference = 5A19CCE0D407E32FC0F67822 /* NexusRelayIPhoneTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3C341407CB7AF4A10B3AE3E0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = E12DDD62C449A77784B92255 /* Build configuration list for PBXProject "NexusRelayIPhone" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FD668EE7997BA1B609188FC3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 84ECFB61B89B0C1EECFE3D7D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7ECF3BD395D435361AD9677E /* NexusRelayIPhone */,
+				C1C7186D5D5AB28504F9D881 /* NexusRelayIPhoneTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CE4D389EFE3BD70CB1FBEC21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D675E4FB6E164FC488A91ED /* AssetFingerprinterTests.swift in Sources */,
+				DE6161CE8D855FA2D75C8CDF /* BackendURLValidatorTests.swift in Sources */,
+				046E07745DF0AC02C22A5FD8 /* CSRFTokenProviderTests.swift in Sources */,
+				306A084390361BE25CF27700 /* ChunkFileBuilderTests.swift in Sources */,
+				2C4C67B59DF63BF71ECFB245 /* LibrarySyncViewModelTests.swift in Sources */,
+				8FA5692080BFF530ABADED02 /* NexusRelayAPIClientTests.swift in Sources */,
+				453EA34845CBDABAB6174739 /* ReconciliationServiceTests.swift in Sources */,
+				AAE44F20C02BE5DA97657C38 /* SQLiteUploadLedgerTests.swift in Sources */,
+				63BF689A8EF87B8B97661C7C /* SettingsStoreTests.swift in Sources */,
+				0764372D0D33CEEFA687D9D4 /* SettingsViewModelTests.swift in Sources */,
+				12B92B449A37282AA4DB4C50 /* SetupChecklistModelTests.swift in Sources */,
+				9BB8C29E477AF1B79EE4EB7D /* SmokeTests.swift in Sources */,
+				92460BDA3359B4CBED23A624 /* SyncOrchestratorTests.swift in Sources */,
+				ABDC8B7BF6BB7C6056C738E7 /* SyncStatusViewModelTests.swift in Sources */,
+				6C1150392C10EEC540A1277A /* TemporaryFileStoreTests.swift in Sources */,
+				4E415F7D25C63B7211CED53A /* UploadEngineTests.swift in Sources */,
+				104017150D262ECF6B0E5083 /* UploadQueueViewModelTests.swift in Sources */,
+				C8FD560DC88D1F010CC7B628 /* UserFacingSyncIssueTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E07F9BD0A54E3FC6A1A7B23B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16530D5E1E81CAECE925D67B /* APIModels.swift in Sources */,
+				F38A67129B1932484E5E7FC7 /* AppDelegate.swift in Sources */,
+				BEED807AEE659BAC56B7B31D /* AppSettings.swift in Sources */,
+				E97405F8DD2C64013E25FEC9 /* AppShellView.swift in Sources */,
+				D657A8BC2ED0892A62DF81E1 /* AssetExporter.swift in Sources */,
+				BFF3B4471B3832DE77C045F3 /* AssetFingerprinter.swift in Sources */,
+				49C9F0A6840B1126086D856E /* AuthSession.swift in Sources */,
+				3862A3FB4E62C70066C94F25 /* BackendURLValidator.swift in Sources */,
+				734962C67399879390B71AB0 /* BackgroundSyncScheduler.swift in Sources */,
+				F1FC98E27DD8F9F381324FD8 /* CSRFTokenProvider.swift in Sources */,
+				2DD58A60F1BBE4CA42A853B0 /* ChunkFileBuilder.swift in Sources */,
+				3F0F2EB8E51E656F154B0F64 /* CookieSessionStore.swift in Sources */,
+				5F0489B61812340E92B87DF1 /* FolderPickerView.swift in Sources */,
+				09637A2F32197CF8B46E81E3 /* HTTPClient.swift in Sources */,
+				E9AE67C50FD1DF6F980AE910 /* KeychainStore.swift in Sources */,
+				2411BEA0289486AF725AAC88 /* LibrarySyncView.swift in Sources */,
+				B16F7BF5B43A1883F8153914 /* LibrarySyncViewModel.swift in Sources */,
+				3C7EDC133E2EF830A6268357 /* NRDesignSystem.swift in Sources */,
+				BD5266128FC014509E2836DC /* NexusRelayAPIClient.swift in Sources */,
+				4D330F4260FCF421860FE1FB /* NexusRelayIPhoneApp.swift in Sources */,
+				9A0EBC7B2AEAA5C2963E13BE /* PhotoAssetCandidate.swift in Sources */,
+				EE64AA18D62AFA2AD6CAF041 /* PhotoKitAssetExporter.swift in Sources */,
+				0BC15D8554C3F483DC12ECC5 /* PhotoKitPhotoLibraryClient.swift in Sources */,
+				A1CA0ABF4AEC02E89CD56BA6 /* PhotoLibraryClient.swift in Sources */,
+				7407FFC78CA0EA1051749D6E /* PhotoMosaicView.swift in Sources */,
+				FB74D7D79125E175DCF69477 /* PhotoThumbnailProvider.swift in Sources */,
+				33A871526BE823334BAE0D0D /* ReconciliationService.swift in Sources */,
+				6071E88328F767CF014523EF /* SQLiteUploadLedger.swift in Sources */,
+				70E627F1748A61DA407B672D /* SettingsStore.swift in Sources */,
+				66D76672E210846B5F81919B /* SettingsView.swift in Sources */,
+				E659C48E741F68F46AAA8AE9 /* SettingsViewModel.swift in Sources */,
+				7BC6B692894B3C93013BBBDC /* SetupChecklistModels.swift in Sources */,
+				031934535DE74199A332A6E1 /* SetupChecklistView.swift in Sources */,
+				EBB2D99CA268A2BED156B7B1 /* SetupView.swift in Sources */,
+				86EDAC5366E5A063BF94175B /* SetupViewModel.swift in Sources */,
+				5C910A3347B43F4E814DA439 /* SyncOrchestrator.swift in Sources */,
+				05F22D700A14D3548E938FDD /* SyncStatusView.swift in Sources */,
+				DA877F0201BFF3A0BFD02BB8 /* SyncStatusViewModel.swift in Sources */,
+				BAFCB4ECF567734B5F0B8941 /* TemporaryFileStore.swift in Sources */,
+				7311C990C0A49FD5D96BC34B /* UploadEngine.swift in Sources */,
+				0ADB3EFABF1024BE87A8048E /* UploadLedger.swift in Sources */,
+				27B7391F8B72E6E55B0A62E7 /* UploadLedgerModels.swift in Sources */,
+				99C614919CDFD5D9CA557162 /* UploadPolicy.swift in Sources */,
+				D5A8C9999562521A77D0A49A /* UploadQueueModels.swift in Sources */,
+				50DD9705BA754D9FF26163E5 /* UploadQueueView.swift in Sources */,
+				168F8E254F674D6E52C06B33 /* UploadQueueViewModel.swift in Sources */,
+				1B5139E681161EBA62FBD945 /* UserFacingSyncIssue.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		273D3823CC285AA3B60669A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7ECF3BD395D435361AD9677E /* NexusRelayIPhone */;
+			targetProxy = F37DA10BC8D6B015329C578F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		282AFE49729327FF8D88040A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55PLL367DQ;
+				INFOPLIST_FILE = NexusRelayIPhone/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexusrelay.iphone;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6DEAA1318942F807F60AEF42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexusrelay.iphoneTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NexusRelayIPhone.app/NexusRelayIPhone";
+			};
+			name = Release;
+		};
+		796CFD98AEE285817839F3D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexusrelay.iphoneTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NexusRelayIPhone.app/NexusRelayIPhone";
+			};
+			name = Debug;
+		};
+		93352190E744D85BD737AE32 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		D82A4572C87AF0439BCA4AA5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55PLL367DQ;
+				INFOPLIST_FILE = NexusRelayIPhone/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexusrelay.iphone;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E331068C3C6C389810A3E99B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1F98C3C5E5E70F5C66051E62 /* Build configuration list for PBXNativeTarget "NexusRelayIPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D82A4572C87AF0439BCA4AA5 /* Debug */,
+				282AFE49729327FF8D88040A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D669682240B5FA43E33F974B /* Build configuration list for PBXNativeTarget "NexusRelayIPhoneTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				796CFD98AEE285817839F3D7 /* Debug */,
+				6DEAA1318942F807F60AEF42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E12DDD62C449A77784B92255 /* Build configuration list for PBXProject "NexusRelayIPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E331068C3C6C389810A3E99B /* Debug */,
+				93352190E744D85BD737AE32 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 3C341407CB7AF4A10B3AE3E0 /* Project object */;
+}

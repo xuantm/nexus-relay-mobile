@@ -7,7 +7,7 @@ struct PhotoMosaicView: View {
     var body: some View {
         Grid(horizontalSpacing: 6, verticalSpacing: 6) {
             GridRow {
-                tile(index: 0).gridCellRows(2)
+                tile(index: 0)
                 tile(index: 1)
                 tile(index: 2)
             }
