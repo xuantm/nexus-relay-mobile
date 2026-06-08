@@ -58,6 +58,7 @@ class DeviceSyncRepositoryTest {
                 LocalSyncStatus.Imported
             )
         ).thenReturn(emptyList())
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(emptyList())
     }
 
     @Test
@@ -68,6 +69,32 @@ class DeviceSyncRepositoryTest {
         val repository = createRepository()
         val result = repository.syncPendingJobs()
         assertFalse(result)
+    }
+
+    @Test
+    fun testSyncPendingJobs_RecoversStaleDownloadingLedgerRecordBeforePolling() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+
+        val staleRecord = LocalSyncRecord(
+            jobId = "job-stale-downloading",
+            mediaId = "media-stale-downloading",
+            fileName = "stale.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Downloading,
+            localUri = null,
+            lastAttemptAt = 0L,
+            lastError = null
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(listOf(staleRecord))
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+
+        assertTrue(result)
+        verify(mockLedger).markFailed(eq("job-stale-downloading"), eq("Sync interrupted before import completed"))
     }
 
     @Test
@@ -86,7 +113,7 @@ class DeviceSyncRepositoryTest {
     }
 
     @Test
-    fun testSyncPendingJobs_NetworkFailureDuringDownload_ThrowsIOException() = runTest {
+    fun testSyncPendingJobs_NetworkFailureDuringDownload_MarksFailedLocallyAndThrowsIOException() = runTest {
         setupConfiguredMocks()
         val job = createSampleJobDto("job-1")
         whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
@@ -102,13 +129,12 @@ class DeviceSyncRepositoryTest {
         }
         assertTrue("Expected IOException to be thrown", threw)
 
-        // Ledger status should NOT be Failed, since it is a retriable network error
-        verify(mockLedger, never()).markFailed(eq("job-1"), any())
+        verify(mockLedger).markFailed(eq("job-1"), eq("Download timed out"))
         verify(mockApi, never()).fail(any(), eq("job-1"), any())
     }
 
     @Test
-    fun testSyncPendingJobs_HttpRetriableFailure_ThrowsIOException() = runTest {
+    fun testSyncPendingJobs_HttpRetriableFailure_MarksFailedLocallyAndThrowsIOException() = runTest {
         setupConfiguredMocks()
         val job = createSampleJobDto("job-2")
         whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
@@ -126,7 +152,7 @@ class DeviceSyncRepositoryTest {
         }
         assertTrue("Expected IOException to be thrown", threw)
 
-        verify(mockLedger, never()).markFailed(eq("job-2"), any())
+        verify(mockLedger).markFailed(eq("job-2"), eq("HTTP 503 Response.error()"))
         verify(mockApi, never()).fail(any(), eq("job-2"), any())
     }
 
@@ -301,6 +327,103 @@ class DeviceSyncRepositoryTest {
         // But must NOT be marked failed locally, and fail endpoint must NOT be called
         verify(mockLedger, never()).markFailed(eq("job-new-confirm-fail"), any())
         verify(mockApi, never()).fail(any(), eq("job-new-confirm-fail"), any())
+    }
+
+    @Test
+    fun testSyncPendingJobs_StaleQueuedRecordMissingFromBackend_MarksFailed() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(emptyList())
+
+        val staleQueued = LocalSyncRecord(
+            jobId = "job-queued-stale",
+            mediaId = "media-queued-stale",
+            fileName = "queued.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 10L,
+            sha256 = null,
+            status = LocalSyncStatus.Queued,
+            localUri = null,
+            lastAttemptAt = 0L,
+            lastError = null,
+            isLocalDeleted = false,
+            statusEnteredAt = 0L,
+            retryCount = 0
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(listOf(staleQueued))
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+
+        assertTrue(result)
+        verify(mockLedger).markFailed(eq("job-queued-stale"), eq("Sync timed out before download started"))
+    }
+
+    @Test
+    fun testSyncPendingJobs_ConfirmPendingRetriableFailureBeforeTimeout_PreservesStateAndIncrementsRetryCount() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+
+        val now = System.currentTimeMillis()
+        val record = LocalSyncRecord(
+            jobId = "job-confirm-retry",
+            mediaId = "media-confirm-retry",
+            fileName = "confirm.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.ConfirmPending,
+            localUri = "content://media/external/images/media/confirm-retry",
+            lastAttemptAt = now,
+            lastError = null,
+            isLocalDeleted = false,
+            statusEnteredAt = now,
+            retryCount = 1
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(listOf(record))
+        whenever(mockApi.confirm(eq("token-123"), eq("job-confirm-retry"), any())).thenAnswer { throw IOException("Confirm timeout") }
+
+        val repository = createRepository()
+        try {
+            repository.syncPendingJobs()
+        } catch (_: IOException) {
+        }
+
+        verify(mockLedger).recordRetriableFailure(eq("job-confirm-retry"), eq("Confirm timeout"), any())
+        verify(mockLedger, never()).markFailed(eq("job-confirm-retry"), any())
+        verify(mockApi, never()).fail(any(), eq("job-confirm-retry"), any())
+    }
+
+    @Test
+    fun testSyncPendingJobs_ConfirmPendingTimedOut_MarksFailedAndReportsBackend() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
+
+        val record = LocalSyncRecord(
+            jobId = "job-confirm-stale",
+            mediaId = "media-confirm-stale",
+            fileName = "stale-confirm.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.ConfirmPending,
+            localUri = "content://media/external/images/media/confirm-stale",
+            lastAttemptAt = 0L,
+            lastError = "Confirm timeout",
+            isLocalDeleted = false,
+            statusEnteredAt = 0L,
+            retryCount = 4
+        )
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(listOf(record))
+        whenever(mockApi.confirm(eq("token-123"), eq("job-confirm-stale"), any())).thenAnswer { throw IOException("Confirm timeout") }
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+
+        assertFalse(result)
+        verify(mockLedger).markFailed(eq("job-confirm-stale"), eq("Sync confirmation timed out after 1 hour"))
+        verify(mockApi).fail(eq("token-123"), eq("job-confirm-stale"), eq(FailDeviceSyncJobRequest("Sync confirmation timed out after 1 hour")))
     }
 
     private fun createSampleJobDto(jobId: String): DeviceSyncJobDto {
