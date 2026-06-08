@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.first
 import java.io.IOException
 import retrofit2.HttpException
 
-class DeviceSyncRepository(
+internal class DeviceSyncRepository(
     private val context: Context,
     private val appSettingsStore: AppSettingsStore = AppSettingsStore(context),
     private val deviceTokenStore: DeviceTokenStore = DeviceTokenStore(context),
@@ -27,6 +27,22 @@ class DeviceSyncRepository(
     private val apiProvider: (String) -> NexusRelayApi = { baseUrl -> ApiClientFactory.create(baseUrl, debugLoggingEnabled = BuildConfig.DEBUG) }
 ) {
     private val tag = "DeviceSyncRepository"
+
+    companion object {
+        private const val STALE_STATUS_TIMEOUT_MS = 60L * 60L * 1000L
+        private const val MAX_CONFIRMATION_RETRIES = 4
+        private const val DOWNLOADING_TIMEOUT_MESSAGE = "Sync interrupted before import completed"
+        private const val QUEUED_TIMEOUT_MESSAGE = "Sync timed out before download started"
+        private const val CONFIRMATION_TIMEOUT_MESSAGE = "Sync confirmation timed out after 1 hour"
+    }
+
+    private fun hasTimedOut(record: LocalSyncRecord, now: Long): Boolean {
+        return now - record.statusEnteredAt >= STALE_STATUS_TIMEOUT_MS
+    }
+
+    private fun hasConfirmationBudget(record: LocalSyncRecord, now: Long): Boolean {
+        return !hasTimedOut(record, now) && record.retryCount < MAX_CONFIRMATION_RETRIES
+    }
 
     private fun isNetworkOrBackendFailure(e: Throwable): Boolean {
         if (e is IOException) {
@@ -49,12 +65,35 @@ class DeviceSyncRepository(
         }
     }
 
+    private fun shouldPreserveConfirmationState(status: LocalSyncStatus?): Boolean {
+        return status == LocalSyncStatus.ConfirmPending || status == LocalSyncStatus.Imported
+    }
+
+    private suspend fun recoverInterruptedDownloads(now: Long) {
+        val interruptedRecords = ledger.listByStatuses(LocalSyncStatus.Downloading)
+        for (record in interruptedRecords) {
+            if (hasTimedOut(record, now)) {
+                ledger.markFailed(record.jobId, DOWNLOADING_TIMEOUT_MESSAGE)
+            }
+        }
+    }
+
+    private suspend fun failOrphanedQueuedRecords(pendingJobIds: Set<String>, now: Long) {
+        val queuedRecords = ledger.listByStatuses(LocalSyncStatus.Queued)
+        for (record in queuedRecords) {
+            if (record.jobId !in pendingJobIds && hasTimedOut(record, now)) {
+                ledger.markFailed(record.jobId, QUEUED_TIMEOUT_MESSAGE)
+            }
+        }
+    }
+
     private suspend fun retryLocalConfirmation(
         api: NexusRelayApi,
         deviceToken: String,
         record: LocalSyncRecord
     ): Boolean? {
         val localUri = record.localUri ?: return null
+        val now = System.currentTimeMillis()
 
         return try {
             api.confirm(deviceToken, record.jobId, ConfirmDeviceSyncJobRequest(localUri, record.sizeBytes))
@@ -62,12 +101,21 @@ class DeviceSyncRepository(
             true
         } catch (e: Exception) {
             Log.e(tag, "Re-confirming job ${record.jobId} failed, will retry later", e)
-            throwOrPropagateIfRetriable(e)
-
             val errorMsg = e.localizedMessage ?: "Terminal confirmation error"
-            ledger.markFailed(record.jobId, errorMsg)
+
+            if (isNetworkOrBackendFailure(e) && hasConfirmationBudget(record, now)) {
+                ledger.recordRetriableFailure(record.jobId, errorMsg, now)
+                throwOrPropagateIfRetriable(e)
+            }
+
+            val finalMessage = if (isNetworkOrBackendFailure(e) && hasTimedOut(record, now)) {
+                CONFIRMATION_TIMEOUT_MESSAGE
+            } else {
+                errorMsg
+            }
+            ledger.markFailed(record.jobId, finalMessage)
             try {
-                api.fail(deviceToken, record.jobId, FailDeviceSyncJobRequest(errorMsg))
+                api.fail(deviceToken, record.jobId, FailDeviceSyncJobRequest(finalMessage))
             } catch (failEx: Exception) {
                 Log.e(tag, "Failed to report job failure to backend for job ${record.jobId}", failEx)
             }
@@ -85,6 +133,8 @@ class DeviceSyncRepository(
         }
 
         val api = apiProvider(backendUrl)
+        val now = System.currentTimeMillis()
+        recoverInterruptedDownloads(now)
         val pendingJobs = try {
             api.pendingJobs(deviceToken)
         } catch (e: Exception) {
@@ -92,6 +142,7 @@ class DeviceSyncRepository(
             throwOrPropagateIfRetriable(e)
             throw e
         }
+        failOrphanedQueuedRecords(pendingJobs.map { it.jobId }.toSet(), now)
 
         var allSucceeded = true
 
@@ -144,6 +195,7 @@ class DeviceSyncRepository(
                 }
             }
 
+            var confirmationPending = false
             try {
                 api.markDownloading(deviceToken, job.jobId)
                 ledger.markDownloading(job.jobId)
@@ -159,6 +211,7 @@ class DeviceSyncRepository(
                 )
 
                 ledger.markConfirmPending(job.jobId, localUri)
+                confirmationPending = true
 
                 api.confirm(deviceToken, job.jobId, ConfirmDeviceSyncJobRequest(localUri, job.sizeBytes))
 
@@ -167,18 +220,42 @@ class DeviceSyncRepository(
             } catch (e: Exception) {
                 Log.e(tag, "Failed to sync job ${job.jobId}", e)
 
-                throwOrPropagateIfRetriable(e)
-
                 val errorMsg = e.localizedMessage ?: "Unknown error"
-                ledger.markFailed(job.jobId, errorMsg)
+                val nowVal = System.currentTimeMillis()
+                val currentRecord = ledger.get(job.jobId)
+                val currentStatus = currentRecord?.status
+                val inConfirmationRecovery = confirmationPending || shouldPreserveConfirmationState(currentStatus)
 
+                if (!inConfirmationRecovery) {
+                    ledger.markFailed(job.jobId, errorMsg)
+                    throwOrPropagateIfRetriable(e)
+                    try {
+                        api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(errorMsg))
+                    } catch (failEx: Exception) {
+                        Log.e(tag, "Failed to report job failure to backend for job ${job.jobId}", failEx)
+                    }
+                    allSucceeded = false
+                    continue
+                }
+
+                if (isNetworkOrBackendFailure(e) && currentRecord != null && hasConfirmationBudget(currentRecord, nowVal)) {
+                    ledger.recordRetriableFailure(job.jobId, errorMsg, nowVal)
+                    throwOrPropagateIfRetriable(e)
+                }
+
+                val finalMessage = if (currentRecord != null && hasTimedOut(currentRecord, nowVal)) {
+                    CONFIRMATION_TIMEOUT_MESSAGE
+                } else {
+                    errorMsg
+                }
+                ledger.markFailed(job.jobId, finalMessage)
                 try {
-                    api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(errorMsg))
+                    api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(finalMessage))
                 } catch (failEx: Exception) {
                     Log.e(tag, "Failed to report job failure to backend for job ${job.jobId}", failEx)
                 }
-
                 allSucceeded = false
+                continue
             }
         }
 
@@ -214,6 +291,18 @@ class DeviceSyncRepository(
     suspend fun cleanUpSpaceNow(): CleanupSpaceResult {
         val confirmedRecords = ledger.listByStatuses(LocalSyncStatus.Confirmed)
         return deleteLocalFiles(confirmedRecords)
+    }
+
+    suspend fun clearHistory() {
+        ledger.clearHistory()
+    }
+
+    suspend fun resetLedgerIfSafe(): Boolean {
+        if (ledger.hasActiveRecords()) {
+            return false
+        }
+        ledger.clear()
+        return true
     }
 
     private suspend fun deleteLocalFiles(records: List<LocalSyncRecord>): CleanupSpaceResult {
@@ -265,4 +354,3 @@ class DeviceSyncRepository(
         )
     }
 }
-

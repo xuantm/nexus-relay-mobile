@@ -59,6 +59,7 @@ class DeviceSyncRepositoryTest {
             )
         ).thenReturn(emptyList())
         whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(emptyList())
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(emptyList())
     }
 
     @Test
@@ -271,7 +272,7 @@ class DeviceSyncRepositoryTest {
             sha256 = null,
             status = LocalSyncStatus.ConfirmPending,
             localUri = "content://media/external/images/media/5",
-            lastAttemptAt = 0L,
+            lastAttemptAt = System.currentTimeMillis(),
             lastError = null
         )
         whenever(mockLedger.get("job-5")).thenReturn(record)
@@ -296,7 +297,19 @@ class DeviceSyncRepositoryTest {
         setupConfiguredMocks()
         val job = createSampleJobDto("job-new-confirm-fail")
         whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-new-confirm-fail")).thenReturn(null)
+        val record = LocalSyncRecord(
+            jobId = "job-new-confirm-fail",
+            mediaId = "media-job-new-confirm-fail",
+            fileName = "file-job-new-confirm-fail.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = "sha256-job-new-confirm-fail",
+            status = LocalSyncStatus.ConfirmPending,
+            localUri = "content://media/external/images/media/999",
+            lastAttemptAt = System.currentTimeMillis(),
+            lastError = null
+        )
+        whenever(mockLedger.get("job-new-confirm-fail")).thenReturn(null, record)
 
         val mockResponseBody = mock(ResponseBody::class.java)
         val mockInputStream = mock(java.io.InputStream::class.java)
