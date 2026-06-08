@@ -11,8 +11,9 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.nexusrelay.pixel.api.SyncStatus
 
-data class LocalSyncRecord(
+internal data class LocalSyncRecord(
     val jobId: String,
     val mediaId: String,
     val fileName: String,
@@ -23,10 +24,24 @@ data class LocalSyncRecord(
     val localUri: String?,
     val lastAttemptAt: Long,
     val lastError: String?,
-    val isLocalDeleted: Boolean = false
+    val isLocalDeleted: Boolean = false,
+    val statusEnteredAt: Long = lastAttemptAt,
+    val retryCount: Int = 0
 )
 
-enum class LocalSyncStatus {
+private val activeStatuses = setOf(
+    LocalSyncStatus.Queued,
+    LocalSyncStatus.Downloading,
+    LocalSyncStatus.Imported,
+    LocalSyncStatus.ConfirmPending
+)
+
+private val historyStatuses = setOf(
+    LocalSyncStatus.Confirmed,
+    LocalSyncStatus.Failed
+)
+
+internal enum class LocalSyncStatus {
     Queued,
     Downloading,
     Imported,
@@ -35,9 +50,19 @@ enum class LocalSyncStatus {
     Failed
 }
 
+internal fun LocalSyncStatus.toSyncStatus(): SyncStatus =
+    when (this) {
+        LocalSyncStatus.Queued -> SyncStatus.Pending
+        LocalSyncStatus.Downloading,
+        LocalSyncStatus.Imported,
+        LocalSyncStatus.ConfirmPending -> SyncStatus.Syncing
+        LocalSyncStatus.Confirmed -> SyncStatus.Synced
+        LocalSyncStatus.Failed -> SyncStatus.Failed
+    }
+
 private val Context.ledgerDataStore: DataStore<Preferences> by preferencesDataStore(name = "sync_ledger")
 
-class LocalSyncLedger(
+internal class LocalSyncLedger(
     private val context: Context,
     private val dataStore: DataStore<Preferences> = context.ledgerDataStore
 ) {
@@ -98,45 +123,102 @@ class LocalSyncLedger(
 
     suspend fun markDownloading(jobId: String) {
         val record = get(jobId) ?: return
+        val now = System.currentTimeMillis()
         upsert(record.copy(
             status = LocalSyncStatus.Downloading,
-            lastAttemptAt = System.currentTimeMillis()
+            lastError = null,
+            lastAttemptAt = now,
+            statusEnteredAt = now,
+            retryCount = 0
         ))
     }
 
     suspend fun markImported(jobId: String, localUri: String) {
         val record = get(jobId) ?: return
+        val now = System.currentTimeMillis()
         upsert(record.copy(
             status = LocalSyncStatus.Imported,
             localUri = localUri,
-            lastAttemptAt = System.currentTimeMillis()
+            lastError = null,
+            lastAttemptAt = now,
+            statusEnteredAt = now,
+            retryCount = 0
         ))
     }
 
     suspend fun markConfirmPending(jobId: String, localUri: String) {
         val record = get(jobId) ?: return
+        val now = System.currentTimeMillis()
         upsert(record.copy(
             status = LocalSyncStatus.ConfirmPending,
             localUri = localUri,
-            lastAttemptAt = System.currentTimeMillis()
+            lastError = null,
+            lastAttemptAt = now,
+            statusEnteredAt = now,
+            retryCount = 0
         ))
     }
 
     suspend fun markConfirmed(jobId: String) {
         val record = get(jobId) ?: return
+        val now = System.currentTimeMillis()
         upsert(record.copy(
             status = LocalSyncStatus.Confirmed,
-            lastAttemptAt = System.currentTimeMillis()
+            lastError = null,
+            lastAttemptAt = now,
+            statusEnteredAt = now,
+            retryCount = 0
         ))
     }
 
     suspend fun markFailed(jobId: String, error: String) {
         val record = get(jobId) ?: return
+        val now = System.currentTimeMillis()
         upsert(record.copy(
             status = LocalSyncStatus.Failed,
             lastError = error,
-            lastAttemptAt = System.currentTimeMillis()
+            lastAttemptAt = now,
+            statusEnteredAt = now,
+            retryCount = 0
         ))
+    }
+
+    suspend fun recordRetriableFailure(jobId: String, error: String, now: Long = System.currentTimeMillis()) {
+        val record = get(jobId) ?: return
+        upsert(
+            record.copy(
+                lastError = error,
+                lastAttemptAt = now,
+                retryCount = record.retryCount + 1
+            )
+        )
+    }
+
+    suspend fun markQueued(jobId: String, now: Long = System.currentTimeMillis()) {
+        val record = get(jobId) ?: return
+        upsert(
+            record.copy(
+                status = LocalSyncStatus.Queued,
+                lastError = null,
+                lastAttemptAt = now,
+                statusEnteredAt = now,
+                retryCount = 0
+            )
+        )
+    }
+
+    suspend fun clearHistory() {
+        removeByStatuses(*historyStatuses.toTypedArray())
+    }
+
+    suspend fun removeByStatuses(vararg statuses: LocalSyncStatus) {
+        val statusSet = statuses.toSet()
+        val updated = getRecordsMap().filterValues { it.status !in statusSet }
+        saveRecordsMap(updated)
+    }
+
+    suspend fun hasActiveRecords(): Boolean {
+        return getRecordsMap().values.any { it.status in activeStatuses }
     }
 
     suspend fun markLocalDeleted(jobId: String) {
