@@ -2,6 +2,7 @@ package com.nexusrelay.pixel.storage
 
 import android.content.Context
 import android.content.ContextWrapper
+import com.nexusrelay.pixel.api.SyncStatus
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -77,6 +78,16 @@ class LocalSyncLedgerTest {
         assertEquals("Network error", failed.lastError)
     }
 
+    @Test
+    fun localSyncStatusProjectsToSharedSyncStatus() {
+        assertEquals(SyncStatus.Pending, LocalSyncStatus.Queued.toSyncStatus())
+        assertEquals(SyncStatus.Syncing, LocalSyncStatus.Downloading.toSyncStatus())
+        assertEquals(SyncStatus.Syncing, LocalSyncStatus.Imported.toSyncStatus())
+        assertEquals(SyncStatus.Syncing, LocalSyncStatus.ConfirmPending.toSyncStatus())
+        assertEquals(SyncStatus.Synced, LocalSyncStatus.Confirmed.toSyncStatus())
+        assertEquals(SyncStatus.Failed, LocalSyncStatus.Failed.toSyncStatus())
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testLedgerFlowLimits() = runTest {
@@ -114,5 +125,152 @@ class LocalSyncLedgerTest {
         assertEquals("job-1", allRecords.last().jobId)
         assertEquals("job-60", recentRecords.first().jobId)
         assertEquals("job-11", recentRecords.last().jobId)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun clearHistoryRemovesOnlyConfirmedAndFailedRecords() = runTest {
+        val tempFile = File(tempFolder.root, "clear_history.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "confirmed",
+                mediaId = "media-confirmed",
+                fileName = "confirmed.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Confirmed,
+                localUri = "content://confirmed",
+                lastAttemptAt = 10L,
+                lastError = null,
+                isLocalDeleted = false,
+                statusEnteredAt = 10L,
+                retryCount = 0
+            )
+        )
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "failed",
+                mediaId = "media-failed",
+                fileName = "failed.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Failed,
+                localUri = null,
+                lastAttemptAt = 20L,
+                lastError = "timeout",
+                isLocalDeleted = false,
+                statusEnteredAt = 20L,
+                retryCount = 2
+            )
+        )
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "confirm-pending",
+                mediaId = "media-confirm-pending",
+                fileName = "pending.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.ConfirmPending,
+                localUri = "content://pending",
+                lastAttemptAt = 30L,
+                lastError = null,
+                isLocalDeleted = false,
+                statusEnteredAt = 30L,
+                retryCount = 1
+            )
+        )
+
+        ledger.clearHistory()
+
+        assertNull(ledger.get("confirmed"))
+        assertNull(ledger.get("failed"))
+        assertEquals(LocalSyncStatus.ConfirmPending, ledger.get("confirm-pending")?.status)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun recordRetriableFailurePreservesStatusAndIncrementsRetryCount() = runTest {
+        val tempFile = File(tempFolder.root, "retriable.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "job-1",
+                mediaId = "media-1",
+                fileName = "image.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 100L,
+                sha256 = null,
+                status = LocalSyncStatus.ConfirmPending,
+                localUri = "content://media/1",
+                lastAttemptAt = 100L,
+                lastError = null,
+                isLocalDeleted = false,
+                statusEnteredAt = 80L,
+                retryCount = 0
+            )
+        )
+
+        ledger.recordRetriableFailure("job-1", "Confirm timeout", now = 200L)
+
+        val updated = ledger.get("job-1")!!
+        assertEquals(LocalSyncStatus.ConfirmPending, updated.status)
+        assertEquals("Confirm timeout", updated.lastError)
+        assertEquals(200L, updated.lastAttemptAt)
+        assertEquals(80L, updated.statusEnteredAt)
+        assertEquals(1, updated.retryCount)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun hasActiveRecordsIgnoresConfirmedAndFailedHistory() = runTest {
+        val tempFile = File(tempFolder.root, "active.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "history",
+                mediaId = "media-history",
+                fileName = "history.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Failed,
+                localUri = null,
+                lastAttemptAt = 1L,
+                lastError = "fail",
+                isLocalDeleted = false,
+                statusEnteredAt = 1L,
+                retryCount = 1
+            )
+        )
+        assertFalse(ledger.hasActiveRecords())
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "active",
+                mediaId = "media-active",
+                fileName = "active.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Queued,
+                localUri = null,
+                lastAttemptAt = 2L,
+                lastError = null,
+                isLocalDeleted = false,
+                statusEnteredAt = 2L,
+                retryCount = 0
+            )
+        )
+        assertTrue(ledger.hasActiveRecords())
     }
 }
