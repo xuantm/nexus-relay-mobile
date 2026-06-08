@@ -86,7 +86,7 @@ fun MetricCard(label: String, value: String, icon: ImageVector, tint: Color, mod
 }
 
 @Composable
-fun LedgerRecordRow(record: LocalSyncRecord) {
+internal fun LedgerRecordRow(record: LocalSyncRecord) {
     val statusLabel = ledgerStatusLabel(record)
     val color = when {
         record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted -> Color(0xFF16856A)
@@ -155,6 +155,38 @@ fun CleanupConfirmDialog(
         title = { Text("Clean up space?") },
         text = { Text("This will remove ${preview.cleanableCount} local files from this Pixel and free about ${preview.cleanableBytesLabel}. Files already confirmed by NexusRelay stay in the backend.") },
         confirmButton = { Button(onClick = onConfirm) { Text("Clean up") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun ClearLedgerHistoryDialog(
+    historyCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Outlined.DeleteSweep, contentDescription = null) },
+        title = { Text("Clear sync history?") },
+        text = { Text("This removes $historyCount completed and failed sync records from this Pixel. Imported media files stay on the device.") },
+        confirmButton = { Button(onClick = onConfirm) { Text("Clear history") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun ResetLedgerDialog(
+    activeCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Outlined.DeleteSweep, contentDescription = null) },
+        title = { Text("Reset local ledger?") },
+        text = { Text("This removes all local sync status from this Pixel. It does not delete imported media files, but it is only safe when no jobs are still active. Active jobs: $activeCount.") },
+        confirmButton = { Button(onClick = onConfirm) { Text("Reset ledger") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

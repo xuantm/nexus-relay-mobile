@@ -92,8 +92,11 @@ fun StatusScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showCleanupDialog by remember { mutableStateOf(false) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showResetLedgerDialog by remember { mutableStateOf(false) }
     var selectedTab by rememberSaveable(stateSaver = PixelTabSaver) { mutableStateOf(PixelTab.Sync) }
     val cleanupPreview = remember(allJobs) { buildCleanupPreview(allJobs) }
+    val maintenancePreview = remember(allJobs) { buildLedgerMaintenancePreview(allJobs) }
 
     if (showCleanupDialog) {
         CleanupConfirmDialog(
@@ -108,6 +111,36 @@ fun StatusScreen(
                 }
             },
             onDismiss = { showCleanupDialog = false }
+        )
+    }
+
+    if (showClearHistoryDialog) {
+        ClearLedgerHistoryDialog(
+            historyCount = maintenancePreview.historyCount,
+            onConfirm = {
+                showClearHistoryDialog = false
+                coroutineScope.launch {
+                    repository.clearHistory()
+                    snackbarHostState.showSnackbar("Sync history cleared")
+                }
+            },
+            onDismiss = { showClearHistoryDialog = false }
+        )
+    }
+
+    if (showResetLedgerDialog) {
+        ResetLedgerDialog(
+            activeCount = maintenancePreview.activeCount,
+            onConfirm = {
+                showResetLedgerDialog = false
+                coroutineScope.launch {
+                    val reset = repository.resetLedgerIfSafe()
+                    snackbarHostState.showSnackbar(
+                        if (reset) "Local sync ledger reset" else "Finish or fail active sync jobs before resetting the ledger"
+                    )
+                }
+            },
+            onDismiss = { showResetLedgerDialog = false }
         )
     }
 
@@ -174,10 +207,13 @@ fun StatusScreen(
                 autoDeleteEnabled = autoDeleteEnabled,
                 autoDeleteDelayMinutes = autoDeleteDelayMinutes,
                 cleanupPreview = cleanupPreview,
+                maintenancePreview = maintenancePreview,
                 onWifiOnlyChanged = { coroutineScope.launch { appSettingsStore.saveWifiOnly(it) } },
                 onAutoDeleteChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteEnabled(it) } },
                 onAutoDeleteDelayChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteDelayMinutes(it) } },
                 onCleanUpSpace = { showCleanupDialog = true },
+                onClearHistory = { showClearHistoryDialog = true },
+                onResetLedger = { showResetLedgerDialog = true },
                 onUnregister = {
                     coroutineScope.launch {
                         deviceTokenStore.clear()
@@ -211,10 +247,15 @@ private fun SyncTab(
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MetricCard("Confirmed", metrics.confirmed.toString(), Icons.Outlined.CheckCircle, Color(0xFF16856A), Modifier.weight(1f))
-                MetricCard("Pending", metrics.pending.toString(), Icons.Outlined.Sync, Color(0xFFA76613), Modifier.weight(1f))
-                MetricCard("Failed", metrics.failed.toString(), Icons.Outlined.ErrorOutline, Color(0xFFBA2F45), Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    MetricCard("Synced", metrics.confirmed.toString(), Icons.Outlined.CheckCircle, Color(0xFF16856A), Modifier.weight(1f))
+                    MetricCard("Syncing", metrics.syncing.toString(), Icons.Outlined.Sync, Color(0xFFA76613), Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    MetricCard("Pending", metrics.pending.toString(), Icons.Outlined.Sync, Color(0xFF627083), Modifier.weight(1f))
+                    MetricCard("Failed", metrics.failed.toString(), Icons.Outlined.ErrorOutline, Color(0xFFBA2F45), Modifier.weight(1f))
+                }
             }
         }
         item {
@@ -278,10 +319,13 @@ private fun SettingsTab(
     autoDeleteEnabled: Boolean,
     autoDeleteDelayMinutes: Int,
     cleanupPreview: CleanupPreview,
+    maintenancePreview: LedgerMaintenancePreview,
     onWifiOnlyChanged: (Boolean) -> Unit,
     onAutoDeleteChanged: (Boolean) -> Unit,
     onAutoDeleteDelayChanged: (Int) -> Unit,
     onCleanUpSpace: () -> Unit,
+    onClearHistory: () -> Unit,
+    onResetLedger: () -> Unit,
     onUnregister: () -> Unit
 ) {
     LazyColumn(
@@ -326,6 +370,35 @@ private fun SettingsTab(
                         Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
                         Text("Clean up ${cleanupPreview.cleanableBytesLabel}")
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Sync ledger maintenance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Completed or failed history can be cleared anytime. Full ledger reset stays locked while ${maintenancePreview.activeCount} sync jobs are still active.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedButton(
+                        onClick = onClearHistory,
+                        enabled = maintenancePreview.canClearHistory,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Clear sync history (${maintenancePreview.historyCount})")
+                    }
+                    OutlinedButton(
+                        onClick = onResetLedger,
+                        enabled = maintenancePreview.canResetLedger,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reset local ledger")
                     }
                 }
             }

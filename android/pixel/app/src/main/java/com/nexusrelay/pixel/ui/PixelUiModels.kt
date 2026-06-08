@@ -1,8 +1,10 @@
 package com.nexusrelay.pixel.ui
 
 import androidx.compose.runtime.saveable.Saver
+import com.nexusrelay.pixel.api.SyncStatus
 import com.nexusrelay.pixel.storage.LocalSyncRecord
 import com.nexusrelay.pixel.storage.LocalSyncStatus
+import com.nexusrelay.pixel.storage.toSyncStatus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -20,6 +22,7 @@ val PixelTabSaver = Saver<PixelTab, String>(
 
 data class SyncMetrics(
     val confirmed: Int,
+    val syncing: Int,
     val pending: Int,
     val failed: Int,
     val cleaned: Int
@@ -31,25 +34,22 @@ data class CleanupPreview(
     val cleanableBytesLabel: String
 )
 
-fun buildSyncMetrics(records: List<LocalSyncRecord>): SyncMetrics {
+internal fun buildSyncMetrics(records: List<LocalSyncRecord>): SyncMetrics {
     val confirmed = records.count { it.status == LocalSyncStatus.Confirmed }
-    val pending = records.count {
-        it.status == LocalSyncStatus.Queued ||
-            it.status == LocalSyncStatus.Downloading ||
-            it.status == LocalSyncStatus.Imported ||
-            it.status == LocalSyncStatus.ConfirmPending
-    }
+    val syncing = records.count { it.status.toSyncStatus() == SyncStatus.Syncing }
+    val pending = records.count { it.status.toSyncStatus() == SyncStatus.Pending }
     val failed = records.count { it.status == LocalSyncStatus.Failed }
     val cleaned = records.count { it.status == LocalSyncStatus.Confirmed && it.isLocalDeleted }
     return SyncMetrics(
         confirmed = confirmed,
+        syncing = syncing,
         pending = pending,
         failed = failed,
         cleaned = cleaned
     )
 }
 
-fun buildCleanupPreview(records: List<LocalSyncRecord>): CleanupPreview {
+internal fun buildCleanupPreview(records: List<LocalSyncRecord>): CleanupPreview {
     val cleanable = records.filter {
         it.status == LocalSyncStatus.Confirmed &&
             !it.isLocalDeleted &&
@@ -85,16 +85,36 @@ fun formatLastSyncTime(timestampMillis: Long): String {
     return SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(timestampMillis))
 }
 
-fun ledgerStatusLabel(record: LocalSyncRecord): String {
-    if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
-        return "Cleaned"
+internal fun ledgerStatusLabel(record: LocalSyncRecord): String {
+    return when (record.status.toSyncStatus()) {
+        SyncStatus.Pending -> "Pending"
+        SyncStatus.Syncing -> "Syncing"
+        SyncStatus.Synced -> "Synced"
+        SyncStatus.Failed -> "Failed"
     }
-    return when (record.status) {
-        LocalSyncStatus.Queued -> "Queued"
-        LocalSyncStatus.Downloading -> "Downloading"
-        LocalSyncStatus.Imported -> "Imported"
-        LocalSyncStatus.ConfirmPending -> "Confirming"
-        LocalSyncStatus.Confirmed -> "Confirmed"
-        LocalSyncStatus.Failed -> "Failed"
+}
+
+data class LedgerMaintenancePreview(
+    val historyCount: Int,
+    val activeCount: Int,
+    val canClearHistory: Boolean,
+    val canResetLedger: Boolean
+)
+
+internal fun buildLedgerMaintenancePreview(records: List<LocalSyncRecord>): LedgerMaintenancePreview {
+    val historyCount = records.count {
+        it.status == LocalSyncStatus.Confirmed || it.status == LocalSyncStatus.Failed
     }
+    val activeCount = records.count {
+        it.status == LocalSyncStatus.Queued ||
+            it.status == LocalSyncStatus.Downloading ||
+            it.status == LocalSyncStatus.Imported ||
+            it.status == LocalSyncStatus.ConfirmPending
+    }
+    return LedgerMaintenancePreview(
+        historyCount = historyCount,
+        activeCount = activeCount,
+        canClearHistory = historyCount > 0,
+        canResetLedger = activeCount == 0
+    )
 }
