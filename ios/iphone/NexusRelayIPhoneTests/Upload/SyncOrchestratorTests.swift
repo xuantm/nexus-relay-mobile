@@ -126,7 +126,7 @@ final class MockUploadLedger: UploadLedger {
 
     func nextUploadBatch(limit: Int) async throws -> [UploadLedgerRecord] {
         nextBatchCount += 1
-        let uploadableStatuses: [UploadStatus] = [.discovered, .exporting, .readyToUpload, .uploading, .failed]
+        let uploadableStatuses: [UploadLedgerStatus] = [.discovered, .exporting, .readyToUpload, .uploading, .failed]
         let batch = records.filter { uploadableStatuses.contains($0.status) && $0.attemptCount < 3 }
             .prefix(limit)
         return Array(batch)

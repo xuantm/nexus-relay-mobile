@@ -54,11 +54,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         true -> {
-                            LaunchedEffect(Unit) {
-                                com.nexusrelay.pixel.sync.PollWorker.schedulePeriodicPoll(context)
-                                com.nexusrelay.pixel.sync.refreshBackendFcmToken(context)
-                            }
-
                             com.nexusrelay.pixel.ui.StatusScreen(
                                 onUnregister = {
                                     com.nexusrelay.pixel.sync.PollWorker.cancelPeriodicPoll(context)

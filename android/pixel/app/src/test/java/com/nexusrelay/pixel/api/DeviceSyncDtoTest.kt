@@ -79,7 +79,8 @@ class DeviceSyncDtoTest {
                 "sizeBytes": 4820131,
                 "sha256": "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
                 "downloadUrl": "/api/device-sync/jobs/8af63b26-f7af-4fe0-8cb5-5dc43edcc9ef/download",
-                "createdAt": "2026-06-02T00:00:00Z"
+                "createdAt": "2026-06-02T00:00:00Z",
+                "status": "Pending"
               }
             ]
         """.trimIndent()
@@ -105,6 +106,7 @@ class DeviceSyncDtoTest {
         assertEquals("3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7", job.sha256)
         assertEquals("/api/device-sync/jobs/8af63b26-f7af-4fe0-8cb5-5dc43edcc9ef/download", job.downloadUrl)
         assertEquals("2026-06-02T00:00:00Z", job.createdAt)
+        assertEquals(SyncStatus.Pending, job.status)
     }
 
     @Test

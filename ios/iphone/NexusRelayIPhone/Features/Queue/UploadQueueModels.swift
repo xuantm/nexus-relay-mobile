@@ -22,6 +22,7 @@ struct UploadQueueItem: Identifiable, Equatable {
     let filename: String
     let resourceKind: PhotoResourceKind
     let sizeBytes: Int64?
+    let ledgerStatus: UploadLedgerStatus
     let status: UploadStatus
     let lastError: String?
     let statusText: String
@@ -34,7 +35,8 @@ struct UploadQueueItem: Identifiable, Equatable {
         self.filename = record.originalFilename
         self.resourceKind = record.resourceKind
         self.sizeBytes = record.sizeBytes
-        self.status = record.status
+        self.ledgerStatus = record.status
+        self.status = record.uploadStatus
         self.lastError = record.lastError
         self.statusText = Self.statusText(for: record)
         self.progressFraction = Self.progressFraction(for: record.status)
@@ -42,23 +44,19 @@ struct UploadQueueItem: Identifiable, Equatable {
     }
 
     private static func statusText(for record: UploadLedgerRecord) -> String {
-        if record.status == .failed, let error = record.lastError, !error.isEmpty {
-            return UserFacingSyncIssue.fromStoredMessage(error)?.message ?? error
-        }
-
-        switch record.status {
-        case .discovered: return "Waiting to upload"
-        case .exporting: return "Preparing"
-        case .readyToUpload: return "Ready"
-        case .uploading: return "Uploading"
-        case .uploaded: return "Uploaded"
-        case .synced: return "Uploaded"
-        case .failed: return "Failed"
-        case .skipped: return "Skipped"
+        switch record.uploadStatus {
+        case .Pending:
+            return "Pending"
+        case .Uploading:
+            return "Uploading"
+        case .Uploaded:
+            return "Uploaded"
+        case .Failed:
+            return "Failed"
         }
     }
 
-    private static func progressFraction(for status: UploadStatus) -> Double {
+    private static func progressFraction(for status: UploadLedgerStatus) -> Double {
         switch status {
         case .discovered: return 0
         case .exporting: return 0.18

@@ -74,7 +74,8 @@ Response:
     "sizeBytes": 4820131,
     "sha256": "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
     "downloadUrl": "/api/device-sync/jobs/8af63b26-f7af-4fe0-8cb5-5dc43edcc9ef/download",
-    "createdAt": "2026-06-02T00:00:00Z"
+    "createdAt": "2026-06-02T00:00:00Z",
+    "status": "Pending"
   }
 ]
 ```
@@ -171,19 +172,18 @@ The Pixel app should enqueue sync work after receiving this message, then call `
 
 ## Status Vocabulary
 
-Backend job statuses:
+Shared API status values:
 
 ```text
 Pending
-Notified
-Downloading
-ImportedConfirmed
+Syncing
+Synced
 Failed
-Skipped
-Cancelled
 ```
 
-Pixel local statuses:
+Backend job states are projected into the shared API `status` field above. The Pixel app should treat `Pending` as queued work, `Syncing` as active transfer or confirmation work, `Synced` as completed, and `Failed` as terminal failure.
+
+Pixel local statuses remain internal:
 
 ```text
 Queued
@@ -193,3 +193,12 @@ ConfirmPending
 Confirmed
 Failed
 ```
+
+Pixel maps local states to the shared API vocabulary as follows:
+
+- Queued -> Pending
+- Downloading -> Syncing
+- Imported -> Syncing
+- ConfirmPending -> Syncing
+- Confirmed -> Synced
+- Failed -> Failed

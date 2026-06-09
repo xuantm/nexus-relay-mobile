@@ -157,7 +157,8 @@ final class NexusRelayAPIClientTests: XCTestCase {
                     "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
                     "size": 4820131,
                     "mimeType": "image/heic",
-                    "status": "Completed",
+                    "status": "Buffering",
+                    "uploadStatus": "Uploaded",
                     "mediaType": "Image",
                     "thumbnailGenerated": true,
                     "createdAt": "2026-06-05T12:00:00Z"
@@ -176,7 +177,8 @@ final class NexusRelayAPIClientTests: XCTestCase {
                         "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
                         "size": 4820131,
                         "mimeType": "image/heic",
-                        "status": "Completed",
+                        "status": "Relaying",
+                        "uploadStatus": "Uploaded",
                         "mediaType": "Image",
                         "thumbnailGenerated": true,
                         "createdAt": "2026-06-05T12:00:00Z"
@@ -209,8 +211,12 @@ final class NexusRelayAPIClientTests: XCTestCase {
         XCTAssertEqual(content.folder.name, "iPhone Uploads")
         XCTAssertEqual(content.mediaItems?.count, 1)
         XCTAssertEqual(content.mediaItems?.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
+        XCTAssertEqual(content.mediaItems?.first?.status, .buffering)
+        XCTAssertEqual(content.mediaItems?.first?.uploadStatus, .Uploaded)
         XCTAssertEqual(content.media?.items.count, 1)
         XCTAssertEqual(content.media?.items.first?.fileName, "IMG_1001__nr-a3f91c0d8e74b210.HEIC")
+        XCTAssertEqual(content.media?.items.first?.status, .relaying)
+        XCTAssertEqual(content.media?.items.first?.uploadStatus, .Uploaded)
     }
 
     func testListFolderMediaUsesMediaCursorQueryParameter() async throws {

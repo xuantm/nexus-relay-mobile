@@ -7,9 +7,11 @@ final class UploadQueueViewModelTests: XCTestCase {
         let uploading = UploadQueueItem(record: makeRecord(status: .uploading, lastError: nil))
         let waiting = UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil))
 
-        XCTAssertEqual(failed.statusText, "Sign in required")
+        XCTAssertEqual(failed.statusText, "Failed")
         XCTAssertEqual(uploading.statusText, "Uploading")
-        XCTAssertEqual(waiting.statusText, "Waiting to upload")
+        XCTAssertEqual(waiting.statusText, "Pending")
+        XCTAssertEqual(uploading.status, .Uploading)
+        XCTAssertEqual(waiting.status, .Pending)
     }
 
     func testQueueItemProgressFractions() {
@@ -18,7 +20,7 @@ final class UploadQueueViewModelTests: XCTestCase {
         XCTAssertEqual(UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil)).progressFraction, 0)
     }
 
-    private func makeRecord(status: UploadStatus, lastError: String?) -> UploadLedgerRecord {
+    private func makeRecord(status: UploadLedgerStatus, lastError: String?) -> UploadLedgerRecord {
         UploadLedgerRecord(
             id: "record-1",
             assetLocalIdentifier: "asset-1",
@@ -81,7 +83,7 @@ final class UploadQueueViewModelTests: XCTestCase {
         XCTAssertEqual(ledger.retriedIds, ["2"])
     }
 
-    private func makeRecord(id: String, status: UploadStatus) -> UploadLedgerRecord {
+    private func makeRecord(id: String, status: UploadLedgerStatus) -> UploadLedgerRecord {
         UploadLedgerRecord(
             id: id,
             assetLocalIdentifier: "asset-\(id)",

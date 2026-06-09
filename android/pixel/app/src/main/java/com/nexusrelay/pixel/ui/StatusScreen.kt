@@ -55,6 +55,7 @@ import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.storage.LocalSyncLedger
 import com.nexusrelay.pixel.storage.LocalSyncRecord
+import com.nexusrelay.pixel.storage.LocalSyncStatus
 import com.nexusrelay.pixel.sync.DeviceSyncRepository
 import com.nexusrelay.pixel.sync.SyncWorker
 import kotlinx.coroutines.launch
@@ -97,6 +98,17 @@ fun StatusScreen(
     var selectedTab by rememberSaveable(stateSaver = PixelTabSaver) { mutableStateOf(PixelTab.Sync) }
     val cleanupPreview = remember(allJobs) { buildCleanupPreview(allJobs) }
     val maintenancePreview = remember(allJobs) { buildLedgerMaintenancePreview(allJobs) }
+    val retryFailedJob: (LocalSyncRecord) -> Unit = { record ->
+        coroutineScope.launch {
+            val retried = repository.retryFailedJob(record.jobId)
+            if (retried) {
+                SyncWorker.enqueueOneTimeSync(context)
+                snackbarHostState.showSnackbar("Resync queued for ${record.fileName}")
+            } else {
+                snackbarHostState.showSnackbar("This item is no longer available for resync")
+            }
+        }
+    }
 
     if (showCleanupDialog) {
         CleanupConfirmDialog(
@@ -187,6 +199,7 @@ fun StatusScreen(
                 allJobs = allJobs,
                 lastSyncAt = lastSyncAt,
                 scopeLabel = scopeLabel,
+                onRetryFailedJob = retryFailedJob,
                 onSyncNow = {
                     coroutineScope.launch {
                         SyncWorker.enqueueOneTimeSync(context)
@@ -196,7 +209,8 @@ fun StatusScreen(
             )
             PixelTab.Ledger -> LedgerTab(
                 modifier = Modifier.padding(padding),
-                recentJobs = recentJobs
+                recentJobs = recentJobs,
+                onRetryFailedJob = retryFailedJob
             )
             PixelTab.Settings -> SettingsTab(
                 modifier = Modifier.padding(padding),
@@ -232,9 +246,11 @@ private fun SyncTab(
     allJobs: List<LocalSyncRecord>,
     lastSyncAt: Long,
     scopeLabel: String,
+    onRetryFailedJob: (LocalSyncRecord) -> Unit,
     onSyncNow: () -> Unit
 ) {
     val metrics = buildSyncMetrics(allJobs)
+    val failedJobs = remember(allJobs) { allJobs.filter { it.status == LocalSyncStatus.Failed } }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -269,6 +285,18 @@ private fun SyncTab(
                 Text("Sync now", fontWeight = FontWeight.Bold)
             }
         }
+        if (failedJobs.isNotEmpty()) {
+            item {
+                Text("Failed items", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            items(failedJobs, key = { it.jobId }) { record ->
+                LedgerRecordRow(
+                    record = record,
+                    showRetryAction = true,
+                    onRetry = { onRetryFailedJob(record) }
+                )
+            }
+        }
         item {
             Text("Recent ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
@@ -278,7 +306,11 @@ private fun SyncTab(
             }
         } else {
             items(allJobs.take(5), key = { it.jobId }) { record ->
-                LedgerRecordRow(record)
+                LedgerRecordRow(
+                    record = record,
+                    showRetryAction = record.status == LocalSyncStatus.Failed,
+                    onRetry = { onRetryFailedJob(record) }
+                )
             }
         }
     }
@@ -287,7 +319,8 @@ private fun SyncTab(
 @Composable
 private fun LedgerTab(
     modifier: Modifier = Modifier,
-    recentJobs: List<LocalSyncRecord>
+    recentJobs: List<LocalSyncRecord>,
+    onRetryFailedJob: (LocalSyncRecord) -> Unit
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -303,7 +336,11 @@ private fun LedgerTab(
             }
         } else {
             items(recentJobs, key = { it.jobId }) { record ->
-                LedgerRecordRow(record)
+                LedgerRecordRow(
+                    record = record,
+                    showRetryAction = record.status == LocalSyncStatus.Failed,
+                    onRetry = { onRetryFailedJob(record) }
+                )
             }
         }
     }

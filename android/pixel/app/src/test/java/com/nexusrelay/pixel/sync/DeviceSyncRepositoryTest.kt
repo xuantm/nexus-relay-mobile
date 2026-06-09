@@ -580,4 +580,50 @@ class DeviceSyncRepositoryTest {
         assertEquals(2, result.skippedCount)
         verify(mockLedger, never()).markLocalDeleted(any())
     }
+
+    @Test
+    fun retryFailedJob_RequeuesFailedRecord() = runTest {
+        val failedRecord = LocalSyncRecord(
+            jobId = "job-retry",
+            mediaId = "media-retry",
+            fileName = "retry.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Failed,
+            localUri = null,
+            lastAttemptAt = 0L,
+            lastError = "download failed"
+        )
+        whenever(mockLedger.get("job-retry")).thenReturn(failedRecord)
+
+        val repository = createRepository()
+        val retried = repository.retryFailedJob("job-retry")
+
+        assertTrue(retried)
+        verify(mockLedger).markQueued(eq("job-retry"), any())
+    }
+
+    @Test
+    fun retryFailedJob_IgnoresNonFailedRecord() = runTest {
+        val queuedRecord = LocalSyncRecord(
+            jobId = "job-queued",
+            mediaId = "media-queued",
+            fileName = "queued.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 100L,
+            sha256 = null,
+            status = LocalSyncStatus.Queued,
+            localUri = null,
+            lastAttemptAt = 0L,
+            lastError = null
+        )
+        whenever(mockLedger.get("job-queued")).thenReturn(queuedRecord)
+
+        val repository = createRepository()
+        val retried = repository.retryFailedJob("job-queued")
+
+        assertFalse(retried)
+        verify(mockLedger, never()).markQueued(eq("job-queued"), any())
+    }
 }

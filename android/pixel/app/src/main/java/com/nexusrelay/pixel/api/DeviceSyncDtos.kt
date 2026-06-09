@@ -7,6 +7,13 @@ enum class DeviceSyncScope {
     Folder
 }
 
+enum class SyncStatus {
+    Pending,
+    Syncing,
+    Synced,
+    Failed
+}
+
 @JsonClass(generateAdapter = true)
 data class RegisterDeviceRequest(
     val deviceName: String,
@@ -39,7 +46,8 @@ data class DeviceSyncJobDto(
     val sizeBytes: Long,
     val sha256: String?,
     val downloadUrl: String,
-    val createdAt: String
+    val createdAt: String,
+    val status: SyncStatus = SyncStatus.Pending
 )
 
 @JsonClass(generateAdapter = true)

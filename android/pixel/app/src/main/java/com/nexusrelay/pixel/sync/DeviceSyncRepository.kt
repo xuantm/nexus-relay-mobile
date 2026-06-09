@@ -106,6 +106,7 @@ internal class DeviceSyncRepository(
             if (isNetworkOrBackendFailure(e) && hasConfirmationBudget(record, now)) {
                 ledger.recordRetriableFailure(record.jobId, errorMsg, now)
                 throwOrPropagateIfRetriable(e)
+                return false // defensive: should not reach here for network errors
             }
 
             val finalMessage = if (isNetworkOrBackendFailure(e) && hasTimedOut(record, now)) {
@@ -241,6 +242,7 @@ internal class DeviceSyncRepository(
                 if (isNetworkOrBackendFailure(e) && currentRecord != null && hasConfirmationBudget(currentRecord, nowVal)) {
                     ledger.recordRetriableFailure(job.jobId, errorMsg, nowVal)
                     throwOrPropagateIfRetriable(e)
+                    continue // defensive: should not reach here for network errors
                 }
 
                 val finalMessage = if (currentRecord != null && hasTimedOut(currentRecord, nowVal)) {
@@ -295,6 +297,15 @@ internal class DeviceSyncRepository(
 
     suspend fun clearHistory() {
         ledger.clearHistory()
+    }
+
+    suspend fun retryFailedJob(jobId: String): Boolean {
+        val record = ledger.get(jobId) ?: return false
+        if (record.status != LocalSyncStatus.Failed) {
+            return false
+        }
+        ledger.markQueued(jobId)
+        return true
     }
 
     suspend fun resetLedgerIfSafe(): Boolean {

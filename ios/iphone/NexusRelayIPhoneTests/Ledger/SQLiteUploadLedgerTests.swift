@@ -57,6 +57,7 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         let batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertEqual(batch.count, 2)
         XCTAssertTrue(batch.contains { $0.assetLocalIdentifier == "asset1" && $0.status == .discovered })
+        XCTAssertTrue(batch.contains { $0.assetLocalIdentifier == "asset1" && $0.uploadStatus == .Pending })
         XCTAssertTrue(batch.contains { $0.assetLocalIdentifier == "asset2" && $0.status == .discovered })
         
         // 3. Upsert duplicate candidate should update but not double rows
@@ -91,6 +92,7 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertEqual(batch.count, 1)
         XCTAssertEqual(batch.first?.status, .exporting)
+        XCTAssertEqual(batch.first?.uploadStatus, .Uploading)
         
         // exporting -> readyToUpload
         let fakeStagedURL = URL(string: "file:///tmp/staged/photo1.jpg")!
@@ -98,6 +100,7 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertEqual(batch.count, 1)
         XCTAssertEqual(batch.first?.status, .readyToUpload)
+        XCTAssertEqual(batch.first?.uploadStatus, .Pending)
         XCTAssertEqual(batch.first?.localStagedFileURL, fakeStagedURL)
         
         // readyToUpload -> uploading
@@ -105,6 +108,7 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         batch = try await ledger.nextUploadBatch(limit: 10)
         XCTAssertEqual(batch.count, 1)
         XCTAssertEqual(batch.first?.status, .uploading)
+        XCTAssertEqual(batch.first?.uploadStatus, .Uploading)
         
         // uploading -> uploaded
         let uploadId = UUID()
@@ -227,6 +231,17 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         XCTAssertEqual(records.first?.status, .discovered)
         XCTAssertEqual(records.first?.attemptCount, 0)
         XCTAssertNil(records.first?.lastError)
+    }
+
+    func testUploadLedgerStatusProjectsToSharedUploadStatus() {
+        XCTAssertEqual(UploadLedgerStatus.discovered.uploadStatus, .Pending)
+        XCTAssertEqual(UploadLedgerStatus.readyToUpload.uploadStatus, .Pending)
+        XCTAssertEqual(UploadLedgerStatus.skipped.uploadStatus, .Pending)
+        XCTAssertEqual(UploadLedgerStatus.exporting.uploadStatus, .Uploading)
+        XCTAssertEqual(UploadLedgerStatus.uploading.uploadStatus, .Uploading)
+        XCTAssertEqual(UploadLedgerStatus.uploaded.uploadStatus, .Uploaded)
+        XCTAssertEqual(UploadLedgerStatus.synced.uploadStatus, .Uploaded)
+        XCTAssertEqual(UploadLedgerStatus.failed.uploadStatus, .Failed)
     }
 
     private func makeCandidate(assetId: String, fileName: String) -> PhotoAssetCandidate {

@@ -273,4 +273,39 @@ class LocalSyncLedgerTest {
         )
         assertTrue(ledger.hasActiveRecords())
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun markQueuedClearsFailureStateForRetry() = runTest {
+        val tempFile = File(tempFolder.root, "mark_queued.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "failed-job",
+                mediaId = "media-failed-job",
+                fileName = "failed.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Failed,
+                localUri = null,
+                lastAttemptAt = 50L,
+                lastError = "network error",
+                isLocalDeleted = false,
+                statusEnteredAt = 40L,
+                retryCount = 3
+            )
+        )
+
+        ledger.markQueued("failed-job", now = 99L)
+
+        val retried = ledger.get("failed-job")!!
+        assertEquals(LocalSyncStatus.Queued, retried.status)
+        assertNull(retried.lastError)
+        assertEquals(99L, retried.lastAttemptAt)
+        assertEquals(99L, retried.statusEnteredAt)
+        assertEquals(0, retried.retryCount)
+    }
 }

@@ -1,8 +1,17 @@
 package com.nexusrelay.pixel.sync
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.getSystemService
 import androidx.work.*
+import com.nexusrelay.pixel.MainActivity
+import com.nexusrelay.pixel.R
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import kotlinx.coroutines.flow.first
 import java.io.IOException
@@ -14,8 +23,13 @@ class SyncWorker(
 
     private val repository = DeviceSyncRepository(context)
 
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        return createForegroundInfo()
+    }
+
     override suspend fun doWork(): Result {
         Log.d(TAG, "Sync background worker started execution.")
+        setForeground(createForegroundInfo())
         return try {
             val success = repository.syncPendingJobs()
             if (success) {
@@ -32,9 +46,63 @@ class SyncWorker(
         }
     }
 
+    private fun createForegroundInfo(): ForegroundInfo {
+        ensureNotificationChannel()
+
+        val launchIntent = Intent(applicationContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
+            .setContentText(applicationContext.getString(R.string.sync_notification_body))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pendingIntent)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
+
+        val notificationManager = applicationContext.getSystemService<NotificationManager>() ?: return
+        val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID)
+        if (existingChannel != null) {
+            return
+        }
+
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            applicationContext.getString(R.string.sync_notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = applicationContext.getString(R.string.sync_notification_channel_description)
+            setShowBadge(false)
+        }
+        notificationManager.createNotificationChannel(channel)
+    }
+
     companion object {
         private const val TAG = "SyncWorker"
         const val WORK_NAME = "nexus-relay-pixel-sync"
+        private const val CHANNEL_ID = "nexus-relay-pixel-sync"
+        private const val NOTIFICATION_ID = 1101
 
         suspend fun enqueueOneTimeSync(context: Context) {
             val appSettingsStore = AppSettingsStore(context)

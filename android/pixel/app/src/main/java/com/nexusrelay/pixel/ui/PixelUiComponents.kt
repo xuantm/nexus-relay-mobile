@@ -10,12 +10,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,30 +88,45 @@ fun MetricCard(label: String, value: String, icon: ImageVector, tint: Color, mod
 }
 
 @Composable
-internal fun LedgerRecordRow(record: LocalSyncRecord) {
+internal fun LedgerRecordRow(
+    record: LocalSyncRecord,
+    showRetryAction: Boolean = false,
+    onRetry: (() -> Unit)? = null
+) {
     val statusLabel = ledgerStatusLabel(record)
     val color = when {
         record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted -> Color(0xFF16856A)
         record.status == LocalSyncStatus.Confirmed -> Color(0xFF276EF1)
         record.status == LocalSyncStatus.Failed -> Color(0xFFBA2F45)
-        record.status == LocalSyncStatus.Downloading || record.status == LocalSyncStatus.ConfirmPending -> Color(0xFFA76613)
+        record.status == LocalSyncStatus.Downloading || record.status == LocalSyncStatus.Imported || record.status == LocalSyncStatus.ConfirmPending -> Color(0xFFA76613)
         else -> Color(0xFF627083)
     }
+    val canRetry = showRetryAction && record.status == LocalSyncStatus.Failed
 
     Surface(modifier = Modifier.fillMaxWidth(), shape = PanelShape, color = Color(0xFFF1F5F8)) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(record.fileName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${record.mimeType} · ${formatBytes(record.sizeBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                if (record.status == LocalSyncStatus.Failed && !record.lastError.isNullOrBlank()) {
-                    Text(record.lastError, color = Color(0xFFBA2F45), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(record.fileName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${record.mimeType} · ${formatBytes(record.sizeBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    if (record.status == LocalSyncStatus.Failed && !record.lastError.isNullOrBlank()) {
+                        Text(record.lastError, color = Color(0xFFBA2F45), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                StatusChip(statusLabel, color)
+            }
+            if (canRetry && onRetry != null) {
+                OutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Resync", modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            StatusChip(statusLabel, color)
         }
     }
 }

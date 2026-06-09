@@ -287,7 +287,7 @@ final class SQLiteUploadLedger: UploadLedger {
             uploadedFileName: uploadedFileName,
             mimeType: mimeType,
             sizeBytes: sizeBytes,
-            status: UploadStatus(rawValue: statusRaw) ?? .discovered,
+            status: UploadLedgerStatus(rawValue: statusRaw) ?? .discovered,
             backendFolderId: folderId,
             backendUploadId: uploadId,
             localStagedFileURL: localUrl,

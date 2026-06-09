@@ -144,9 +144,9 @@ private struct UploadQueueRow: View {
                     .lineLimit(1)
                 Text(item.statusText)
                     .font(.caption)
-                    .foregroundStyle(item.status == .failed ? NRDesign.ColorToken.error : NRDesign.ColorToken.secondaryText)
+                    .foregroundStyle(item.status == .Failed ? NRDesign.ColorToken.error : NRDesign.ColorToken.secondaryText)
                 ProgressView(value: item.progressFraction)
-                    .tint(item.status == .failed ? NRDesign.ColorToken.error : NRDesign.ColorToken.accent)
+                    .tint(item.status == .Failed ? NRDesign.ColorToken.error : NRDesign.ColorToken.accent)
             }
 
             if item.canRetry {

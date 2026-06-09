@@ -86,6 +86,9 @@ fun formatLastSyncTime(timestampMillis: Long): String {
 }
 
 internal fun ledgerStatusLabel(record: LocalSyncRecord): String {
+    if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
+        return "Cleaned"
+    }
     return when (record.status.toSyncStatus()) {
         SyncStatus.Pending -> "Pending"
         SyncStatus.Syncing -> "Syncing"

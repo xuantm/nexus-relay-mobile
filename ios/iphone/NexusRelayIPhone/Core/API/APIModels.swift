@@ -41,10 +41,19 @@ struct CreateFolderRequest: Encodable {
 // MARK: - Media DTOs
 enum MediaItemStatus: String, Codable {
     case pending = "Pending"
+    case buffering = "Buffering"
+    case relaying = "Relaying"
     case uploading = "Uploading"
     case processing = "Processing"
     case completed = "Completed"
     case failed = "Failed"
+}
+
+enum UploadStatus: String, Codable, Equatable {
+    case Pending = "Pending"
+    case Uploading = "Uploading"
+    case Uploaded = "Uploaded"
+    case Failed = "Failed"
 }
 
 enum MediaType: String, Codable {
@@ -61,12 +70,47 @@ struct MediaItemDTO: Codable, Equatable, Identifiable {
     let width: Int?
     let height: Int?
     let status: MediaItemStatus
+    let uploadStatus: UploadStatus?
     let mediaType: MediaType
     let durationSeconds: Double?
     let thumbnailGenerated: Bool
     let videoCodec: String?
     let createdAt: Date
     let completedAt: Date?
+
+    init(
+        id: UUID,
+        folderId: UUID?,
+        fileName: String,
+        size: Int64,
+        mimeType: String,
+        width: Int?,
+        height: Int?,
+        status: MediaItemStatus,
+        uploadStatus: UploadStatus? = nil,
+        mediaType: MediaType,
+        durationSeconds: Double?,
+        thumbnailGenerated: Bool,
+        videoCodec: String?,
+        createdAt: Date,
+        completedAt: Date?
+    ) {
+        self.id = id
+        self.folderId = folderId
+        self.fileName = fileName
+        self.size = size
+        self.mimeType = mimeType
+        self.width = width
+        self.height = height
+        self.status = status
+        self.uploadStatus = uploadStatus
+        self.mediaType = mediaType
+        self.durationSeconds = durationSeconds
+        self.thumbnailGenerated = thumbnailGenerated
+        self.videoCodec = videoCodec
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+    }
 }
 
 struct CursorPageDTO<T: Codable & Equatable>: Codable, Equatable {

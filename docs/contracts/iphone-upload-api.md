@@ -177,7 +177,8 @@ Response body (FolderContentDto):
       "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
       "size": 4820131,
       "mimeType": "image/heic",
-      "status": "Completed"
+      "status": "Completed",
+      "uploadStatus": "Uploaded"
     }
   ],
   "media": {
@@ -187,7 +188,8 @@ Response body (FolderContentDto):
         "fileName": "IMG_1001__nr-a3f91c0d8e74b210.HEIC",
         "size": 4820131,
         "mimeType": "image/heic",
-        "status": "Completed"
+        "status": "Completed",
+        "uploadStatus": "Uploaded"
       }
     ],
     "pageSize": 60,
@@ -204,6 +206,15 @@ __nr-<16-hex-fingerprint>
 ```
 
 and marks matching local assets as already uploaded.
+
+For the iPhone app, the shared `uploadStatus` is a user-facing projection:
+
+- `Pending`
+- `Uploading`
+- `Uploaded`
+- `Failed`
+
+The app keeps its richer internal ledger states locally and maps them onto this display/API shape.
 
 ## Upload APIs
 
