@@ -39,8 +39,8 @@ import com.nexusrelay.pixel.api.PairingCodeParser
 import com.nexusrelay.pixel.api.RedeemPairingCodeRequest
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
-import com.nexusrelay.pixel.sync.PollWorker
 import com.nexusrelay.pixel.sync.SyncWorker
+import com.nexusrelay.pixel.sync.ensureBackgroundSyncConfigured
 import com.nexusrelay.pixel.sync.fetchCurrentFcmToken
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -202,8 +202,10 @@ fun SetupScreen(
                                     appSettingsStore.saveScopedFolderId(response.scopedFolderId)
                                     deviceTokenStore.saveDeviceToken(response.deviceToken)
 
-                                    // Schedule polling and run immediate sync
-                                    PollWorker.schedulePeriodicPoll(context)
+                                    ensureBackgroundSyncConfigured(
+                                        context = context,
+                                        refreshBackendTokenNow = false
+                                    )
                                     SyncWorker.enqueueOneTimeSync(context, expedited = true)
 
                                     successMessage = "Pixel paired"
