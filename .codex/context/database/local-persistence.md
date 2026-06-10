@@ -17,7 +17,7 @@ last_verified_commit: c53b326ddc88d1db76b2d958d18eb7daed2e8b28
 | Store | Path | Data | Notes |
 |---|---|---|---|
 | DataStore `app_settings` | `AppSettingsStore.kt` | backend URL, target id, device name, Wi-Fi, FCM token, sync scope, auto-delete settings | Non-secret preferences. |
-| DataStore `sync_ledger` | `LocalSyncLedger.kt` | JSON map of `LocalSyncRecord` keyed by job id | MVP local ledger; no migration tooling found. |
+| DataStore `sync_ledger` | `LocalSyncLedger.kt` | JSON map of `LocalSyncRecord` keyed by job id | MVP local ledger; failed records include `backendFailureReportedAt` so Pixel can retry `/fail` reports that were not acknowledged. No migration tooling found. |
 | EncryptedSharedPreferences `secure_device_prefs` | `DeviceTokenStore.kt` | raw device token | Uses AndroidX Security `MasterKey` and AES schemes. |
 | Android MediaStore | `MediaStoreImporter.kt` | imported media files | Images/videos in NexusRelay folders, pending row during writes. |
 
@@ -29,7 +29,7 @@ last_verified_commit: c53b326ddc88d1db76b2d958d18eb7daed2e8b28
 | `Imported` | imported locally but not confirmed | `Syncing` |
 | `ConfirmPending` | confirmation needs retry | `Syncing` |
 | `Confirmed` | backend `ImportedConfirmed` acknowledged through `/confirm` | `Synced` |
-| `Failed` | terminal local failure | `Failed` |
+| `Failed` | terminal local failure; backend `/fail` report is retried until `backendFailureReportedAt` is set | `Failed` |
 
 ## iOS Persistence
 | Store | Path | Data | Notes |

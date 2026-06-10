@@ -308,4 +308,38 @@ class LocalSyncLedgerTest {
         assertEquals(99L, retried.statusEnteredAt)
         assertEquals(0, retried.retryCount)
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun markFailureReportedRemovesRecordFromUnreportedFailures() = runTest {
+        val tempFile = File(tempFolder.root, "failure_reported.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "failed-job",
+                mediaId = "media-failed-job",
+                fileName = "failed.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 1L,
+                sha256 = null,
+                status = LocalSyncStatus.Failed,
+                localUri = null,
+                lastAttemptAt = 50L,
+                lastError = "download failed",
+                isLocalDeleted = false,
+                statusEnteredAt = 40L,
+                retryCount = 0
+            )
+        )
+
+        assertEquals(listOf("failed-job"), ledger.listUnreportedFailures().map { it.jobId })
+
+        ledger.markFailureReported("failed-job", now = 88L)
+
+        val reported = ledger.get("failed-job")!!
+        assertEquals(88L, reported.backendFailureReportedAt)
+        assertTrue(ledger.listUnreportedFailures().isEmpty())
+    }
 }

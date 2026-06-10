@@ -159,6 +159,10 @@ Expected response:
 
 The Pixel client must treat any terminal local failure as a backend-visible failure. If the client marks a job `Failed`, it must also call this endpoint rather than only updating local counters or ledger state.
 
+The endpoint must be idempotent for the same device/job/error. Pixel stores whether a local failed record has been successfully reported to the backend; if reporting fails because the network or backend is unavailable, Pixel will retry `POST /fail` on later sync cycles until the backend acknowledges it.
+
+Backend retry/cancel tooling should use this backend-visible failed state as the point where an operator or automatic policy can create a fresh pending attempt. Retrying should not reuse a stale `Downloading` attempt forever.
+
 ## FCM Payload
 
 FCM is a signal, not a file transport.
@@ -171,6 +175,8 @@ FCM is a signal, not a file transport.
 ```
 
 The Pixel app should enqueue sync work after receiving this message, then call `GET /api/device-sync/jobs/pending`. The app should not trust FCM as the durable queue.
+
+Backend should send Android FCM sync signals as high-priority data messages only when a user-visible or time-sensitive device sync should run promptly. If FCM reports deleted messages to the Pixel app, Pixel enqueues a full sync and reconciles from `GET /api/device-sync/jobs/pending`; backend pending jobs remain the durable source of truth.
 
 ## Status Vocabulary
 

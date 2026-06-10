@@ -26,7 +26,8 @@ internal data class LocalSyncRecord(
     val lastError: String?,
     val isLocalDeleted: Boolean = false,
     val statusEnteredAt: Long = lastAttemptAt,
-    val retryCount: Int = 0
+    val retryCount: Int = 0,
+    val backendFailureReportedAt: Long? = null
 )
 
 private val activeStatuses = setOf(
@@ -129,7 +130,8 @@ internal class LocalSyncLedger(
             lastError = null,
             lastAttemptAt = now,
             statusEnteredAt = now,
-            retryCount = 0
+            retryCount = 0,
+            backendFailureReportedAt = null
         ))
     }
 
@@ -142,7 +144,8 @@ internal class LocalSyncLedger(
             lastError = null,
             lastAttemptAt = now,
             statusEnteredAt = now,
-            retryCount = 0
+            retryCount = 0,
+            backendFailureReportedAt = null
         ))
     }
 
@@ -155,7 +158,8 @@ internal class LocalSyncLedger(
             lastError = null,
             lastAttemptAt = now,
             statusEnteredAt = now,
-            retryCount = 0
+            retryCount = 0,
+            backendFailureReportedAt = null
         ))
     }
 
@@ -167,7 +171,8 @@ internal class LocalSyncLedger(
             lastError = null,
             lastAttemptAt = now,
             statusEnteredAt = now,
-            retryCount = 0
+            retryCount = 0,
+            backendFailureReportedAt = null
         ))
     }
 
@@ -179,8 +184,14 @@ internal class LocalSyncLedger(
             lastError = error,
             lastAttemptAt = now,
             statusEnteredAt = now,
-            retryCount = 0
+            retryCount = 0,
+            backendFailureReportedAt = null
         ))
+    }
+
+    suspend fun markFailureReported(jobId: String, now: Long = System.currentTimeMillis()) {
+        val record = get(jobId) ?: return
+        upsert(record.copy(backendFailureReportedAt = now))
     }
 
     suspend fun recordRetriableFailure(jobId: String, error: String, now: Long = System.currentTimeMillis()) {
@@ -202,7 +213,8 @@ internal class LocalSyncLedger(
                 lastError = null,
                 lastAttemptAt = now,
                 statusEnteredAt = now,
-                retryCount = 0
+                retryCount = 0,
+                backendFailureReportedAt = null
             )
         )
     }
@@ -238,6 +250,12 @@ internal class LocalSyncLedger(
         val statusSet = statuses.toSet()
         return getRecordsMap().values
             .filter { it.status in statusSet }
+            .sortedByDescending { it.lastAttemptAt }
+    }
+
+    suspend fun listUnreportedFailures(): List<LocalSyncRecord> {
+        return getRecordsMap().values
+            .filter { it.status == LocalSyncStatus.Failed && it.backendFailureReportedAt == null }
             .sortedByDescending { it.lastAttemptAt }
     }
 

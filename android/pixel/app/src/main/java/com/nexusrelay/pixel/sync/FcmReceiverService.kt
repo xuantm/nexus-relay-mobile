@@ -20,11 +20,17 @@ class FcmReceiverService : FirebaseMessagingService() {
         val type = message.data["type"]
         val jobId = message.data["jobId"]
 
-        if (type == "device_sync_job_available") {
-            Log.d(tag, "New sync job available ($jobId). Enqueuing SyncWorker.")
-            serviceScope.launch {
-                SyncWorker.enqueueOneTimeSync(applicationContext, expedited = true)
-            }
+        Log.d(tag, "FCM sync signal received. type=$type jobId=$jobId")
+        serviceScope.launch {
+            syncSignalHandler().handleMessage(type)
+        }
+    }
+
+    override fun onDeletedMessages() {
+        super.onDeletedMessages()
+        Log.w(tag, "FCM messages were deleted before delivery. Enqueuing full sync.")
+        serviceScope.launch {
+            syncSignalHandler().handleDeletedMessages()
         }
     }
 
@@ -37,5 +43,13 @@ class FcmReceiverService : FirebaseMessagingService() {
             appSettingsStore.saveFcmToken(token)
             refreshBackendFcmToken(applicationContext, token)
         }
+    }
+
+    private fun syncSignalHandler(): FcmSyncSignalHandler {
+        return FcmSyncSignalHandler(
+            enqueueExpeditedSync = {
+                SyncWorker.enqueueOneTimeSync(applicationContext, expedited = true)
+            }
+        )
     }
 }

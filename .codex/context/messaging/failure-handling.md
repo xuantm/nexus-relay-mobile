@@ -16,10 +16,12 @@ last_verified_commit: c53b326ddc88d1db76b2d958d18eb7daed2e8b28
 ## Android Pixel
 | Failure | Behavior | Source |
 |---|---|---|
-| Network/backend transient failure | `DeviceSyncRepository` throws/propagates as `IOException`; `SyncWorker` returns retry | `DeviceSyncRepository.kt`, `SyncWorker.kt` |
+| Network/backend transient failure after a job is known | `DeviceSyncRepository` marks local `Failed`, attempts backend `/fail`, then throws/propagates as `IOException`; `SyncWorker` returns retry | `DeviceSyncRepository.kt`, `SyncWorker.kt` |
 | Interrupted/stalled download | On next sync, records in `Downloading` older than 60 minutes become `Failed` and Pixel reports backend `/fail` so the job does not stay stuck in `Downloading` | `recoverInterruptedDownloads()` |
 | Import succeeds but confirm fails | Record is kept `ConfirmPending`; later sync retries confirm before new jobs | `retryLocalConfirmation()` |
 | Terminal job failure | Ledger marks failed, then app attempts backend `/fail` report | `DeviceSyncRepository.kt` |
+| Backend `/fail` report fails | Local failed record keeps `backendFailureReportedAt = null`; later sync retries `/fail` through `listUnreportedFailures()` | `LocalSyncLedger.kt`, `DeviceSyncRepository.kt` |
+| FCM deleted messages | Pixel enqueues expedited full sync and reconciles from backend pending jobs | `FcmReceiverService.kt`, `FcmSyncSignalHandler.kt` |
 | Duplicate prevention | Ledger skips `Confirmed` records and retries local confirmations without redownloading | `DeviceSyncRepository.kt`, `LocalSyncLedger.kt` |
 | Local cleanup failure | Cleanup errors are logged but do not fail sync | `cleanUpLocalFiles()` |
 

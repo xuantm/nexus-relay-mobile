@@ -60,6 +60,7 @@ class DeviceSyncRepositoryTest {
         ).thenReturn(emptyList())
         whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(emptyList())
         whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(emptyList())
+        whenever(mockLedger.listUnreportedFailures()).thenReturn(emptyList())
     }
 
     @Test
@@ -120,12 +121,13 @@ class DeviceSyncRepositoryTest {
     }
 
     @Test
-    fun testSyncPendingJobs_NetworkFailureDuringDownload_MarksFailedLocallyAndThrowsIOException() = runTest {
+    fun testSyncPendingJobs_NetworkFailureDuringDownload_MarksFailedReportsBackendAndThrowsIOException() = runTest {
         setupConfiguredMocks()
         val job = createSampleJobDto("job-1")
         whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
         whenever(mockLedger.get("job-1")).thenReturn(null)
         whenever(mockApi.downloadJob(eq("token-123"), eq("job-1"))).thenAnswer { throw IOException("Download timed out") }
+        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
 
         val repository = createRepository()
         var threw = false
@@ -137,15 +139,17 @@ class DeviceSyncRepositoryTest {
         assertTrue("Expected IOException to be thrown", threw)
 
         verify(mockLedger).markFailed(eq("job-1"), eq("Download timed out"))
-        verify(mockApi, never()).fail(any(), eq("job-1"), any())
+        verify(mockApi).fail(eq("token-123"), eq("job-1"), eq(FailDeviceSyncJobRequest("Download timed out")))
+        verify(mockLedger).markFailureReported(eq("job-1"), any())
     }
 
     @Test
-    fun testSyncPendingJobs_HttpRetriableFailure_MarksFailedLocallyAndThrowsIOException() = runTest {
+    fun testSyncPendingJobs_HttpRetriableFailure_MarksFailedReportsBackendAndThrowsIOException() = runTest {
         setupConfiguredMocks()
         val job = createSampleJobDto("job-2")
         whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
         whenever(mockLedger.get("job-2")).thenReturn(null)
+        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
 
         val errorResponse = Response.error<Any>(503, ResponseBody.create(null, "Service Unavailable"))
         whenever(mockApi.markDownloading(eq("token-123"), eq("job-2"))).thenAnswer { throw HttpException(errorResponse) }
@@ -160,7 +164,59 @@ class DeviceSyncRepositoryTest {
         assertTrue("Expected IOException to be thrown", threw)
 
         verify(mockLedger).markFailed(eq("job-2"), eq("HTTP 503 Response.error()"))
-        verify(mockApi, never()).fail(any(), eq("job-2"), any())
+        verify(mockApi).fail(eq("token-123"), eq("job-2"), eq(FailDeviceSyncJobRequest("HTTP 503 Response.error()")))
+        verify(mockLedger).markFailureReported(eq("job-2"), any())
+    }
+
+    @Test
+    fun testSyncPendingJobs_NetworkFailureDuringDownload_RetriesWorkWhenFailureReportFails() = runTest {
+        setupConfiguredMocks()
+        val job = createSampleJobDto("job-fail-report-drops")
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
+        whenever(mockLedger.get("job-fail-report-drops")).thenReturn(null)
+        whenever(mockApi.downloadJob(eq("token-123"), eq("job-fail-report-drops"))).thenAnswer { throw IOException("Download timed out") }
+        whenever(mockApi.fail(any(), eq("job-fail-report-drops"), any())).thenAnswer { throw IOException("fail endpoint down") }
+
+        val repository = createRepository()
+        var threw = false
+        try {
+            repository.syncPendingJobs()
+        } catch (e: IOException) {
+            threw = true
+        }
+
+        assertTrue("Expected original retriable failure to be thrown", threw)
+        verify(mockLedger).markFailed(eq("job-fail-report-drops"), eq("Download timed out"))
+        verify(mockApi).fail(eq("token-123"), eq("job-fail-report-drops"), eq(FailDeviceSyncJobRequest("Download timed out")))
+        verify(mockLedger, never()).markFailureReported(eq("job-fail-report-drops"), any())
+    }
+
+    @Test
+    fun testSyncPendingJobs_RetriesUnreportedLocalFailuresBeforePolling() = runTest {
+        setupConfiguredMocks()
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
+
+        val failedRecord = LocalSyncRecord(
+            jobId = "job-unreported-failed",
+            mediaId = "media-unreported-failed",
+            fileName = "failed.jpg",
+            mimeType = "image/jpeg",
+            sizeBytes = 10L,
+            sha256 = null,
+            status = LocalSyncStatus.Failed,
+            localUri = null,
+            lastAttemptAt = 0L,
+            lastError = "Previous report failed"
+        )
+        whenever(mockLedger.listUnreportedFailures()).thenReturn(listOf(failedRecord))
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+
+        assertTrue(result)
+        verify(mockApi).fail(eq("token-123"), eq("job-unreported-failed"), eq(FailDeviceSyncJobRequest("Previous report failed")))
+        verify(mockLedger).markFailureReported(eq("job-unreported-failed"), any())
     }
 
     @Test

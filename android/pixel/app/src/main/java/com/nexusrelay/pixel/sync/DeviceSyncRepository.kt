@@ -77,8 +77,20 @@ internal class DeviceSyncRepository(
     ) {
         try {
             api.fail(deviceToken, jobId, FailDeviceSyncJobRequest(error))
+            ledger.markFailureReported(jobId)
         } catch (failEx: Exception) {
             Log.e(tag, "Failed to report job failure to backend for job $jobId", failEx)
+        }
+    }
+
+    private suspend fun reportUnreportedFailures(
+        api: NexusRelayApi,
+        deviceToken: String
+    ) {
+        val records = ledger.listUnreportedFailures()
+        for (record in records) {
+            val error = record.lastError ?: "Local sync failed"
+            reportFailure(api, deviceToken, record.jobId, error)
         }
     }
 
@@ -96,11 +108,17 @@ internal class DeviceSyncRepository(
         }
     }
 
-    private suspend fun failOrphanedQueuedRecords(pendingJobIds: Set<String>, now: Long) {
+    private suspend fun failOrphanedQueuedRecords(
+        api: NexusRelayApi,
+        deviceToken: String,
+        pendingJobIds: Set<String>,
+        now: Long
+    ) {
         val queuedRecords = ledger.listByStatuses(LocalSyncStatus.Queued)
         for (record in queuedRecords) {
             if (record.jobId !in pendingJobIds && hasTimedOut(record, now)) {
                 ledger.markFailed(record.jobId, QUEUED_TIMEOUT_MESSAGE)
+                reportFailure(api, deviceToken, record.jobId, QUEUED_TIMEOUT_MESSAGE)
             }
         }
     }
@@ -149,6 +167,7 @@ internal class DeviceSyncRepository(
 
         val api = apiProvider(backendUrl)
         val now = System.currentTimeMillis()
+        reportUnreportedFailures(api, deviceToken)
         recoverInterruptedDownloads(api, deviceToken, now)
         val pendingJobs = try {
             api.pendingJobs(deviceToken)
@@ -157,7 +176,7 @@ internal class DeviceSyncRepository(
             throwOrPropagateIfRetriable(e)
             throw e
         }
-        failOrphanedQueuedRecords(pendingJobs.map { it.jobId }.toSet(), now)
+        failOrphanedQueuedRecords(api, deviceToken, pendingJobs.map { it.jobId }.toSet(), now)
 
         var allSucceeded = true
 
@@ -243,8 +262,8 @@ internal class DeviceSyncRepository(
 
                 if (!inConfirmationRecovery) {
                     ledger.markFailed(job.jobId, errorMsg)
-                    throwOrPropagateIfRetriable(e)
                     reportFailure(api, deviceToken, job.jobId, errorMsg)
+                    throwOrPropagateIfRetriable(e)
                     allSucceeded = false
                     continue
                 }
