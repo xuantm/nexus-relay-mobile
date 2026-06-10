@@ -76,6 +76,7 @@ class DeviceSyncRepositoryTest {
     fun testSyncPendingJobs_RecoversStaleDownloadingLedgerRecordBeforePolling() = runTest {
         setupConfiguredMocks()
         whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
+        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
 
         val staleRecord = LocalSyncRecord(
             jobId = "job-stale-downloading",
@@ -95,7 +96,12 @@ class DeviceSyncRepositoryTest {
         val result = repository.syncPendingJobs()
 
         assertTrue(result)
-        verify(mockLedger).markFailed(eq("job-stale-downloading"), eq("Sync interrupted before import completed"))
+        verify(mockLedger).markFailed(eq("job-stale-downloading"), eq("Download stalled for over 1 hour before import completed"))
+        verify(mockApi).fail(
+            eq("token-123"),
+            eq("job-stale-downloading"),
+            eq(FailDeviceSyncJobRequest("Download stalled for over 1 hour before import completed"))
+        )
     }
 
     @Test
@@ -179,6 +185,34 @@ class DeviceSyncRepositoryTest {
         // Ledger should be marked failed and backend notified
         verify(mockLedger).markFailed(eq("job-3"), eq("Unsupported media type"))
         verify(mockApi).fail(eq("token-123"), eq("job-3"), eq(FailDeviceSyncJobRequest("Unsupported media type")))
+    }
+
+    @Test
+    fun testSyncPendingJobs_NewJob_DownloadImportSucceed_ConfirmsBackend() = runTest {
+        setupConfiguredMocks()
+        val job = createSampleJobDto("job-confirm-success")
+        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
+        whenever(mockLedger.get("job-confirm-success")).thenReturn(null)
+        whenever(mockApi.markDownloading(any(), any())).thenAnswer {}
+
+        val mockResponseBody = mock(ResponseBody::class.java)
+        val mockInputStream = mock(java.io.InputStream::class.java)
+        whenever(mockResponseBody.byteStream()).thenReturn(mockInputStream)
+        whenever(mockApi.downloadJob(eq("token-123"), eq("job-confirm-success"))).thenReturn(mockResponseBody)
+
+        val localUri = "content://media/external/images/media/confirm-success"
+        whenever(mockImporter.importMedia(eq(job.fileName), eq(job.mimeType), any(), eq(job.sizeBytes))).thenReturn(localUri)
+
+        val repository = createRepository()
+        val result = repository.syncPendingJobs()
+
+        assertTrue(result)
+        verify(mockApi).confirm(
+            eq("token-123"),
+            eq("job-confirm-success"),
+            eq(ConfirmDeviceSyncJobRequest(localUri, job.sizeBytes))
+        )
+        verify(mockLedger).markConfirmed("job-confirm-success")
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.nexusrelay.pixel.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +41,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,13 +54,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.nexusrelay.pixel.auth.DeviceTokenStore
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.storage.LocalSyncLedger
 import com.nexusrelay.pixel.storage.LocalSyncRecord
 import com.nexusrelay.pixel.storage.LocalSyncStatus
+import com.nexusrelay.pixel.sync.BackgroundSyncWatchdogReceiver
 import com.nexusrelay.pixel.sync.DeviceSyncRepository
 import com.nexusrelay.pixel.sync.SyncWorker
+import com.nexusrelay.pixel.sync.batteryOptimizationIntent
+import com.nexusrelay.pixel.sync.isIgnoringBatteryOptimizations
 import kotlinx.coroutines.launch
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -66,6 +75,7 @@ fun StatusScreen(
     onUnregister: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
     val appSettingsStore = remember { AppSettingsStore(context) }
@@ -96,13 +106,27 @@ fun StatusScreen(
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showResetLedgerDialog by remember { mutableStateOf(false) }
     var selectedTab by rememberSaveable(stateSaver = PixelTabSaver) { mutableStateOf(PixelTab.Sync) }
+    var batteryOptimizationsIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
     val cleanupPreview = remember(allJobs) { buildCleanupPreview(allJobs) }
     val maintenancePreview = remember(allJobs) { buildLedgerMaintenancePreview(allJobs) }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryOptimizationsIgnored = isIgnoringBatteryOptimizations(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val retryFailedJob: (LocalSyncRecord) -> Unit = { record ->
         coroutineScope.launch {
             val retried = repository.retryFailedJob(record.jobId)
             if (retried) {
-                SyncWorker.enqueueOneTimeSync(context)
+                SyncWorker.enqueueOneTimeSync(context, expedited = true)
                 snackbarHostState.showSnackbar("Resync queued for ${record.fileName}")
             } else {
                 snackbarHostState.showSnackbar("This item is no longer available for resync")
@@ -202,7 +226,7 @@ fun StatusScreen(
                 onRetryFailedJob = retryFailedJob,
                 onSyncNow = {
                     coroutineScope.launch {
-                        SyncWorker.enqueueOneTimeSync(context)
+                        SyncWorker.enqueueOneTimeSync(context, expedited = true)
                         snackbarHostState.showSnackbar("Sync queued")
                     }
                 }
@@ -222,14 +246,23 @@ fun StatusScreen(
                 autoDeleteDelayMinutes = autoDeleteDelayMinutes,
                 cleanupPreview = cleanupPreview,
                 maintenancePreview = maintenancePreview,
+                batteryOptimizationsIgnored = batteryOptimizationsIgnored,
                 onWifiOnlyChanged = { coroutineScope.launch { appSettingsStore.saveWifiOnly(it) } },
                 onAutoDeleteChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteEnabled(it) } },
                 onAutoDeleteDelayChanged = { coroutineScope.launch { appSettingsStore.saveAutoDeleteDelayMinutes(it) } },
                 onCleanUpSpace = { showCleanupDialog = true },
                 onClearHistory = { showClearHistoryDialog = true },
                 onResetLedger = { showResetLedgerDialog = true },
+                onOpenBatteryOptimizationSettings = {
+                    try {
+                        context.startActivity(batteryOptimizationIntent(context))
+                    } catch (_: ActivityNotFoundException) {
+                        context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+                    }
+                },
                 onUnregister = {
                     coroutineScope.launch {
+                        BackgroundSyncWatchdogReceiver.cancel(context)
                         deviceTokenStore.clear()
                         appSettingsStore.clear()
                         onUnregister()
@@ -265,7 +298,7 @@ private fun SyncTab(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    MetricCard("Synced", metrics.confirmed.toString(), Icons.Outlined.CheckCircle, Color(0xFF16856A), Modifier.weight(1f))
+                    MetricCard("Confirmed", metrics.confirmed.toString(), Icons.Outlined.CheckCircle, Color(0xFF16856A), Modifier.weight(1f))
                     MetricCard("Syncing", metrics.syncing.toString(), Icons.Outlined.Sync, Color(0xFFA76613), Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -357,12 +390,14 @@ private fun SettingsTab(
     autoDeleteDelayMinutes: Int,
     cleanupPreview: CleanupPreview,
     maintenancePreview: LedgerMaintenancePreview,
+    batteryOptimizationsIgnored: Boolean,
     onWifiOnlyChanged: (Boolean) -> Unit,
     onAutoDeleteChanged: (Boolean) -> Unit,
     onAutoDeleteDelayChanged: (Int) -> Unit,
     onCleanUpSpace: () -> Unit,
     onClearHistory: () -> Unit,
     onResetLedger: () -> Unit,
+    onOpenBatteryOptimizationSettings: () -> Unit,
     onUnregister: () -> Unit
 ) {
     LazyColumn(
@@ -449,6 +484,24 @@ private fun SettingsTab(
                     Text("Background sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Push wake-up: Firebase Cloud Messaging")
                     Text("Fallback polling: every 15 minutes")
+                    Text("Watchdog wake-up: every 15 minutes")
+                    Text(
+                        "Battery optimization: ${if (batteryOptimizationsIgnored) "Allowed" else "Restricted"}",
+                        color = if (batteryOptimizationsIgnored) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                    OutlinedButton(
+                        onClick = onOpenBatteryOptimizationSettings,
+                        enabled = !batteryOptimizationsIgnored,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Outlined.Settings, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text("Allow unrestricted background sync")
+                    }
                 }
             }
         }

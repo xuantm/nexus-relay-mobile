@@ -31,7 +31,7 @@ internal class DeviceSyncRepository(
     companion object {
         private const val STALE_STATUS_TIMEOUT_MS = 60L * 60L * 1000L
         private const val MAX_CONFIRMATION_RETRIES = 4
-        private const val DOWNLOADING_TIMEOUT_MESSAGE = "Sync interrupted before import completed"
+        private const val DOWNLOADING_TIMEOUT_MESSAGE = "Download stalled for over 1 hour before import completed"
         private const val QUEUED_TIMEOUT_MESSAGE = "Sync timed out before download started"
         private const val CONFIRMATION_TIMEOUT_MESSAGE = "Sync confirmation timed out after 1 hour"
     }
@@ -69,11 +69,29 @@ internal class DeviceSyncRepository(
         return status == LocalSyncStatus.ConfirmPending || status == LocalSyncStatus.Imported
     }
 
-    private suspend fun recoverInterruptedDownloads(now: Long) {
+    private suspend fun reportFailure(
+        api: NexusRelayApi,
+        deviceToken: String,
+        jobId: String,
+        error: String
+    ) {
+        try {
+            api.fail(deviceToken, jobId, FailDeviceSyncJobRequest(error))
+        } catch (failEx: Exception) {
+            Log.e(tag, "Failed to report job failure to backend for job $jobId", failEx)
+        }
+    }
+
+    private suspend fun recoverInterruptedDownloads(
+        api: NexusRelayApi,
+        deviceToken: String,
+        now: Long
+    ) {
         val interruptedRecords = ledger.listByStatuses(LocalSyncStatus.Downloading)
         for (record in interruptedRecords) {
             if (hasTimedOut(record, now)) {
                 ledger.markFailed(record.jobId, DOWNLOADING_TIMEOUT_MESSAGE)
+                reportFailure(api, deviceToken, record.jobId, DOWNLOADING_TIMEOUT_MESSAGE)
             }
         }
     }
@@ -115,11 +133,7 @@ internal class DeviceSyncRepository(
                 errorMsg
             }
             ledger.markFailed(record.jobId, finalMessage)
-            try {
-                api.fail(deviceToken, record.jobId, FailDeviceSyncJobRequest(finalMessage))
-            } catch (failEx: Exception) {
-                Log.e(tag, "Failed to report job failure to backend for job ${record.jobId}", failEx)
-            }
+            reportFailure(api, deviceToken, record.jobId, finalMessage)
             false
         }
     }
@@ -135,7 +149,7 @@ internal class DeviceSyncRepository(
 
         val api = apiProvider(backendUrl)
         val now = System.currentTimeMillis()
-        recoverInterruptedDownloads(now)
+        recoverInterruptedDownloads(api, deviceToken, now)
         val pendingJobs = try {
             api.pendingJobs(deviceToken)
         } catch (e: Exception) {
@@ -230,11 +244,7 @@ internal class DeviceSyncRepository(
                 if (!inConfirmationRecovery) {
                     ledger.markFailed(job.jobId, errorMsg)
                     throwOrPropagateIfRetriable(e)
-                    try {
-                        api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(errorMsg))
-                    } catch (failEx: Exception) {
-                        Log.e(tag, "Failed to report job failure to backend for job ${job.jobId}", failEx)
-                    }
+                    reportFailure(api, deviceToken, job.jobId, errorMsg)
                     allSucceeded = false
                     continue
                 }
@@ -251,11 +261,7 @@ internal class DeviceSyncRepository(
                     errorMsg
                 }
                 ledger.markFailed(job.jobId, finalMessage)
-                try {
-                    api.fail(deviceToken, job.jobId, FailDeviceSyncJobRequest(finalMessage))
-                } catch (failEx: Exception) {
-                    Log.e(tag, "Failed to report job failure to backend for job ${job.jobId}", failEx)
-                }
+                reportFailure(api, deviceToken, job.jobId, finalMessage)
                 allSucceeded = false
                 continue
             }

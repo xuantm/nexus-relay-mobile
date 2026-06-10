@@ -204,7 +204,7 @@ fun SetupScreen(
 
                                     // Schedule polling and run immediate sync
                                     PollWorker.schedulePeriodicPoll(context)
-                                    SyncWorker.enqueueOneTimeSync(context)
+                                    SyncWorker.enqueueOneTimeSync(context, expedited = true)
 
                                     successMessage = "Pixel paired"
                                     onRegistrationSuccess()

@@ -6,6 +6,7 @@ import com.nexusrelay.pixel.auth.DeviceTokenStore
 internal class BackgroundSyncBootstrapper(
     private val loadDeviceToken: suspend () -> String?,
     private val schedulePeriodicPoll: () -> Unit,
+    private val scheduleWatchdog: () -> Unit,
     private val refreshBackendToken: suspend () -> Unit
 ) {
     suspend fun ensureConfigured(refreshBackendTokenNow: Boolean): Boolean {
@@ -15,6 +16,7 @@ internal class BackgroundSyncBootstrapper(
         }
 
         schedulePeriodicPoll()
+        scheduleWatchdog()
 
         if (refreshBackendTokenNow) {
             refreshBackendToken()
@@ -32,6 +34,7 @@ internal suspend fun ensureBackgroundSyncConfigured(
     val bootstrapper = BackgroundSyncBootstrapper(
         loadDeviceToken = { DeviceTokenStore(appContext).getDeviceToken() },
         schedulePeriodicPoll = { PollWorker.schedulePeriodicPoll(appContext) },
+        scheduleWatchdog = { BackgroundSyncWatchdogReceiver.scheduleNext(appContext) },
         refreshBackendToken = { refreshBackendFcmToken(appContext) }
     )
 

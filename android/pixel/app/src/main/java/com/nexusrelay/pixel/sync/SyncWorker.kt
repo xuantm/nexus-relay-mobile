@@ -13,7 +13,9 @@ import androidx.work.*
 import com.nexusrelay.pixel.MainActivity
 import com.nexusrelay.pixel.R
 import com.nexusrelay.pixel.storage.AppSettingsStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 class SyncWorker(
@@ -104,7 +106,7 @@ class SyncWorker(
         private const val CHANNEL_ID = "nexus-relay-pixel-sync"
         private const val NOTIFICATION_ID = 1101
 
-        suspend fun enqueueOneTimeSync(context: Context) {
+        suspend fun enqueueOneTimeSync(context: Context, expedited: Boolean = false) {
             val appSettingsStore = AppSettingsStore(context)
             val wifiOnly = appSettingsStore.wifiOnlyFlow.first()
 
@@ -116,25 +118,59 @@ class SyncWorker(
 
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(networkType)
-                .setRequiresBatteryNotLow(true)
                 .setRequiresStorageNotLow(true)
+                .apply {
+                    if (!expedited) {
+                        setRequiresBatteryNotLow(true)
+                    }
+                }
                 .build()
 
-            val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            val syncRequestBuilder = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
                     WorkRequest.MIN_BACKOFF_MILLIS,
                     java.util.concurrent.TimeUnit.MILLISECONDS
                 )
-                .build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
+            if (expedited) {
+                syncRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            }
+
+            val syncRequest = syncRequestBuilder.build()
+            val workManager = WorkManager.getInstance(context)
+            val existingStates = withContext(Dispatchers.IO) {
+                workManager.getWorkInfosForUniqueWork(WORK_NAME).get()
+                    .map { it.state }
+            }
+            val existingWorkPolicy = selectExistingWorkPolicy(expedited, existingStates)
+
+            workManager.enqueueUniqueWork(
                 WORK_NAME,
-                ExistingWorkPolicy.KEEP,
+                existingWorkPolicy,
                 syncRequest
             )
-            Log.d(TAG, "Unique OneTime Sync enqueued. wifiOnly=$wifiOnly")
+            Log.d(TAG, "Unique OneTime Sync enqueued. wifiOnly=$wifiOnly expedited=$expedited policy=$existingWorkPolicy")
         }
+    }
+}
+
+internal fun selectExistingWorkPolicy(
+    expedited: Boolean,
+    existingStates: List<WorkInfo.State>
+): ExistingWorkPolicy {
+    if (!expedited) {
+        return ExistingWorkPolicy.KEEP
+    }
+
+    if (existingStates.any { it == WorkInfo.State.RUNNING }) {
+        return ExistingWorkPolicy.KEEP
+    }
+
+    return if (existingStates.any { it == WorkInfo.State.ENQUEUED || it == WorkInfo.State.BLOCKED }) {
+        ExistingWorkPolicy.REPLACE
+    } else {
+        ExistingWorkPolicy.KEEP
     }
 }

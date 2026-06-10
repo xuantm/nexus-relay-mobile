@@ -89,6 +89,9 @@ internal fun ledgerStatusLabel(record: LocalSyncRecord): String {
     if (record.status == LocalSyncStatus.Confirmed && record.isLocalDeleted) {
         return "Cleaned"
     }
+    if (record.status == LocalSyncStatus.Confirmed) {
+        return "Confirmed"
+    }
     return when (record.status.toSyncStatus()) {
         SyncStatus.Pending -> "Pending"
         SyncStatus.Syncing -> "Syncing"

@@ -23,7 +23,7 @@ class FcmReceiverService : FirebaseMessagingService() {
         if (type == "device_sync_job_available") {
             Log.d(tag, "New sync job available ($jobId). Enqueuing SyncWorker.")
             serviceScope.launch {
-                SyncWorker.enqueueOneTimeSync(applicationContext)
+                SyncWorker.enqueueOneTimeSync(applicationContext, expedited = true)
             }
         }
     }

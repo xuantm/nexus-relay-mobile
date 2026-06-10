@@ -157,6 +157,8 @@ Expected response:
 204 No Content
 ```
 
+The Pixel client must treat any terminal local failure as a backend-visible failure. If the client marks a job `Failed`, it must also call this endpoint rather than only updating local counters or ledger state.
+
 ## FCM Payload
 
 FCM is a signal, not a file transport.
@@ -202,3 +204,21 @@ Pixel maps local states to the shared API vocabulary as follows:
 - ConfirmPending -> Syncing
 - Confirmed -> Synced
 - Failed -> Failed
+
+## Stalled Job Handling
+
+`Downloading` is not allowed to remain open-ended.
+
+- Pixel should treat a local `Downloading` record older than 60 minutes as stalled.
+- When that happens, Pixel must mark the local record `Failed` and call `POST /api/device-sync/jobs/{jobId}/fail`.
+- The backend should treat `Downloading` jobs older than 30-60 minutes as stalled as well, move them out of the active bucket, and make retry or cancel actions explicit in operator tooling.
+- Retry should create a fresh pending attempt. Cancel should leave a terminal failed/cancelled record instead of keeping the job in `Downloading`.
+
+## Counter Alignment
+
+For dashboard parity, use the same completion definition on both sides:
+
+- Backend completion source of truth: `ImportedConfirmed`
+- Pixel completion source of truth: local `Confirmed`, meaning `/confirm` succeeded and the ledger recorded the confirmation
+
+Pixel UI counts are local-ledger counts for the current registration history until the ledger is cleared or the device is unregistered. They are not a backend target/session aggregate by default. A backend dashboard should compare against `ImportedConfirmed` for the same target and time window if exact parity is required.

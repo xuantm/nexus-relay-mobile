@@ -10,6 +10,31 @@ import org.junit.Test
 class PixelUiModelsTest {
 
     @Test
+    fun buildSyncMetricsCountsOnlyConfirmedAsConfirmed() {
+        val records = listOf(
+            sampleRecord("confirmed", LocalSyncStatus.Confirmed),
+            sampleRecord("imported", LocalSyncStatus.Imported),
+            sampleRecord("confirm-pending", LocalSyncStatus.ConfirmPending),
+            sampleRecord("downloading", LocalSyncStatus.Downloading),
+            sampleRecord("failed", LocalSyncStatus.Failed)
+        )
+
+        val metrics = buildSyncMetrics(records)
+
+        assertEquals(1, metrics.confirmed)
+        assertEquals(3, metrics.syncing)
+        assertEquals(0, metrics.pending)
+        assertEquals(1, metrics.failed)
+    }
+
+    @Test
+    fun ledgerStatusLabelUsesConfirmedForConfirmedRecords() {
+        val label = ledgerStatusLabel(sampleRecord("confirmed", LocalSyncStatus.Confirmed))
+
+        assertEquals("Confirmed", label)
+    }
+
+    @Test
     fun buildLedgerMaintenancePreviewCountsHistoryAndActiveRecords() {
         val records = listOf(
             sampleRecord("confirmed", LocalSyncStatus.Confirmed),

@@ -12,7 +12,7 @@ class PollWorker(
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Periodic PollWorker triggered. Enqueuing one-time sync.")
-        SyncWorker.enqueueOneTimeSync(applicationContext)
+        SyncWorker.enqueueOneTimeSync(applicationContext, expedited = true)
         return Result.success()
     }
 

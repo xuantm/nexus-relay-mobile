@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
                         true -> {
                             com.nexusrelay.pixel.ui.StatusScreen(
                                 onUnregister = {
+                                    com.nexusrelay.pixel.sync.BackgroundSyncWatchdogReceiver.cancel(context)
                                     com.nexusrelay.pixel.sync.PollWorker.cancelPeriodicPoll(context)
                                     isRegistered = false
                                 }

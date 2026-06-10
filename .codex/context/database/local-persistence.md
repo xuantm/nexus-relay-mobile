@@ -28,7 +28,7 @@ last_verified_commit: c53b326ddc88d1db76b2d958d18eb7daed2e8b28
 | `Downloading` | backend marked downloading / local download active | `Syncing` |
 | `Imported` | imported locally but not confirmed | `Syncing` |
 | `ConfirmPending` | confirmation needs retry | `Syncing` |
-| `Confirmed` | backend confirmed | `Synced` |
+| `Confirmed` | backend `ImportedConfirmed` acknowledged through `/confirm` | `Synced` |
 | `Failed` | terminal local failure | `Failed` |
 
 ## iOS Persistence
