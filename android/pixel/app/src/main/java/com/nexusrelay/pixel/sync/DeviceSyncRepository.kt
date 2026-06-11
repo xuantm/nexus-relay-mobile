@@ -9,6 +9,7 @@ import com.nexusrelay.pixel.api.ConfirmDeviceSyncJobRequest
 import com.nexusrelay.pixel.api.FailDeviceSyncJobRequest
 import com.nexusrelay.pixel.api.NexusRelayApi
 import com.nexusrelay.pixel.auth.DeviceTokenStore
+import com.nexusrelay.pixel.media.MediaImporter
 import com.nexusrelay.pixel.media.MediaStoreImporter
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.storage.LocalSyncLedger
@@ -16,6 +17,7 @@ import com.nexusrelay.pixel.storage.LocalSyncRecord
 import com.nexusrelay.pixel.storage.LocalSyncStatus
 import kotlinx.coroutines.flow.first
 import java.io.IOException
+import java.util.UUID
 import retrofit2.HttpException
 
 internal class DeviceSyncRepository(
@@ -23,7 +25,7 @@ internal class DeviceSyncRepository(
     private val appSettingsStore: AppSettingsStore = AppSettingsStore(context),
     private val deviceTokenStore: DeviceTokenStore = DeviceTokenStore(context),
     private val ledger: LocalSyncLedger = LocalSyncLedger(context),
-    private val mediaStoreImporter: MediaStoreImporter = MediaStoreImporter(context),
+    private val mediaStoreImporter: MediaImporter = MediaStoreImporter(context),
     private val apiProvider: (String) -> NexusRelayApi = { baseUrl -> ApiClientFactory.create(baseUrl, debugLoggingEnabled = BuildConfig.DEBUG) }
 ) {
     private val tag = "DeviceSyncRepository"
@@ -31,13 +33,18 @@ internal class DeviceSyncRepository(
     companion object {
         private const val STALE_STATUS_TIMEOUT_MS = 60L * 60L * 1000L
         private const val MAX_CONFIRMATION_RETRIES = 4
-        private const val DOWNLOADING_TIMEOUT_MESSAGE = "Download stalled for over 1 hour before import completed"
         private const val QUEUED_TIMEOUT_MESSAGE = "Sync timed out before download started"
+        private const val DOWNLOADING_TIMEOUT_MESSAGE = "Download stalled for over 1 hour before import completed"
         private const val CONFIRMATION_TIMEOUT_MESSAGE = "Sync confirmation timed out after 1 hour"
     }
 
     private fun hasTimedOut(record: LocalSyncRecord, now: Long): Boolean {
-        return now - record.statusEnteredAt >= STALE_STATUS_TIMEOUT_MS
+        val referenceTime = when (record.status) {
+            LocalSyncStatus.Imported,
+            LocalSyncStatus.ConfirmPending -> record.statusEnteredAt
+            else -> record.lastAttemptAt
+        }
+        return now - referenceTime >= STALE_STATUS_TIMEOUT_MS
     }
 
     private fun hasConfirmationBudget(record: LocalSyncRecord, now: Long): Boolean {
@@ -65,19 +72,27 @@ internal class DeviceSyncRepository(
         }
     }
 
-    private fun shouldPreserveConfirmationState(status: LocalSyncStatus?): Boolean {
-        return status == LocalSyncStatus.ConfirmPending || status == LocalSyncStatus.Imported
-    }
-
     private suspend fun reportFailure(
         api: NexusRelayApi,
         deviceToken: String,
         jobId: String,
-        error: String
+        error: String,
+        retryable: Boolean = false,
+        leaseId: String? = null,
+        workerRunId: String? = null
     ) {
         try {
-            api.fail(deviceToken, jobId, FailDeviceSyncJobRequest(error))
-            ledger.markFailureReported(jobId)
+            api.failDeviceSyncJob(
+                deviceToken,
+                jobId,
+                FailDeviceSyncJobRequest(
+                    error = error,
+                    retryable = retryable,
+                    leaseId = leaseId,
+                    workerRunId = workerRunId
+                )
+            )
+            ledger.markFailureReported(jobId, System.currentTimeMillis())
         } catch (failEx: Exception) {
             Log.e(tag, "Failed to report job failure to backend for job $jobId", failEx)
         }
@@ -90,7 +105,15 @@ internal class DeviceSyncRepository(
         val records = ledger.listUnreportedFailures()
         for (record in records) {
             val error = record.lastError ?: "Local sync failed"
-            reportFailure(api, deviceToken, record.jobId, error)
+            reportFailure(
+                api = api,
+                deviceToken = deviceToken,
+                jobId = record.jobId,
+                error = error,
+                retryable = false,
+                leaseId = record.leaseId,
+                workerRunId = record.workerRunId
+            )
         }
     }
 
@@ -103,22 +126,36 @@ internal class DeviceSyncRepository(
         for (record in interruptedRecords) {
             if (hasTimedOut(record, now)) {
                 ledger.markFailed(record.jobId, DOWNLOADING_TIMEOUT_MESSAGE)
-                reportFailure(api, deviceToken, record.jobId, DOWNLOADING_TIMEOUT_MESSAGE)
+                reportFailure(
+                    api = api,
+                    deviceToken = deviceToken,
+                    jobId = record.jobId,
+                    error = DOWNLOADING_TIMEOUT_MESSAGE,
+                    leaseId = record.leaseId,
+                    workerRunId = record.workerRunId
+                )
             }
         }
     }
 
-    private suspend fun failOrphanedQueuedRecords(
+    private suspend fun recoverInterruptedClaims(
         api: NexusRelayApi,
         deviceToken: String,
-        pendingJobIds: Set<String>,
         now: Long
     ) {
-        val queuedRecords = ledger.listByStatuses(LocalSyncStatus.Queued)
-        for (record in queuedRecords) {
-            if (record.jobId !in pendingJobIds && hasTimedOut(record, now)) {
+        val claimedQueuedRecords = ledger.listByStatuses(LocalSyncStatus.Queued)
+            .filter { !it.leaseId.isNullOrBlank() }
+        for (record in claimedQueuedRecords) {
+            if (hasTimedOut(record, now)) {
                 ledger.markFailed(record.jobId, QUEUED_TIMEOUT_MESSAGE)
-                reportFailure(api, deviceToken, record.jobId, QUEUED_TIMEOUT_MESSAGE)
+                reportFailure(
+                    api = api,
+                    deviceToken = deviceToken,
+                    jobId = record.jobId,
+                    error = QUEUED_TIMEOUT_MESSAGE,
+                    leaseId = record.leaseId,
+                    workerRunId = record.workerRunId
+                )
             }
         }
     }
@@ -132,7 +169,16 @@ internal class DeviceSyncRepository(
         val now = System.currentTimeMillis()
 
         return try {
-            api.confirm(deviceToken, record.jobId, ConfirmDeviceSyncJobRequest(localUri, record.sizeBytes))
+            api.confirmDeviceSyncJob(
+                deviceToken,
+                record.jobId,
+                ConfirmDeviceSyncJobRequest(
+                    importedUri = localUri,
+                    importedSizeBytes = record.sizeBytes,
+                    leaseId = record.leaseId,
+                    workerRunId = record.workerRunId
+                )
+            )
             ledger.markConfirmed(record.jobId)
             true
         } catch (e: Exception) {
@@ -151,12 +197,22 @@ internal class DeviceSyncRepository(
                 errorMsg
             }
             ledger.markFailed(record.jobId, finalMessage)
-            reportFailure(api, deviceToken, record.jobId, finalMessage)
+            reportFailure(
+                api = api,
+                deviceToken = deviceToken,
+                jobId = record.jobId,
+                error = finalMessage,
+                leaseId = record.leaseId,
+                workerRunId = record.workerRunId
+            )
             false
         }
     }
 
-    suspend fun syncPendingJobs(): Boolean {
+    suspend fun syncPendingJobs(
+        workerRunId: String = UUID.randomUUID().toString(),
+        enqueueContinuation: suspend () -> Unit = {}
+    ): Boolean {
         val backendUrl = appSettingsStore.backendBaseUrlFlow.first()
         val deviceToken = deviceTokenStore.getDeviceToken()
 
@@ -168,15 +224,8 @@ internal class DeviceSyncRepository(
         val api = apiProvider(backendUrl)
         val now = System.currentTimeMillis()
         reportUnreportedFailures(api, deviceToken)
+        recoverInterruptedClaims(api, deviceToken, now)
         recoverInterruptedDownloads(api, deviceToken, now)
-        val pendingJobs = try {
-            api.pendingJobs(deviceToken)
-        } catch (e: Exception) {
-            Log.e(tag, "Failed to fetch pending jobs", e)
-            throwOrPropagateIfRetriable(e)
-            throw e
-        }
-        failOrphanedQueuedRecords(api, deviceToken, pendingJobs.map { it.jobId }.toSet(), now)
 
         var allSucceeded = true
 
@@ -193,100 +242,29 @@ internal class DeviceSyncRepository(
             }
         }
 
-        for (job in pendingJobs) {
-            if (job.jobId in locallyHandledJobIds) {
-                continue
-            }
-
-            var ledgerRecord = ledger.get(job.jobId)
-            if (ledgerRecord == null) {
-                ledgerRecord = LocalSyncRecord(
-                    jobId = job.jobId,
-                    mediaId = job.mediaId,
-                    fileName = job.fileName,
-                    mimeType = job.mimeType,
-                    sizeBytes = job.sizeBytes,
-                    sha256 = job.sha256,
-                    status = LocalSyncStatus.Queued,
-                    localUri = null,
-                    lastAttemptAt = System.currentTimeMillis(),
-                    lastError = null
-                )
-                ledger.upsert(ledgerRecord)
-            }
-
-            if (ledgerRecord.status == LocalSyncStatus.Confirmed) {
-                continue
-            }
-
-            if (ledgerRecord.status == LocalSyncStatus.ConfirmPending || ledgerRecord.status == LocalSyncStatus.Imported) {
-                val confirmationSucceeded = retryLocalConfirmation(api, deviceToken, ledgerRecord)
-                if (confirmationSucceeded != null) {
-                    if (!confirmationSucceeded) {
-                        allSucceeded = false
-                    }
-                    continue
-                }
-            }
-
-            var confirmationPending = false
-            try {
-                api.markDownloading(deviceToken, job.jobId)
-                ledger.markDownloading(job.jobId)
-
-                val responseBody = api.downloadJob(deviceToken, job.jobId)
-                val inputStream = responseBody.byteStream()
-
-                val localUri = mediaStoreImporter.importMedia(
-                    fileName = job.fileName,
-                    mimeType = job.mimeType,
-                    inputStream = inputStream,
-                    sizeBytes = job.sizeBytes
-                )
-
-                ledger.markConfirmPending(job.jobId, localUri)
-                confirmationPending = true
-
-                api.confirm(deviceToken, job.jobId, ConfirmDeviceSyncJobRequest(localUri, job.sizeBytes))
-
-                ledger.markConfirmed(job.jobId)
-
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to sync job ${job.jobId}", e)
-
-                val errorMsg = e.localizedMessage ?: "Unknown error"
-                val nowVal = System.currentTimeMillis()
-                val currentRecord = ledger.get(job.jobId)
-                val currentStatus = currentRecord?.status
-                val inConfirmationRecovery = confirmationPending || shouldPreserveConfirmationState(currentStatus)
-
-                if (!inConfirmationRecovery) {
-                    ledger.markFailed(job.jobId, errorMsg)
-                    reportFailure(api, deviceToken, job.jobId, errorMsg)
-                    throwOrPropagateIfRetriable(e)
-                    allSucceeded = false
-                    continue
-                }
-
-                if (isNetworkOrBackendFailure(e) && currentRecord != null && hasConfirmationBudget(currentRecord, nowVal)) {
-                    ledger.recordRetriableFailure(job.jobId, errorMsg, nowVal)
-                    throwOrPropagateIfRetriable(e)
-                    continue // defensive: should not reach here for network errors
-                }
-
-                val finalMessage = if (currentRecord != null && hasTimedOut(currentRecord, nowVal)) {
-                    CONFIRMATION_TIMEOUT_MESSAGE
-                } else {
-                    errorMsg
-                }
-                ledger.markFailed(job.jobId, finalMessage)
-                reportFailure(api, deviceToken, job.jobId, finalMessage)
-                allSucceeded = false
-                continue
-            }
+        val runnerResult = try {
+            SyncSessionRunner(
+                api = api,
+                deviceToken = deviceToken,
+                ledger = ledger,
+                mediaStoreImporter = mediaStoreImporter,
+                workerRunId = workerRunId,
+                clientVersion = "pixel/${BuildConfig.VERSION_NAME}",
+                enqueueContinuation = enqueueContinuation
+            ).run()
+        } catch (e: Exception) {
+            Log.e(tag, "Lease-based sync session failed", e)
+            throwOrPropagateIfRetriable(e)
+            throw e
         }
 
-        if (allSucceeded && pendingJobs.isNotEmpty()) {
+        if (runnerResult.claimedJobCount == 0 && locallyHandledJobIds.isEmpty()) {
+            allSucceeded = true
+        } else if (!runnerResult.allSucceeded) {
+            allSucceeded = false
+        }
+
+        if (allSucceeded && (runnerResult.claimedJobCount > 0 || locallyHandledJobIds.isNotEmpty())) {
             appSettingsStore.saveLastSuccessfulSyncAt(System.currentTimeMillis())
         }
 

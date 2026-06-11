@@ -15,7 +15,7 @@ The backend is the source of truth for sync scope. Pixel never receives all jobs
 Use:
 
 ```text
-FCM signal + WorkManager pull + polling fallback
+FCM signal + WorkManager claim/lease loop + polling fallback
 ```
 
 NexusRelay should not push full files to the phone. The backend creates a durable job and sends a small FCM data message. The app uses WorkManager to fetch pending jobs and download media through backend APIs. Periodic polling recovers missed FCM events.
@@ -26,14 +26,15 @@ NexusRelay should not push full files to the phone. The backend creates a durabl
 Browser upload into NexusRelay
   -> backend relays media to Google Drive
   -> MediaItem becomes Completed
-  -> backend creates DeviceSyncJob
-  -> backend sends FCM job-available signal
+  -> backend creates pending DeviceSyncJob attempt
+  -> backend sends FCM signal
   -> Pixel app receives FCM
   -> Pixel app enqueues WorkManager sync
-  -> Pixel app lists pending jobs
-  -> Pixel app downloads media over HTTPS
+  -> Pixel app claims a lease batch
+  -> Pixel app heartbeats while downloading/importing
   -> Pixel app writes to MediaStore with IS_PENDING
   -> Pixel app confirms ImportedConfirmed
+  -> Pixel app claims again until backlog is drained or worker budget ends
 ```
 
 ## Components
@@ -66,12 +67,13 @@ The receiver handles `device_sync_job_available` and enqueues sync work. The FCM
 
 WorkManager is the durable background executor:
 
-- fetch pending jobs;
-- mark each job as downloading;
+- claim jobs with a lease;
+- heartbeat each active job stage;
 - stream download into temporary app-private storage;
 - import to MediaStore;
 - confirm to backend;
-- retry network failures with backoff.
+- retry network failures with backoff;
+- enqueue continuation if the run budget is reached while backlog remains.
 
 Default constraints:
 
@@ -102,7 +104,12 @@ fileName
 mimeType
 sizeBytes
 sha256
+leaseId
+workerRunId
 status
+stage
+progressBytes
+totalBytes
 localUri
 lastAttemptAt
 lastError
@@ -132,7 +139,7 @@ Use `IS_PENDING=1` while writing and update to `IS_PENDING=0` only after the ful
 - The app never stores the user's password.
 - The device token is revocable and scoped to device sync APIs.
 - The FCM payload contains no secrets.
-- Backend download endpoints validate job ownership through the device token.
+- Backend download endpoints validate both device ownership and active lease.
 
 ## Recovery
 
@@ -140,6 +147,7 @@ The app should recover from:
 
 - missed FCM messages through polling;
 - failed downloads through WorkManager retry;
+- expired leases through backend retry attempts and continuation wakeups;
 - confirm failures through local ledger retry;
 - app restarts through persisted token and ledger;
 - backend downtime through retry and manual sync.

@@ -1,21 +1,25 @@
 package com.nexusrelay.pixel.sync
 
+import android.content.ContentResolver
 import android.content.Context
-import com.nexusrelay.pixel.api.DeviceSyncJobDto
-import com.nexusrelay.pixel.api.NexusRelayApi
+import com.nexusrelay.pixel.api.ClaimDeviceSyncJobsResponse
 import com.nexusrelay.pixel.api.ConfirmDeviceSyncJobRequest
+import com.nexusrelay.pixel.api.DeviceSyncClaimedJobDto
+import com.nexusrelay.pixel.api.DeviceSyncHeartbeatResponse
 import com.nexusrelay.pixel.api.FailDeviceSyncJobRequest
+import com.nexusrelay.pixel.api.NexusRelayApi
 import com.nexusrelay.pixel.auth.DeviceTokenStore
-import com.nexusrelay.pixel.media.MediaStoreImporter
+import com.nexusrelay.pixel.media.MediaImporter
 import com.nexusrelay.pixel.storage.AppSettingsStore
 import com.nexusrelay.pixel.storage.LocalSyncLedger
 import com.nexusrelay.pixel.storage.LocalSyncRecord
 import com.nexusrelay.pixel.storage.LocalSyncStatus
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import okhttp3.ResponseBody
-import org.junit.Assert.assertFalse
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -25,9 +29,9 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 import retrofit2.HttpException
 import retrofit2.Response
-import java.io.IOException
 
 class DeviceSyncRepositoryTest {
 
@@ -35,7 +39,7 @@ class DeviceSyncRepositoryTest {
     private val mockSettingsStore = mock(AppSettingsStore::class.java)
     private val mockTokenStore = mock(DeviceTokenStore::class.java)
     private val mockLedger = mock(LocalSyncLedger::class.java)
-    private val mockImporter = mock(MediaStoreImporter::class.java)
+    private val mockImporter = mock(MediaImporter::class.java)
     private val mockApi = mock(NexusRelayApi::class.java)
 
     private fun createRepository(): DeviceSyncRepository {
@@ -58,145 +62,81 @@ class DeviceSyncRepositoryTest {
                 LocalSyncStatus.Imported
             )
         ).thenReturn(emptyList())
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(emptyList())
         whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(emptyList())
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(emptyList())
         whenever(mockLedger.listUnreportedFailures()).thenReturn(emptyList())
+        whenever(mockApi.heartbeatDeviceSyncJob(eq(deviceToken), any(), any())).thenReturn(
+            DeviceSyncHeartbeatResponse("2026-06-11T10:15:30Z")
+        )
+        whenever(mockApi.claimDeviceSyncJobs(eq(deviceToken), any())).thenReturn(
+            ClaimDeviceSyncJobsResponse(
+                leaseId = "lease-empty",
+                leaseExpiresAt = "2026-06-11T10:15:00Z",
+                remainingPendingCount = 0,
+                jobs = emptyList()
+            )
+        )
     }
 
     @Test
-    fun testSyncPendingJobsWhenNotConfigured() = runTest {
+    fun syncPendingJobsReturnsFalseWhenNotConfigured() = runTest {
         whenever(mockSettingsStore.backendBaseUrlFlow).thenReturn(flowOf(null))
         whenever(mockTokenStore.getDeviceToken()).thenReturn(null)
 
         val repository = createRepository()
-        val result = repository.syncPendingJobs()
-        assertFalse(result)
+
+        assertFalse(repository.syncPendingJobs(workerRunId = "worker-1"))
     }
 
     @Test
-    fun testSyncPendingJobs_RecoversStaleDownloadingLedgerRecordBeforePolling() = runTest {
+    fun syncPendingJobsRetriesLocalConfirmationsWithLeaseContext() = runTest {
         setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
-
-        val staleRecord = LocalSyncRecord(
-            jobId = "job-stale-downloading",
-            mediaId = "media-stale-downloading",
-            fileName = "stale.jpg",
+        val record = LocalSyncRecord(
+            jobId = "job-local-confirm",
+            mediaId = "media-local-confirm",
+            fileName = "confirm.jpg",
             mimeType = "image/jpeg",
-            sizeBytes = 100L,
+            sizeBytes = 123L,
             sha256 = null,
-            status = LocalSyncStatus.Downloading,
-            localUri = null,
+            status = LocalSyncStatus.ConfirmPending,
+            localUri = "content://media/external/images/media/local-confirm",
             lastAttemptAt = 0L,
-            lastError = null
+            lastError = null,
+            leaseId = "lease-42",
+            workerRunId = "worker-original",
+            progressBytes = 123L,
+            totalBytes = 123L,
+            stage = "Confirming"
         )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Downloading)).thenReturn(listOf(staleRecord))
+        whenever(
+            mockLedger.listByStatuses(
+                LocalSyncStatus.ConfirmPending,
+                LocalSyncStatus.Imported
+            )
+        ).thenReturn(listOf(record))
 
         val repository = createRepository()
-        val result = repository.syncPendingJobs()
 
-        assertTrue(result)
-        verify(mockLedger).markFailed(eq("job-stale-downloading"), eq("Download stalled for over 1 hour before import completed"))
-        verify(mockApi).fail(
+        assertTrue(repository.syncPendingJobs(workerRunId = "worker-run-1"))
+
+        verify(mockApi).confirmDeviceSyncJob(
             eq("token-123"),
-            eq("job-stale-downloading"),
-            eq(FailDeviceSyncJobRequest("Download stalled for over 1 hour before import completed"))
+            eq("job-local-confirm"),
+            eq(
+                ConfirmDeviceSyncJobRequest(
+                    importedUri = "content://media/external/images/media/local-confirm",
+                    importedSizeBytes = 123L,
+                    leaseId = "lease-42",
+                    workerRunId = "worker-original"
+                )
+            )
         )
+        verify(mockLedger).markConfirmed("job-local-confirm")
     }
 
     @Test
-    fun testSyncPendingJobs_NetworkFailureDuringFetch_ThrowsIOException() = runTest {
+    fun syncPendingJobsReportsPreviouslyUnreportedFailuresWithLeaseContext() = runTest {
         setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenAnswer { throw IOException("Network error") }
-
-        val repository = createRepository()
-        var threw = false
-        try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
-            threw = true
-        }
-        assertTrue("Expected IOException to be thrown", threw)
-    }
-
-    @Test
-    fun testSyncPendingJobs_NetworkFailureDuringDownload_MarksFailedReportsBackendAndThrowsIOException() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-1")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-1")).thenReturn(null)
-        whenever(mockApi.downloadJob(eq("token-123"), eq("job-1"))).thenAnswer { throw IOException("Download timed out") }
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
-
-        val repository = createRepository()
-        var threw = false
-        try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
-            threw = true
-        }
-        assertTrue("Expected IOException to be thrown", threw)
-
-        verify(mockLedger).markFailed(eq("job-1"), eq("Download timed out"))
-        verify(mockApi).fail(eq("token-123"), eq("job-1"), eq(FailDeviceSyncJobRequest("Download timed out")))
-        verify(mockLedger).markFailureReported(eq("job-1"), any())
-    }
-
-    @Test
-    fun testSyncPendingJobs_HttpRetriableFailure_MarksFailedReportsBackendAndThrowsIOException() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-2")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-2")).thenReturn(null)
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
-
-        val errorResponse = Response.error<Any>(503, ResponseBody.create(null, "Service Unavailable"))
-        whenever(mockApi.markDownloading(eq("token-123"), eq("job-2"))).thenAnswer { throw HttpException(errorResponse) }
-
-        val repository = createRepository()
-        var threw = false
-        try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
-            threw = true
-        }
-        assertTrue("Expected IOException to be thrown", threw)
-
-        verify(mockLedger).markFailed(eq("job-2"), eq("HTTP 503 Response.error()"))
-        verify(mockApi).fail(eq("token-123"), eq("job-2"), eq(FailDeviceSyncJobRequest("HTTP 503 Response.error()")))
-        verify(mockLedger).markFailureReported(eq("job-2"), any())
-    }
-
-    @Test
-    fun testSyncPendingJobs_NetworkFailureDuringDownload_RetriesWorkWhenFailureReportFails() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-fail-report-drops")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-fail-report-drops")).thenReturn(null)
-        whenever(mockApi.downloadJob(eq("token-123"), eq("job-fail-report-drops"))).thenAnswer { throw IOException("Download timed out") }
-        whenever(mockApi.fail(any(), eq("job-fail-report-drops"), any())).thenAnswer { throw IOException("fail endpoint down") }
-
-        val repository = createRepository()
-        var threw = false
-        try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
-            threw = true
-        }
-
-        assertTrue("Expected original retriable failure to be thrown", threw)
-        verify(mockLedger).markFailed(eq("job-fail-report-drops"), eq("Download timed out"))
-        verify(mockApi).fail(eq("token-123"), eq("job-fail-report-drops"), eq(FailDeviceSyncJobRequest("Download timed out")))
-        verify(mockLedger, never()).markFailureReported(eq("job-fail-report-drops"), any())
-    }
-
-    @Test
-    fun testSyncPendingJobs_RetriesUnreportedLocalFailuresBeforePolling() = runTest {
-        setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
-
         val failedRecord = LocalSyncRecord(
             jobId = "job-unreported-failed",
             mediaId = "media-unreported-failed",
@@ -207,238 +147,57 @@ class DeviceSyncRepositoryTest {
             status = LocalSyncStatus.Failed,
             localUri = null,
             lastAttemptAt = 0L,
-            lastError = "Previous report failed"
+            lastError = "Previous report failed",
+            leaseId = "lease-failed",
+            workerRunId = "worker-failed",
+            progressBytes = 7L,
+            totalBytes = 10L,
+            stage = "Downloading"
         )
         whenever(mockLedger.listUnreportedFailures()).thenReturn(listOf(failedRecord))
 
         val repository = createRepository()
-        val result = repository.syncPendingJobs()
 
-        assertTrue(result)
-        verify(mockApi).fail(eq("token-123"), eq("job-unreported-failed"), eq(FailDeviceSyncJobRequest("Previous report failed")))
+        assertTrue(repository.syncPendingJobs(workerRunId = "worker-run-1"))
+
+        verify(mockApi).failDeviceSyncJob(
+            eq("token-123"),
+            eq("job-unreported-failed"),
+            eq(
+                FailDeviceSyncJobRequest(
+                    error = "Previous report failed",
+                    retryable = false,
+                    leaseId = "lease-failed",
+                    workerRunId = "worker-failed"
+                )
+            )
+        )
         verify(mockLedger).markFailureReported(eq("job-unreported-failed"), any())
     }
 
     @Test
-    fun testSyncPendingJobs_TerminalJobFailure_CallsFailEndpointAndContinues() = runTest {
+    fun syncPendingJobsPropagatesRetriableClaimFailures() = runTest {
         setupConfiguredMocks()
-        val job = createSampleJobDto("job-3")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-3")).thenReturn(null)
-        
-        val mockResponseBody = mock(ResponseBody::class.java)
-        val mockInputStream = mock(java.io.InputStream::class.java)
-        whenever(mockResponseBody.byteStream()).thenReturn(mockInputStream)
-        whenever(mockApi.downloadJob(eq("token-123"), eq("job-3"))).thenReturn(mockResponseBody)
-        whenever(mockApi.markDownloading(any(), any())).thenAnswer {}
-        whenever(mockImporter.importMedia(any(), any(), any(), eq(100L))).thenThrow(IllegalArgumentException("Unsupported media type"))
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
+        whenever(mockApi.claimDeviceSyncJobs(eq("token-123"), any())).thenAnswer {
+            throw IOException("claim failed")
+        }
 
         val repository = createRepository()
-        val result = repository.syncPendingJobs()
-        assertFalse(result)
 
-        // Ledger should be marked failed and backend notified
-        verify(mockLedger).markFailed(eq("job-3"), eq("Unsupported media type"))
-        verify(mockApi).fail(eq("token-123"), eq("job-3"), eq(FailDeviceSyncJobRequest("Unsupported media type")))
-    }
-
-    @Test
-    fun testSyncPendingJobs_NewJob_DownloadImportSucceed_ConfirmsBackend() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-confirm-success")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        whenever(mockLedger.get("job-confirm-success")).thenReturn(null)
-        whenever(mockApi.markDownloading(any(), any())).thenAnswer {}
-
-        val mockResponseBody = mock(ResponseBody::class.java)
-        val mockInputStream = mock(java.io.InputStream::class.java)
-        whenever(mockResponseBody.byteStream()).thenReturn(mockInputStream)
-        whenever(mockApi.downloadJob(eq("token-123"), eq("job-confirm-success"))).thenReturn(mockResponseBody)
-
-        val localUri = "content://media/external/images/media/confirm-success"
-        whenever(mockImporter.importMedia(eq(job.fileName), eq(job.mimeType), any(), eq(job.sizeBytes))).thenReturn(localUri)
-
-        val repository = createRepository()
-        val result = repository.syncPendingJobs()
-
-        assertTrue(result)
-        verify(mockApi).confirm(
-            eq("token-123"),
-            eq("job-confirm-success"),
-            eq(ConfirmDeviceSyncJobRequest(localUri, job.sizeBytes))
-        )
-        verify(mockLedger).markConfirmed("job-confirm-success")
-    }
-
-    @Test
-    fun testSyncPendingJobs_ConfirmPendingJob_OnlyConfirmsWithoutRedownload() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-4")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        
-        // Ledger already has this job in ConfirmPending status
-        val record = LocalSyncRecord(
-            jobId = "job-4",
-            mediaId = "media-4",
-            fileName = "test.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = null,
-            status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/4",
-            lastAttemptAt = 0L,
-            lastError = null
-        )
-        whenever(mockLedger.get("job-4")).thenReturn(record)
-
-        val repository = createRepository()
-        val result = repository.syncPendingJobs()
-        assertTrue(result)
-
-        // Verifying it confirms directly
-        verify(mockApi).confirm(
-            eq("token-123"),
-            eq("job-4"),
-            eq(ConfirmDeviceSyncJobRequest("content://media/external/images/media/4", 100L))
-        )
-        verify(mockLedger).markConfirmed("job-4")
-        
-        // Ensure no downloading or importing occurs
-        verify(mockApi, never()).downloadJob(any(), eq("job-4"))
-        verify(mockImporter, never()).importMedia(any(), any(), any(), any())
-    }
-
-    @Test
-    fun testSyncPendingJobs_ConfirmPendingLocalJobWithNoBackendPendingJobs_ConfirmsFromLedger() = runTest {
-        setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-
-        val record = LocalSyncRecord(
-            jobId = "job-local-confirm",
-            mediaId = "media-local-confirm",
-            fileName = "test.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 123L,
-            sha256 = null,
-            status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/local-confirm",
-            lastAttemptAt = 0L,
-            lastError = null
-        )
-        whenever(
-            mockLedger.listByStatuses(
-                LocalSyncStatus.ConfirmPending,
-                LocalSyncStatus.Imported
-            )
-        ).thenReturn(listOf(record))
-
-        val repository = createRepository()
-        val result = repository.syncPendingJobs()
-        assertTrue(result)
-
-        verify(mockApi).confirm(
-            eq("token-123"),
-            eq("job-local-confirm"),
-            eq(ConfirmDeviceSyncJobRequest("content://media/external/images/media/local-confirm", 123L))
-        )
-        verify(mockLedger).markConfirmed("job-local-confirm")
-        verify(mockApi, never()).downloadJob(any(), eq("job-local-confirm"))
-        verify(mockImporter, never()).importMedia(any(), any(), any(), any())
-    }
-
-    @Test
-    fun testSyncPendingJobs_ConfirmFailureRetriable_ThrowsIOExceptionAndPreservesConfirmPending() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-5")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        
-        val record = LocalSyncRecord(
-            jobId = "job-5",
-            mediaId = "media-5",
-            fileName = "test.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = null,
-            status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/5",
-            lastAttemptAt = System.currentTimeMillis(),
-            lastError = null
-        )
-        whenever(mockLedger.get("job-5")).thenReturn(record)
-        whenever(mockApi.confirm(eq("token-123"), eq("job-5"), any())).thenAnswer { throw IOException("Confirm timeout") }
-
-        val repository = createRepository()
         var threw = false
         try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
+            repository.syncPendingJobs(workerRunId = "worker-run-1")
+        } catch (expected: IOException) {
             threw = true
         }
-        assertTrue("Expected IOException to be thrown", threw)
 
-        // Status must remain ConfirmPending and not failed
-        verify(mockLedger, never()).markFailed(eq("job-5"), any())
-        verify(mockApi, never()).fail(any(), eq("job-5"), any())
-    }
-    
-    @Test
-    fun testSyncPendingJobs_NewJob_DownloadImportSucceed_ConfirmFailRetriable_ThrowsAndDoesNotMarkFailed() = runTest {
-        setupConfiguredMocks()
-        val job = createSampleJobDto("job-new-confirm-fail")
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(listOf(job))
-        val record = LocalSyncRecord(
-            jobId = "job-new-confirm-fail",
-            mediaId = "media-job-new-confirm-fail",
-            fileName = "file-job-new-confirm-fail.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = "sha256-job-new-confirm-fail",
-            status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/999",
-            lastAttemptAt = System.currentTimeMillis(),
-            lastError = null
-        )
-        whenever(mockLedger.get("job-new-confirm-fail")).thenReturn(null, record)
-
-        val mockResponseBody = mock(ResponseBody::class.java)
-        val mockInputStream = mock(java.io.InputStream::class.java)
-        whenever(mockResponseBody.byteStream()).thenReturn(mockInputStream)
-        whenever(mockApi.downloadJob(eq("token-123"), eq("job-new-confirm-fail"))).thenReturn(mockResponseBody)
-        whenever(mockApi.markDownloading(any(), any())).thenAnswer {}
-        
-        val localUri = "content://media/external/images/media/999"
-        whenever(mockImporter.importMedia(eq(job.fileName), eq(job.mimeType), any(), eq(job.sizeBytes))).thenReturn(localUri)
-        
-        // Mock confirm to fail with retriable IOException
-        whenever(mockApi.confirm(eq("token-123"), eq("job-new-confirm-fail"), any())).thenAnswer { throw IOException("Confirm connection dropped") }
-
-        val repository = createRepository()
-        var threw = false
-        try {
-            repository.syncPendingJobs()
-        } catch (e: IOException) {
-            threw = true
-        }
-        assertTrue("Expected IOException to be thrown", threw)
-
-        // Verify ledger marked it as downloading, then confirm pending
-        verify(mockLedger).upsert(any())
-        verify(mockLedger).markDownloading(eq("job-new-confirm-fail"))
-        verify(mockLedger).markConfirmPending(eq("job-new-confirm-fail"), eq(localUri))
-
-        // But must NOT be marked failed locally, and fail endpoint must NOT be called
-        verify(mockLedger, never()).markFailed(eq("job-new-confirm-fail"), any())
-        verify(mockApi, never()).fail(any(), eq("job-new-confirm-fail"), any())
+        assertTrue(threw)
     }
 
     @Test
-    fun testSyncPendingJobs_StaleQueuedRecordMissingFromBackend_MarksFailed() = runTest {
+    fun syncPendingJobsFailsStaleClaimedQueuedRecordsBeforeClaimLoop() = runTest {
         setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(emptyList())
-
-        val staleQueued = LocalSyncRecord(
+        val staleQueuedRecord = LocalSyncRecord(
             jobId = "job-queued-stale",
             mediaId = "media-queued-stale",
             fileName = "queued.jpg",
@@ -447,104 +206,81 @@ class DeviceSyncRepositoryTest {
             sha256 = null,
             status = LocalSyncStatus.Queued,
             localUri = null,
-            lastAttemptAt = 0L,
+            lastAttemptAt = System.currentTimeMillis() - (2 * 60 * 60 * 1000L),
             lastError = null,
-            isLocalDeleted = false,
-            statusEnteredAt = 0L,
-            retryCount = 0
+            leaseId = "lease-queued",
+            workerRunId = "worker-queued"
         )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(listOf(staleQueued))
+        whenever(mockLedger.listByStatuses(LocalSyncStatus.Queued)).thenReturn(listOf(staleQueuedRecord))
 
         val repository = createRepository()
-        val result = repository.syncPendingJobs()
 
-        assertTrue(result)
-        verify(mockLedger).markFailed(eq("job-queued-stale"), eq("Sync timed out before download started"))
+        assertTrue(repository.syncPendingJobs(workerRunId = "worker-run-1"))
+
+        verify(mockLedger).markFailed("job-queued-stale", "Sync timed out before download started")
+        verify(mockApi).failDeviceSyncJob(
+            eq("token-123"),
+            eq("job-queued-stale"),
+            eq(
+                FailDeviceSyncJobRequest(
+                    error = "Sync timed out before download started",
+                    retryable = false,
+                    leaseId = "lease-queued",
+                    workerRunId = "worker-queued"
+                )
+            )
+        )
     }
 
     @Test
-    fun testSyncPendingJobs_ConfirmPendingRetriableFailureBeforeTimeout_PreservesStateAndIncrementsRetryCount() = runTest {
+    fun syncPendingJobsTimesOutLongRunningConfirmPendingByStatusEnteredAt() = runTest {
         setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-
-        val now = System.currentTimeMillis()
-        val record = LocalSyncRecord(
-            jobId = "job-confirm-retry",
-            mediaId = "media-confirm-retry",
-            fileName = "confirm.jpg",
+        val staleConfirmPending = LocalSyncRecord(
+            jobId = "job-confirm-timeout",
+            mediaId = "media-confirm-timeout",
+            fileName = "confirm-timeout.jpg",
             mimeType = "image/jpeg",
-            sizeBytes = 100L,
+            sizeBytes = 512L,
             sha256 = null,
             status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/confirm-retry",
-            lastAttemptAt = now,
+            localUri = "content://media/confirm-timeout",
+            lastAttemptAt = System.currentTimeMillis(),
             lastError = null,
-            isLocalDeleted = false,
-            statusEnteredAt = now,
-            retryCount = 1
+            statusEnteredAt = System.currentTimeMillis() - (2 * 60 * 60 * 1000L),
+            retryCount = 4,
+            leaseId = "lease-confirm-timeout",
+            workerRunId = "worker-confirm-timeout"
         )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(listOf(record))
-        whenever(mockApi.confirm(eq("token-123"), eq("job-confirm-retry"), any())).thenAnswer { throw IOException("Confirm timeout") }
+        whenever(
+            mockLedger.listByStatuses(
+                LocalSyncStatus.ConfirmPending,
+                LocalSyncStatus.Imported
+            )
+        ).thenReturn(listOf(staleConfirmPending))
+        whenever(
+            mockApi.confirmDeviceSyncJob(
+                eq("token-123"),
+                eq("job-confirm-timeout"),
+                any()
+            )
+        ).thenThrow(
+            HttpException(
+                Response.error<Any>(
+                    503,
+                    "backend unavailable".toResponseBody("text/plain".toMediaType())
+                )
+            )
+        )
 
         val repository = createRepository()
-        try {
-            repository.syncPendingJobs()
-        } catch (_: IOException) {
-        }
 
-        verify(mockLedger).recordRetriableFailure(eq("job-confirm-retry"), eq("Confirm timeout"), any())
-        verify(mockLedger, never()).markFailed(eq("job-confirm-retry"), any())
-        verify(mockApi, never()).fail(any(), eq("job-confirm-retry"), any())
+        assertFalse(repository.syncPendingJobs(workerRunId = "worker-run-1"))
+
+        verify(mockLedger).markFailed("job-confirm-timeout", "Sync confirmation timed out after 1 hour")
     }
 
     @Test
-    fun testSyncPendingJobs_ConfirmPendingTimedOut_MarksFailedAndReportsBackend() = runTest {
-        setupConfiguredMocks()
-        whenever(mockApi.pendingJobs("token-123")).thenReturn(emptyList())
-        whenever(mockApi.fail(any(), any(), any())).thenAnswer {}
-
-        val record = LocalSyncRecord(
-            jobId = "job-confirm-stale",
-            mediaId = "media-confirm-stale",
-            fileName = "stale-confirm.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = null,
-            status = LocalSyncStatus.ConfirmPending,
-            localUri = "content://media/external/images/media/confirm-stale",
-            lastAttemptAt = 0L,
-            lastError = "Confirm timeout",
-            isLocalDeleted = false,
-            statusEnteredAt = 0L,
-            retryCount = 4
-        )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.ConfirmPending, LocalSyncStatus.Imported)).thenReturn(listOf(record))
-        whenever(mockApi.confirm(eq("token-123"), eq("job-confirm-stale"), any())).thenAnswer { throw IOException("Confirm timeout") }
-
-        val repository = createRepository()
-        val result = repository.syncPendingJobs()
-
-        assertFalse(result)
-        verify(mockLedger).markFailed(eq("job-confirm-stale"), eq("Sync confirmation timed out after 1 hour"))
-        verify(mockApi).fail(eq("token-123"), eq("job-confirm-stale"), eq(FailDeviceSyncJobRequest("Sync confirmation timed out after 1 hour")))
-    }
-
-    private fun createSampleJobDto(jobId: String): DeviceSyncJobDto {
-        return DeviceSyncJobDto(
-            jobId = jobId,
-            mediaId = "media-$jobId",
-            fileName = "file-$jobId.jpg",
-            mimeType = "image/jpeg",
-            mediaType = "Image",
-            sizeBytes = 100L,
-            sha256 = "sha256-$jobId",
-            downloadUrl = "/api/device-sync/jobs/$jobId/download",
-            createdAt = "2026-06-05T00:00:00Z"
-        )
-    }
-
-    @Test
-    fun testCleanUpLocalFiles_Disabled_DoesNotDelete() = runTest {
+    fun cleanUpLocalFilesDisabledDoesNotDelete() = runTest {
         whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(false))
 
         val repository = createRepository()
@@ -554,33 +290,7 @@ class DeviceSyncRepositoryTest {
     }
 
     @Test
-    fun testCleanUpLocalFiles_EnabledButNewerThanDelay_DoesNotDelete() = runTest {
-        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(true))
-        whenever(mockSettingsStore.autoDeleteDelayMinutesFlow).thenReturn(flowOf(24 * 60))
-
-        val record = LocalSyncRecord(
-            jobId = "job-new",
-            mediaId = "media-new",
-            fileName = "test.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = null,
-            status = LocalSyncStatus.Confirmed,
-            localUri = "content://media/external/images/media/new",
-            lastAttemptAt = System.currentTimeMillis() - 10000L,
-            lastError = null,
-            isLocalDeleted = false
-        )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
-
-        val repository = createRepository()
-        repository.cleanUpLocalFiles()
-
-        verify(mockLedger, never()).markLocalDeleted(any())
-    }
-
-    @Test
-    fun testCleanUpLocalFiles_EnabledAndOlderThanDelay_DeletesAndMarksDeleted() = runTest {
+    fun cleanUpLocalFilesEnabledAndOlderThanDelayDeletesAndMarksDeleted() = runTest {
         whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(true))
         whenever(mockSettingsStore.autoDeleteDelayMinutesFlow).thenReturn(flowOf(2 * 60))
 
@@ -594,12 +304,11 @@ class DeviceSyncRepositoryTest {
             status = LocalSyncStatus.Confirmed,
             localUri = "content://media/external/images/media/old",
             lastAttemptAt = System.currentTimeMillis() - 3 * 3600 * 1000L,
-            lastError = null,
-            isLocalDeleted = false
+            lastError = null
         )
         whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
 
-        val mockContentResolver = mock(android.content.ContentResolver::class.java)
+        val mockContentResolver = mock(ContentResolver::class.java)
         whenever(mockContext.contentResolver).thenReturn(mockContentResolver)
         whenever(mockContentResolver.delete(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(1)
 
@@ -610,69 +319,7 @@ class DeviceSyncRepositoryTest {
     }
 
     @Test
-    fun testCleanUpSpaceNow_DeletesConfirmedLocalFilesEvenWhenAutoDeleteDisabled() = runTest {
-        whenever(mockSettingsStore.autoDeleteEnabledFlow).thenReturn(flowOf(false))
-        val record = LocalSyncRecord(
-            jobId = "job-clean-now",
-            mediaId = "media-clean-now",
-            fileName = "clean-now.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 4096L,
-            sha256 = null,
-            status = LocalSyncStatus.Confirmed,
-            localUri = "content://media/external/images/media/clean-now",
-            lastAttemptAt = System.currentTimeMillis(),
-            lastError = null,
-            isLocalDeleted = false
-        )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(record))
-        val mockContentResolver = mock(android.content.ContentResolver::class.java)
-        whenever(mockContext.contentResolver).thenReturn(mockContentResolver)
-        whenever(mockContentResolver.delete(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(1)
-
-        val repository = createRepository()
-        val result = repository.cleanUpSpaceNow()
-
-        assertEquals(1, result.deletedCount)
-        assertEquals(4096L, result.freedBytes)
-        verify(mockLedger).markLocalDeleted("job-clean-now")
-    }
-
-    @Test
-    fun testCleanUpSpaceNow_SkipsAlreadyDeletedAndMissingUri() = runTest {
-        val deleted = LocalSyncRecord(
-            jobId = "job-deleted",
-            mediaId = "media-deleted",
-            fileName = "deleted.jpg",
-            mimeType = "image/jpeg",
-            sizeBytes = 100L,
-            sha256 = null,
-            status = LocalSyncStatus.Confirmed,
-            localUri = "content://media/external/images/media/deleted",
-            lastAttemptAt = 0L,
-            lastError = null,
-            isLocalDeleted = true
-        )
-        val missingUri = deleted.copy(
-            jobId = "job-missing-uri",
-            mediaId = "media-missing-uri",
-            fileName = "missing-uri.jpg",
-            localUri = null,
-            isLocalDeleted = false
-        )
-        whenever(mockLedger.listByStatuses(LocalSyncStatus.Confirmed)).thenReturn(listOf(deleted, missingUri))
-
-        val repository = createRepository()
-        val result = repository.cleanUpSpaceNow()
-
-        assertEquals(2, result.scannedCount)
-        assertEquals(0, result.deletedCount)
-        assertEquals(2, result.skippedCount)
-        verify(mockLedger, never()).markLocalDeleted(any())
-    }
-
-    @Test
-    fun retryFailedJob_RequeuesFailedRecord() = runTest {
+    fun retryFailedJobRequeuesFailedRecord() = runTest {
         val failedRecord = LocalSyncRecord(
             jobId = "job-retry",
             mediaId = "media-retry",
@@ -688,14 +335,14 @@ class DeviceSyncRepositoryTest {
         whenever(mockLedger.get("job-retry")).thenReturn(failedRecord)
 
         val repository = createRepository()
-        val retried = repository.retryFailedJob("job-retry")
 
-        assertTrue(retried)
+        assertTrue(repository.retryFailedJob("job-retry"))
+
         verify(mockLedger).markQueued(eq("job-retry"), any())
     }
 
     @Test
-    fun retryFailedJob_IgnoresNonFailedRecord() = runTest {
+    fun retryFailedJobIgnoresNonFailedRecord() = runTest {
         val queuedRecord = LocalSyncRecord(
             jobId = "job-queued",
             mediaId = "media-queued",
@@ -711,9 +358,60 @@ class DeviceSyncRepositoryTest {
         whenever(mockLedger.get("job-queued")).thenReturn(queuedRecord)
 
         val repository = createRepository()
-        val retried = repository.retryFailedJob("job-queued")
 
-        assertFalse(retried)
+        assertFalse(repository.retryFailedJob("job-queued"))
+
         verify(mockLedger, never()).markQueued(eq("job-queued"), any())
+    }
+
+    @Test
+    fun syncPendingJobsSavesLastSuccessfulSyncAfterClaimedWork() = runTest {
+        setupConfiguredMocks()
+        val claimedJob = DeviceSyncClaimedJobDto(
+            jobId = "job-claimed",
+            mediaId = "media-job-claimed",
+            fileName = "file-job-claimed.jpg",
+            mimeType = "image/jpeg",
+            mediaType = "Image",
+            sizeBytes = 100L,
+            sha256 = "sha-job-claimed",
+            downloadUrl = "/api/device-sync/jobs/job-claimed/download",
+            attemptNumber = 1,
+            createdAt = "2026-06-11T09:15:00Z"
+        )
+        whenever(mockApi.claimDeviceSyncJobs(eq("token-123"), any())).thenReturn(
+            ClaimDeviceSyncJobsResponse(
+                leaseId = "lease-claimed",
+                leaseExpiresAt = "2026-06-11T10:15:00Z",
+                remainingPendingCount = 0,
+                jobs = listOf(claimedJob)
+            ),
+            ClaimDeviceSyncJobsResponse(
+                leaseId = "lease-empty",
+                leaseExpiresAt = "2026-06-11T10:16:00Z",
+                remainingPendingCount = 0,
+                jobs = emptyList()
+            )
+        )
+        whenever(mockLedger.get("job-claimed")).thenReturn(null)
+        val responseBody = mock(okhttp3.ResponseBody::class.java)
+        val inputStream = java.io.ByteArrayInputStream(byteArrayOf(1, 2, 3))
+        whenever(responseBody.byteStream()).thenReturn(inputStream)
+        whenever(mockApi.downloadDeviceSyncJob("token-123", "lease-claimed", "job-claimed")).thenReturn(responseBody)
+        whenever(
+            mockImporter.importMedia(
+                eq(claimedJob.fileName),
+                eq(claimedJob.mimeType),
+                any(),
+                eq(claimedJob.sizeBytes),
+                any()
+            )
+        ).thenReturn("content://media/claimed")
+
+        val repository = createRepository()
+
+        assertTrue(repository.syncPendingJobs(workerRunId = "worker-run-1"))
+
+        verify(mockSettingsStore).saveLastSuccessfulSyncAt(any())
     }
 }

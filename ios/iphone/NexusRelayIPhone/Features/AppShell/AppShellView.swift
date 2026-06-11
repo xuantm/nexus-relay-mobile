@@ -5,6 +5,7 @@ struct AppShellView: View {
     enum AppTab: Hashable {
         case sync
         case queue
+        case pixel
         case settings
     }
 
@@ -34,6 +35,12 @@ struct AppShellView: View {
                     Label("Queue", systemImage: "list.bullet.rectangle")
                 }
                 .tag(AppTab.queue)
+
+            PixelDeliveryView()
+                .tabItem {
+                    Label("Pixel", systemImage: "iphone")
+                }
+                .tag(AppTab.pixel)
 
             SettingsView(onLogout: {
                 syncStatusViewModel.logout()

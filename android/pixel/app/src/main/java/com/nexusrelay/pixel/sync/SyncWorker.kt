@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class SyncWorker(
     context: Context,
@@ -32,8 +34,14 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         Log.d(TAG, "Sync background worker started execution.")
         setForeground(createForegroundInfo())
+        val workerRunId = resolveWorkerRunId(inputData)
         return try {
-            val success = repository.syncPendingJobs()
+            val success = repository.syncPendingJobs(
+                workerRunId = workerRunId,
+                enqueueContinuation = {
+                    enqueueContinuationSync(applicationContext, workerRunId)
+                }
+            )
             if (success) {
                 Result.success()
             } else {
@@ -103,10 +111,19 @@ class SyncWorker(
     companion object {
         private const val TAG = "SyncWorker"
         const val WORK_NAME = "nexus-relay-pixel-sync"
+        const val KEY_WORKER_RUN_ID = "worker_run_id"
+        const val KEY_IS_CONTINUATION = "is_continuation"
         private const val CHANNEL_ID = "nexus-relay-pixel-sync"
         private const val NOTIFICATION_ID = 1101
 
-        suspend fun enqueueOneTimeSync(context: Context, expedited: Boolean = false) {
+        suspend fun enqueueOneTimeSync(
+            context: Context,
+            expedited: Boolean = false,
+            inputData: Data = buildSyncInputData(
+                workerRunId = UUID.randomUUID().toString(),
+                isContinuation = false
+            )
+        ) {
             val appSettingsStore = AppSettingsStore(context)
             val wifiOnly = appSettingsStore.wifiOnlyFlow.first()
 
@@ -127,11 +144,12 @@ class SyncWorker(
                 .build()
 
             val syncRequestBuilder = OneTimeWorkRequestBuilder<SyncWorker>()
+                .setInputData(inputData)
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
                     WorkRequest.MIN_BACKOFF_MILLIS,
-                    java.util.concurrent.TimeUnit.MILLISECONDS
+                    TimeUnit.MILLISECONDS
                 )
 
             if (expedited) {
@@ -153,6 +171,39 @@ class SyncWorker(
             )
             Log.d(TAG, "Unique OneTime Sync enqueued. wifiOnly=$wifiOnly expedited=$expedited policy=$existingWorkPolicy")
         }
+
+        suspend fun enqueueContinuationSync(context: Context, workerRunId: String) {
+            val appSettingsStore = AppSettingsStore(context)
+            val wifiOnly = appSettingsStore.wifiOnlyFlow.first()
+            val networkType = if (wifiOnly) {
+                NetworkType.UNMETERED
+            } else {
+                NetworkType.CONNECTED
+            }
+
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(networkType)
+                .setRequiresStorageNotLow(true)
+                .setRequiresBatteryNotLow(true)
+                .build()
+
+            val continuationRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+                .setInputData(buildSyncInputData(workerRunId, isContinuation = true))
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    WorkRequest.MIN_BACKOFF_MILLIS,
+                    TimeUnit.MILLISECONDS
+                )
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                WORK_NAME,
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                continuationRequest
+            )
+            Log.d(TAG, "Sync continuation enqueued. workerRunId=$workerRunId")
+        }
     }
 }
 
@@ -173,4 +224,17 @@ internal fun selectExistingWorkPolicy(
     } else {
         ExistingWorkPolicy.KEEP
     }
+}
+
+internal fun buildSyncInputData(workerRunId: String, isContinuation: Boolean): Data {
+    return Data.Builder()
+        .putString(SyncWorker.KEY_WORKER_RUN_ID, workerRunId)
+        .putBoolean(SyncWorker.KEY_IS_CONTINUATION, isContinuation)
+        .build()
+}
+
+internal fun resolveWorkerRunId(inputData: Data): String {
+    return inputData.getString(SyncWorker.KEY_WORKER_RUN_ID)
+        ?.takeIf { it.isNotBlank() }
+        ?: UUID.randomUUID().toString()
 }

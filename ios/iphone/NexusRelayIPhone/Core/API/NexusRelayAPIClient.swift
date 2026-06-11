@@ -27,6 +27,7 @@ protocol NexusRelayAPI {
     func login(username: String, password: String) async throws -> AuthSession
     func exchangeIosSession(code: String) async throws -> AuthSession
     func currentUser() async throws -> BrowserAuthResponse
+    func getAccountSyncDashboard() async throws -> AccountSyncDashboardDTO
     func listRootFolders() async throws -> [FolderDTO]
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO
@@ -146,6 +147,17 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         }
         
         return try JSONDecoder.apiDecoder.decode(BrowserAuthResponse.self, from: response.body)
+    }
+
+    func getAccountSyncDashboard() async throws -> AccountSyncDashboardDTO {
+        let request = HTTPRequest(method: "GET", path: "api/device-sync/dashboard", headers: [:], body: nil)
+        let response = try await httpClient.send(request)
+
+        guard response.statusCode == 200 else {
+            throw APIError.requestFailed(statusCode: response.statusCode, message: "Failed to get account sync dashboard")
+        }
+
+        return try JSONDecoder.apiDecoder.decode(AccountSyncDashboardDTO.self, from: response.body)
     }
 
     func listRootFolders() async throws -> [FolderDTO] {

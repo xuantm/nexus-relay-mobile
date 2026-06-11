@@ -6,6 +6,8 @@ import com.nexusrelay.pixel.api.SyncStatus
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Rule
@@ -51,11 +53,17 @@ class LocalSyncLedgerTest {
         assertEquals("job-1", saved!!.jobId)
         assertEquals(LocalSyncStatus.Queued, saved.status)
 
-        // 3. Mark downloading
-        ledger.markDownloading("job-1")
+        // 3. Mark claimed/progress
+        ledger.markClaimed("job-1", "lease-1", "worker-1")
+        ledger.markProgress("job-1", "Downloading", 64L, 100L)
         val downloading = ledger.get("job-1")
         assertNotNull(downloading)
         assertEquals(LocalSyncStatus.Downloading, downloading!!.status)
+        assertEquals("lease-1", downloading.leaseId)
+        assertEquals("worker-1", downloading.workerRunId)
+        assertEquals(64L, downloading.progressBytes)
+        assertEquals(100L, downloading.totalBytes)
+        assertEquals("Downloading", downloading.stage)
 
         // 4. Mark imported/confirm pending
         ledger.markConfirmPending("job-1", "content://media/1")
@@ -341,5 +349,71 @@ class LocalSyncLedgerTest {
         val reported = ledger.get("failed-job")!!
         assertEquals(88L, reported.backendFailureReportedAt)
         assertTrue(ledger.listUnreportedFailures().isEmpty())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun markClaimedStoresLeaseAndWorkerContext() = runTest {
+        val tempFile = File(tempFolder.root, "mark_claimed.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        ledger.upsert(
+            LocalSyncRecord(
+                jobId = "job-lease",
+                mediaId = "media-lease",
+                fileName = "lease.jpg",
+                mimeType = "image/jpeg",
+                sizeBytes = 200L,
+                sha256 = null,
+                status = LocalSyncStatus.Queued,
+                localUri = null,
+                lastAttemptAt = 10L,
+                lastError = null
+            )
+        )
+
+        ledger.markClaimed("job-lease", "lease-123", "worker-123")
+        ledger.markProgress("job-lease", "Confirming", 200L, 200L)
+
+        val record = ledger.get("job-lease")!!
+        assertEquals("lease-123", record.leaseId)
+        assertEquals("worker-123", record.workerRunId)
+        assertEquals(200L, record.progressBytes)
+        assertEquals(200L, record.totalBytes)
+        assertEquals("Confirming", record.stage)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun concurrentUpsertsPreserveAllRecords() = runTest {
+        val tempFile = File(tempFolder.root, "concurrent_upserts.preferences_pb")
+        val dataStore = PreferenceDataStoreFactory.create { tempFile }
+        val ledger = LocalSyncLedger(TestContext(), dataStore)
+
+        val writes = (1..25).map { index ->
+            launch {
+                ledger.upsert(
+                    LocalSyncRecord(
+                        jobId = "job-$index",
+                        mediaId = "media-$index",
+                        fileName = "image-$index.jpg",
+                        mimeType = "image/jpeg",
+                        sizeBytes = index.toLong(),
+                        sha256 = null,
+                        status = LocalSyncStatus.Queued,
+                        localUri = null,
+                        lastAttemptAt = index.toLong(),
+                        lastError = null
+                    )
+                )
+            }
+        }
+
+        writes.joinAll()
+
+        val allRecords = ledger.allRecordsFlow.first()
+        assertEquals(25, allRecords.size)
+        assertEquals((1..25).map { "job-$it" }.toSet(), allRecords.map { it.jobId }.toSet())
     }
 }

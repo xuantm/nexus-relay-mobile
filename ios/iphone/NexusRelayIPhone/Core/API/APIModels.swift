@@ -166,3 +166,123 @@ struct CompleteUploadRequest: Encodable {
 struct StreamUploadResponse: Codable {
     let uploadId: UUID
 }
+
+// MARK: - Device Sync DTOs
+enum DeviceSyncScope: String, Codable, Equatable {
+    case AccountUploads = "AccountUploads"
+    case Folder = "Folder"
+}
+
+struct AccountSyncDashboardDTO: Codable, Equatable {
+    let overview: AccountSyncOverviewDTO
+    let devices: [AccountSyncDeviceDTO]
+    let failedJobs: [AccountSyncFailedJobDTO]
+    let stalledJobs: [AccountSyncStalledJobDTO]
+    let failedUploads: [AccountSyncFailedUploadDTO]
+}
+
+struct AccountSyncDeviceDTO: Codable, Equatable, Identifiable {
+    let targetId: UUID
+    var id: UUID { targetId }
+    let deviceName: String
+    let platform: String
+    let enabled: Bool
+    let wifiOnly: Bool
+    let syncScope: DeviceSyncScope
+    let scopedFolderId: UUID?
+    let lastSeenAt: Date?
+    let isActive: Bool
+    let pendingJobs: Int
+    let syncingJobs: Int
+    let stalledJobs: Int
+    let failedJobs: Int
+    let syncedJobs: Int
+    let currentJob: AccountSyncCurrentJobDTO?
+}
+
+struct AccountSyncCurrentJobDTO: Codable, Equatable, Identifiable {
+    let jobId: UUID
+    var id: UUID { jobId }
+    let mediaId: UUID
+    let fileName: String
+    let mimeType: String
+    let mediaType: String
+    let sizeBytes: Int64
+    let attemptNumber: Int
+    let stage: String
+    let progressBytes: Int64
+    let totalBytes: Int64?
+    let claimedAt: Date?
+    let lastHeartbeatAt: Date?
+    let leaseExpiresAt: Date?
+    let workerRunId: String?
+
+    var displayStateText: String {
+        stage
+    }
+
+    var progressFraction: Double? {
+        guard let totalBytes, totalBytes > 0 else {
+            return nil
+        }
+
+        return min(max(Double(progressBytes) / Double(totalBytes), 0.0), 1.0)
+    }
+}
+
+struct AccountSyncOverviewDTO: Codable, Equatable {
+    let completedUploads: Int
+    let failedUploads: Int
+    let syncedToDevices: Int
+    let failedDeviceSyncJobs: Int
+    let stalledDeviceSyncJobs: Int
+    let activeDeviceSyncJobs: Int
+    let activeDevices: Int
+}
+
+struct AccountSyncFailedJobDTO: Codable, Equatable, Identifiable {
+    let jobId: UUID
+    var id: UUID { jobId }
+    let targetId: UUID
+    let deviceName: String
+    let mediaId: UUID
+    let fileName: String
+    let mimeType: String
+    let mediaType: String
+    let sizeBytes: Int64
+    let attemptCount: Int
+    let lastError: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let status: String
+}
+
+struct AccountSyncStalledJobDTO: Codable, Equatable, Identifiable {
+    let jobId: UUID
+    var id: UUID { jobId }
+    let targetId: UUID
+    let deviceName: String
+    let mediaId: UUID
+    let fileName: String
+    let mimeType: String
+    let mediaType: String
+    let sizeBytes: Int64
+    let attemptCount: Int
+    let lastError: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let downloadStartedAt: Date?
+    let status: String
+}
+
+struct AccountSyncFailedUploadDTO: Codable, Equatable, Identifiable {
+    let mediaId: UUID
+    var id: UUID { mediaId }
+    let folderId: UUID?
+    let fileName: String
+    let mimeType: String
+    let mediaType: String
+    let size: Int64
+    let createdAt: Date
+    let uploadStatus: String
+}

@@ -260,6 +260,87 @@ final class NexusRelayAPIClientTests: XCTestCase {
         _ = try await apiClient.listFolderMedia(folderId: folderId, pageSize: 60, cursor: "cursor-token")
     }
 
+    func testGetAccountSyncDashboardDecodesCurrentJobOnEachDevice() async throws {
+        sessionStore.currentSession = AuthSession(
+            userId: UUID(),
+            username: "xuan",
+            role: "Admin",
+            cookies: []
+        )
+
+        let dashboardJSON = """
+        {
+            "overview": {
+                "completedUploads": 12,
+                "failedUploads": 1,
+                "syncedToDevices": 42,
+                "failedDeviceSyncJobs": 2,
+                "stalledDeviceSyncJobs": 1,
+                "activeDeviceSyncJobs": 3,
+                "activeDevices": 1
+            },
+            "devices": [
+                {
+                    "targetId": "2d6c4f66-5be2-4f31-8c2f-02ac2e1a55ee",
+                    "deviceName": "Pixel 8",
+                    "platform": "Android",
+                    "enabled": true,
+                    "wifiOnly": true,
+                    "syncScope": "AccountUploads",
+                    "scopedFolderId": null,
+                    "lastSeenAt": "2026-06-11T09:00:00Z",
+                    "isActive": true,
+                    "pendingJobs": 0,
+                    "syncingJobs": 1,
+                    "stalledJobs": 0,
+                    "failedJobs": 0,
+                    "syncedJobs": 18,
+                    "currentJob": {
+                        "jobId": "11111111-1111-1111-1111-111111111111",
+                        "mediaId": "22222222-2222-2222-2222-222222222222",
+                        "fileName": "IMG_1001.HEIC",
+                        "mimeType": "image/heic",
+                        "mediaType": "Image",
+                        "sizeBytes": 4820131,
+                        "attemptNumber": 2,
+                        "stage": "Downloading",
+                        "progressBytes": 2410065,
+                        "totalBytes": 4820131,
+                        "claimedAt": "2026-06-11T08:55:00Z",
+                        "lastHeartbeatAt": "2026-06-11T09:01:00Z",
+                        "leaseExpiresAt": "2026-06-11T09:16:00Z",
+                        "workerRunId": "run-1"
+                    }
+                }
+            ],
+            "failedJobs": [],
+            "stalledJobs": [],
+            "failedUploads": []
+        }
+        """
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/api/device-sync/dashboard")
+            XCTAssertEqual(request.httpMethod, "GET")
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, dashboardJSON.data(using: .utf8)!)
+        }
+
+        let dashboard = try await apiClient.getAccountSyncDashboard()
+        XCTAssertEqual(dashboard.overview.completedUploads, 12)
+        XCTAssertEqual(dashboard.devices.count, 1)
+        XCTAssertEqual(dashboard.devices.first?.deviceName, "Pixel 8")
+        XCTAssertEqual(dashboard.devices.first?.syncScope, .AccountUploads)
+        XCTAssertEqual(
+            dashboard.devices.first?.currentJob?.jobId,
+            UUID(uuidString: "11111111-1111-1111-1111-111111111111")
+        )
+        XCTAssertEqual(dashboard.devices.first?.currentJob?.displayStateText, "Downloading")
+        XCTAssertEqual(dashboard.devices.first?.currentJob?.progressFraction, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(dashboard.devices.first?.pendingJobs, 0)
+    }
+
     func testHTTPClientTransparent401RefreshSuccess() async throws {
         sessionStore.currentSession = AuthSession(
             userId: UUID(),

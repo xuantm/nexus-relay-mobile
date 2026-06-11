@@ -30,6 +30,18 @@ class FcmSyncSignalHandlerTest {
     }
 
     @Test
+    fun handleMessage_enqueuesSyncForWakeRequested() = runTest {
+        var enqueued = 0
+        val handler = FcmSyncSignalHandler(
+            enqueueExpeditedSync = { enqueued++ }
+        )
+
+        handler.handleMessage(type = "device_sync_wake_requested")
+
+        assertEquals(1, enqueued)
+    }
+
+    @Test
     fun handleDeletedMessages_enqueuesFullSync() = runTest {
         var enqueued = 0
         val handler = FcmSyncSignalHandler(

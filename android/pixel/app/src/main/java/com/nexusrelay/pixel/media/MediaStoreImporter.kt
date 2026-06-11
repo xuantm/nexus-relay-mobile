@@ -9,13 +9,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 
-class MediaStoreImporter(private val context: Context) {
-
+interface MediaImporter {
     suspend fun importMedia(
         fileName: String,
         mimeType: String,
         inputStream: InputStream,
-        sizeBytes: Long
+        sizeBytes: Long,
+        onBytesCopied: suspend (Long) -> Unit = {}
+    ): String
+}
+
+class MediaStoreImporter(private val context: Context) : MediaImporter {
+
+    override
+    suspend fun importMedia(
+        fileName: String,
+        mimeType: String,
+        inputStream: InputStream,
+        sizeBytes: Long,
+        onBytesCopied: suspend (Long) -> Unit
     ): String = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val contentValues = ContentValues().apply {
@@ -53,9 +65,12 @@ class MediaStoreImporter(private val context: Context) {
                 }
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
+                var bytesCopied = 0L
                 inputStream.use { input ->
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         outputStream.write(buffer, 0, bytesRead)
+                        bytesCopied += bytesRead
+                        onBytesCopied(bytesCopied)
                     }
                 }
                 outputStream.flush()
