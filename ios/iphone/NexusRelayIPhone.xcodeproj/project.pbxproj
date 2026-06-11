@@ -14,6 +14,9 @@
 		09637A2F32197CF8B46E81E3 /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F514666D744FEFE44E2D43A /* HTTPClient.swift */; };
 		0ADB3EFABF1024BE87A8048E /* UploadLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D350D562885AB10E37133164 /* UploadLedger.swift */; };
 		0BC15D8554C3F483DC12ECC5 /* PhotoKitPhotoLibraryClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDCEBAD0715EA8B0E86C5AD8 /* PhotoKitPhotoLibraryClient.swift */; };
+		A1B2C3D4E5F60718293A4B5E /* PixelDeliveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* PixelDeliveryView.swift */; };
+		A1B2C3D4E5F60718293A4B5F /* PixelDeliveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* PixelDeliveryViewModel.swift */; };
+		A1B2C3D4E5F60718293A4B62 /* PixelDeliveryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B61 /* PixelDeliveryViewModelTests.swift */; };
 		104017150D262ECF6B0E5083 /* UploadQueueViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE49C4B34CF0286F01B76C89 /* UploadQueueViewModelTests.swift */; };
 		12B92B449A37282AA4DB4C50 /* SetupChecklistModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE1D3F6797F95DBDD864B36 /* SetupChecklistModelTests.swift */; };
 		16530D5E1E81CAECE925D67B /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68EEE7CD6A376253D8E007F /* APIModels.swift */; };
@@ -135,6 +138,9 @@
 		9B4F07BD56E7FB7AF98D041A /* NexusRelayAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClient.swift; sourceTree = "<group>"; };
 		9C71866DCD98E9205741691B /* BackendURLValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendURLValidatorTests.swift; sourceTree = "<group>"; };
 		9CD26EA169503023911FB6EE /* CSRFTokenProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSRFTokenProviderTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* PixelDeliveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelDeliveryView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* PixelDeliveryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelDeliveryViewModel.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B61 /* PixelDeliveryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelDeliveryViewModelTests.swift; sourceTree = "<group>"; };
 		9E4898493C9F9633850A5154 /* NexusRelayAPIClientExchangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusRelayAPIClientExchangeTests.swift; sourceTree = "<group>"; };
 		9FBF810683A68740CB5F17BA /* PhotoThumbnailProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoThumbnailProvider.swift; sourceTree = "<group>"; };
 		A68EEE7CD6A376253D8E007F /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
@@ -234,6 +240,7 @@
 				C0AD9ADC6E29B81E3AD1EF11 /* AppShell */,
 				083E4B88A3AE8DE79971C86F /* FolderPicker */,
 				B2EBFE936E36770E4A5BB2BC /* LibrarySync */,
+				A1B2C3D4E5F60718293A4B60 /* PixelDelivery */,
 				8BF73ECC4D8C685F64A73DD7 /* Queue */,
 				D9D3E0CFD27F1F61BF63B5C6 /* Settings */,
 				F9EBBB0EEEF5BDA730315655 /* Setup */,
@@ -291,6 +298,7 @@
 				FFB26337E12A95054D11281C /* Auth */,
 				30B404DBD569F1AD61A65494 /* Ledger */,
 				2EAB3A3492D400FB97A8D9F7 /* LibrarySync */,
+				A1B2C3D4E5F60718293A4B63 /* PixelDelivery */,
 				6AA6B22ED9E40D4DBB88FBEA /* Photos */,
 				FF3BBF8ACCE09F6183598F2F /* Queue */,
 				A60DA498A72331E808A1029D /* Settings */,
@@ -381,6 +389,23 @@
 				6910A335C4268DFBE9C75AE1 /* SettingsViewModelTests.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F60718293A4B60 /* PixelDelivery */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F60718293A4B5C /* PixelDeliveryView.swift */,
+				A1B2C3D4E5F60718293A4B5D /* PixelDeliveryViewModel.swift */,
+			);
+			path = PixelDelivery;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F60718293A4B63 /* PixelDelivery */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F60718293A4B61 /* PixelDeliveryViewModelTests.swift */,
+			);
+			path = PixelDelivery;
 			sourceTree = "<group>";
 		};
 		AC7734F6BE984E2A96E09F80 /* API */ = {
@@ -626,6 +651,7 @@
 				306A084390361BE25CF27700 /* ChunkFileBuilderTests.swift in Sources */,
 				E6D25B54615D4BF4E8770D08 /* GoogleAuthCoordinatorTests.swift in Sources */,
 				2C4C67B59DF63BF71ECFB245 /* LibrarySyncViewModelTests.swift in Sources */,
+				A1B2C3D4E5F60718293A4B62 /* PixelDeliveryViewModelTests.swift in Sources */,
 				34DC3B95CFC0CAC13D388C58 /* NexusRelayAPIClientExchangeTests.swift in Sources */,
 				8FA5692080BFF530ABADED02 /* NexusRelayAPIClientTests.swift in Sources */,
 				453EA34845CBDABAB6174739 /* ReconciliationServiceTests.swift in Sources */,
@@ -669,6 +695,8 @@
 				3C7EDC133E2EF830A6268357 /* NRDesignSystem.swift in Sources */,
 				BD5266128FC014509E2836DC /* NexusRelayAPIClient.swift in Sources */,
 				4D330F4260FCF421860FE1FB /* NexusRelayIPhoneApp.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5E /* PixelDeliveryView.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5F /* PixelDeliveryViewModel.swift in Sources */,
 				9A0EBC7B2AEAA5C2963E13BE /* PhotoAssetCandidate.swift in Sources */,
 				EE64AA18D62AFA2AD6CAF041 /* PhotoKitAssetExporter.swift in Sources */,
 				0BC15D8554C3F483DC12ECC5 /* PhotoKitPhotoLibraryClient.swift in Sources */,

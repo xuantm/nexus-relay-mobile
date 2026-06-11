@@ -38,6 +38,9 @@ final class MockPixelDeliveryAPI: NexusRelayAPI {
         }
         return try dashboardResult.get()
     }
+    func getAccountSucceededDeviceSyncJobs(targetId: UUID, take: Int, cursor: String?) async throws -> CursorPageDTO<AccountSyncSucceededJobDTO> {
+        CursorPageDTO(items: [], pageSize: take, hasMore: false, nextCursor: nil)
+    }
     func listRootFolders() async throws -> [FolderDTO] { fatalError() }
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO { fatalError() }
