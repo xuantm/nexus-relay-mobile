@@ -11,7 +11,7 @@ struct PixelDeliveryView: View {
     var body: some View {
         NavigationStack {
             List {
-                if viewModel.isLoading {
+                if viewModel.isLoading && viewModel.devices.isEmpty {
                     ProgressView("Refreshing dashboard...")
                         .listRowBackground(NRDesign.ColorToken.appBackground)
                 }
@@ -36,6 +36,20 @@ struct PixelDeliveryView: View {
                         ForEach(viewModel.devices) { device in
                             PixelDeliveryDeviceRow(device: device)
                         }
+                    }
+
+                    Section("Synced to Device") {
+                        SyncedHistoryPanel(
+                            deviceName: viewModel.devices.first?.deviceName,
+                            jobs: viewModel.succeededJobs,
+                            isRefreshing: viewModel.isLoading && !viewModel.succeededJobs.isEmpty,
+                            isLoadingMore: viewModel.isLoadingMoreSucceededJobs,
+                            onReachJob: { job in
+                                await viewModel.loadMoreSucceededJobsIfNeeded(currentJob: job)
+                            }
+                        )
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(NRDesign.ColorToken.appBackground)
                     }
                 }
 
@@ -62,13 +76,111 @@ struct PixelDeliveryView: View {
                 }
             }
             .task {
-                await viewModel.refresh()
+                viewModel.startPolling()
             }
+            .onDisappear { viewModel.stopPolling() }
             .refreshable {
                 await viewModel.refresh()
             }
             .nrPageBackground()
         }
+    }
+}
+
+private struct SyncedHistoryPanel: View {
+    let deviceName: String?
+    let jobs: [AccountSyncSucceededJobDTO]
+    let isRefreshing: Bool
+    let isLoadingMore: Bool
+    let onReachJob: (AccountSyncSucceededJobDTO) async -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent files confirmed on \(deviceName ?? "the selected device").")
+                .font(.caption)
+                .foregroundStyle(NRDesign.ColorToken.secondaryText)
+
+            if jobs.isEmpty {
+                ContentUnavailableView(
+                    "No synced items yet",
+                    systemImage: "checkmark.circle",
+                    description: Text("This list fills in after Pixel confirms downloads from the backend.")
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(jobs) { job in
+                            SyncedHistoryRow(job: job)
+                                .task {
+                                    await onReachJob(job)
+                                }
+
+                            if job.id != jobs.last?.id {
+                                Divider()
+                                    .overlay(NRDesign.ColorToken.divider)
+                            }
+                        }
+
+                        if isLoadingMore {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Loading more synced items...")
+                                    .font(.caption)
+                                    .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 12)
+                        }
+                    }
+                }
+                .frame(height: 360)
+            }
+
+            Text(isRefreshing ? "Refreshing latest synced items..." : "Latest synced items update automatically while sync is active.")
+                .font(.caption2)
+                .foregroundStyle(NRDesign.ColorToken.secondaryText)
+        }
+        .padding(14)
+        .background(NRDesign.ColorToken.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct SyncedHistoryRow: View {
+    let job: AccountSyncSucceededJobDTO
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(job.fileName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NRDesign.ColorToken.primaryText)
+                    .lineLimit(1)
+
+                Text("\(job.mediaType) | \(PixelDeliveryDeviceRow.byteFormatter.string(fromByteCount: job.sizeBytes)) | attempt \(job.attemptNumber)")
+                    .font(.caption)
+                    .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(job.deviceName)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(NRDesign.ColorToken.primaryText)
+                    .lineLimit(1)
+
+                Text(job.confirmedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(NRDesign.ColorToken.secondaryText)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .padding(.vertical, 10)
     }
 }
 

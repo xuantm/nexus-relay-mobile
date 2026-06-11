@@ -181,6 +181,20 @@ struct AccountSyncDashboardDTO: Codable, Equatable {
     let failedUploads: [AccountSyncFailedUploadDTO]
 }
 
+struct AccountSyncSucceededJobDTO: Codable, Equatable, Identifiable {
+    let jobId: UUID
+    var id: UUID { jobId }
+    let targetId: UUID
+    let deviceName: String
+    let mediaId: UUID
+    let fileName: String
+    let mimeType: String
+    let mediaType: String
+    let sizeBytes: Int64
+    let attemptNumber: Int
+    let confirmedAt: Date
+}
+
 struct AccountSyncDeviceDTO: Codable, Equatable, Identifiable {
     let targetId: UUID
     var id: UUID { targetId }

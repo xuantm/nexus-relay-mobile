@@ -28,6 +28,7 @@ protocol NexusRelayAPI {
     func exchangeIosSession(code: String) async throws -> AuthSession
     func currentUser() async throws -> BrowserAuthResponse
     func getAccountSyncDashboard() async throws -> AccountSyncDashboardDTO
+    func getAccountSucceededDeviceSyncJobs(targetId: UUID, take: Int, cursor: String?) async throws -> CursorPageDTO<AccountSyncSucceededJobDTO>
     func listRootFolders() async throws -> [FolderDTO]
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO
@@ -158,6 +159,25 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         }
 
         return try JSONDecoder.apiDecoder.decode(AccountSyncDashboardDTO.self, from: response.body)
+    }
+
+    func getAccountSucceededDeviceSyncJobs(targetId: UUID, take: Int, cursor: String?) async throws -> CursorPageDTO<AccountSyncSucceededJobDTO> {
+        var path = "api/device-sync/me/jobs/synced?targetId=\(targetId.uuidString.lowercased())&take=\(take)"
+        if let cursor, !cursor.isEmpty {
+            let queryValueAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=+"))
+            if let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: queryValueAllowed) {
+                path += "&cursor=\(encodedCursor)"
+            }
+        }
+
+        let request = HTTPRequest(method: "GET", path: path, headers: [:], body: nil)
+        let response = try await httpClient.send(request)
+
+        guard response.statusCode == 200 else {
+            throw APIError.requestFailed(statusCode: response.statusCode, message: "Failed to get succeeded device sync jobs")
+        }
+
+        return try JSONDecoder.apiDecoder.decode(CursorPageDTO<AccountSyncSucceededJobDTO>.self, from: response.body)
     }
 
     func listRootFolders() async throws -> [FolderDTO] {
