@@ -292,7 +292,7 @@ internal class SyncSessionRunner(
     private companion object {
         private const val DEFAULT_CLAIM_LIMIT = 25
         private const val DEFAULT_LEASE_SECONDS = 900
-        private const val DEFAULT_MAX_PARALLEL_JOBS = 2
+        private const val DEFAULT_MAX_PARALLEL_JOBS = 3
         private const val DEFAULT_DOWNLOAD_HEARTBEAT_INTERVAL_MILLIS = 3_000L
         private const val DEFAULT_MAX_RUN_MILLIS = 25L * 60L * 1000L
     }
