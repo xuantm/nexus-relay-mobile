@@ -32,10 +32,46 @@ protocol NexusRelayAPI {
     func listRootFolders() async throws -> [FolderDTO]
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse
+    func streamUpload(
+        fileURL: URL,
+        fileName: String,
+        folderId: UUID,
+        mimeType: String,
+        fileSize: Int64,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> StreamUploadResponse
     func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse
-    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws
+    func uploadChunk(
+        uploadId: UUID,
+        chunkIndex: Int,
+        chunkSize: Int64,
+        chunkFileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws
     func completeUpload(uploadId: UUID, fileHash: String?) async throws
+}
+
+extension NexusRelayAPI {
+    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse {
+        try await streamUpload(
+            fileURL: fileURL,
+            fileName: fileName,
+            folderId: folderId,
+            mimeType: mimeType,
+            fileSize: fileSize,
+            progress: nil
+        )
+    }
+
+    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws {
+        try await uploadChunk(
+            uploadId: uploadId,
+            chunkIndex: chunkIndex,
+            chunkSize: chunkSize,
+            chunkFileURL: chunkFileURL,
+            progress: nil
+        )
+    }
 }
 
 extension JSONDecoder {
@@ -222,7 +258,14 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         return try JSONDecoder.apiDecoder.decode(FolderContentDTO.self, from: response.body)
     }
 
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse {
+    func streamUpload(
+        fileURL: URL,
+        fileName: String,
+        folderId: UUID,
+        mimeType: String,
+        fileSize: Int64,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> StreamUploadResponse {
         // Percent encode file name for header
         let allowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: ":/"))
         let encodedName = fileName.addingPercentEncoding(withAllowedCharacters: allowed) ?? fileName
@@ -235,7 +278,7 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         ]
         
         let request = HTTPRequest(method: "POST", path: "api/upload/stream", headers: headers, body: nil)
-        let response = try await httpClient.uploadFile(request, fileURL: fileURL)
+        let response = try await httpClient.uploadFile(request, fileURL: fileURL, progress: progress)
         
         guard response.statusCode == 200 else {
             throw APIError.requestFailed(statusCode: response.statusCode, message: "Stream upload failed")
@@ -257,7 +300,13 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         return try JSONDecoder.apiDecoder.decode(InitUploadResponse.self, from: response.body)
     }
 
-    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws {
+    func uploadChunk(
+        uploadId: UUID,
+        chunkIndex: Int,
+        chunkSize: Int64,
+        chunkFileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws {
         let headers = [
             "x-upload-id": uploadId.uuidString.lowercased(),
             "x-chunk-index": String(chunkIndex),
@@ -266,7 +315,7 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         ]
         
         let request = HTTPRequest(method: "POST", path: "api/upload/chunk", headers: headers, body: nil)
-        let response = try await httpClient.uploadFile(request, fileURL: chunkFileURL)
+        let response = try await httpClient.uploadFile(request, fileURL: chunkFileURL, progress: progress)
         
         guard response.statusCode == 200 else {
             throw APIError.requestFailed(statusCode: response.statusCode, message: "Upload chunk failed")

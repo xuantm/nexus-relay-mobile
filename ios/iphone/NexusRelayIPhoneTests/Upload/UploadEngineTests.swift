@@ -20,7 +20,14 @@ final class MockNexusRelayAPI: NexusRelayAPI {
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO { fatalError() }
 
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse {
+    func streamUpload(
+        fileURL: URL,
+        fileName: String,
+        folderId: UUID,
+        mimeType: String,
+        fileSize: Int64,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> StreamUploadResponse {
         streamUploadCount += 1
         return try streamUploadResult.get()
     }
@@ -30,7 +37,13 @@ final class MockNexusRelayAPI: NexusRelayAPI {
         return try initUploadResult.get()
     }
 
-    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws {
+    func uploadChunk(
+        uploadId: UUID,
+        chunkIndex: Int,
+        chunkSize: Int64,
+        chunkFileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws {
         uploadChunkCount += 1
         try uploadChunkResult.get()
     }

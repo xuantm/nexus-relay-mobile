@@ -49,9 +49,9 @@ final class MockNexusRelayReconciliationAPI: NexusRelayAPI {
         )
     }
     
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse { fatalError() }
+    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64, progress: HTTPUploadProgressHandler?) async throws -> StreamUploadResponse { fatalError() }
     func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse { fatalError() }
-    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws { fatalError() }
+    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL, progress: HTTPUploadProgressHandler?) async throws { fatalError() }
     func completeUpload(uploadId: UUID, fileHash: String?) async throws { fatalError() }
 }
 

@@ -25,6 +25,43 @@ final class MockCSRFTokenProvider: CSRFTokenProvider {
     }
 }
 
+actor ProgressRecorder {
+    private(set) var events: [HTTPUploadProgress] = []
+
+    func record(_ progress: HTTPUploadProgress) {
+        events.append(progress)
+    }
+}
+
+final class RecordingHTTPClient: HTTPClient {
+    var uploadResponse = HTTPResponse(
+        statusCode: 200,
+        headers: [:],
+        body: Data(#"{"uploadId":"00000000-0000-0000-0000-000000000001"}"#.utf8)
+    )
+    var receivedUploadProgressHandler: HTTPUploadProgressHandler?
+    var uploadRequests: [HTTPRequest] = []
+
+    func send(_ request: HTTPRequest) async throws -> HTTPResponse {
+        fatalError("send() is not used in this test")
+    }
+
+    func uploadFile(
+        _ request: HTTPRequest,
+        fileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> HTTPResponse {
+        uploadRequests.append(request)
+        receivedUploadProgressHandler = progress
+        if let progress {
+            await progress(HTTPUploadProgress(bytesSent: 128, totalBytes: 256))
+        }
+        return uploadResponse
+    }
+
+    func clearCSRFToken() {}
+}
+
 final class NexusRelayAPIClientTests: XCTestCase {
     private var baseURL: URL!
     private var sessionStore: MockSessionStore!
@@ -341,6 +378,58 @@ final class NexusRelayAPIClientTests: XCTestCase {
         XCTAssertEqual(dashboard.devices.first?.pendingJobs, 0)
     }
 
+    func testStreamUploadForwardsProgressHandlerToHTTPClient() async throws {
+        let recordingHTTPClient = RecordingHTTPClient()
+        let apiClient = SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: recordingHTTPClient, sessionStore: sessionStore)
+
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("dummy-content".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let recorder = ProgressRecorder()
+        let response = try await apiClient.streamUpload(
+            fileURL: fileURL,
+            fileName: "IMG_1001.HEIC",
+            folderId: UUID(),
+            mimeType: "image/heic",
+            fileSize: 12_345,
+            progress: { progress in
+                await recorder.record(progress)
+            }
+        )
+
+        XCTAssertEqual(response.uploadId, UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        XCTAssertNotNil(recordingHTTPClient.receivedUploadProgressHandler)
+        let events = await recorder.events
+        XCTAssertEqual(events, [HTTPUploadProgress(bytesSent: 128, totalBytes: 256)])
+    }
+
+    func testUploadChunkForwardsProgressHandlerToHTTPClient() async throws {
+        let recordingHTTPClient = RecordingHTTPClient()
+        recordingHTTPClient.uploadResponse = HTTPResponse(statusCode: 200, headers: [:], body: Data())
+        let apiClient = SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: recordingHTTPClient, sessionStore: sessionStore)
+
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("chunk-content".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let recorder = ProgressRecorder()
+        try await apiClient.uploadChunk(
+            uploadId: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            chunkIndex: 3,
+            chunkSize: 13,
+            chunkFileURL: fileURL,
+            progress: { progress in
+                await recorder.record(progress)
+            }
+        )
+
+        XCTAssertEqual(recordingHTTPClient.uploadRequests.first?.path, "api/upload/chunk")
+        XCTAssertNotNil(recordingHTTPClient.receivedUploadProgressHandler)
+        let events = await recorder.events
+        XCTAssertEqual(events, [HTTPUploadProgress(bytesSent: 128, totalBytes: 256)])
+    }
+
     func testHTTPClientTransparent401RefreshSuccess() async throws {
         sessionStore.currentSession = AuthSession(
             userId: UUID(),
@@ -534,9 +623,18 @@ final class NexusRelayAPIClientTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
         let req = HTTPRequest(method: "POST", path: "api/upload/stream", headers: [:], body: nil)
-        let response = try await httpClient.uploadFile(req, fileURL: fileURL)
+        let recorder = ProgressRecorder()
+        let response = try await httpClient.uploadFile(
+            req,
+            fileURL: fileURL,
+            progress: { progress in
+                await recorder.record(progress)
+            }
+        )
         XCTAssertEqual(response.statusCode, 200)
         XCTAssertEqual(requestCount, 3) // 1: POST upload (fail -1017), 2: POST refresh (200), 3: POST upload (200)
         XCTAssertEqual(sessionStore.currentSession?.cookies.first?.value, "new_jwt")
+        let progressEvents = await recorder.events
+        XCTAssertFalse(progressEvents.isEmpty)
     }
 }

@@ -44,9 +44,9 @@ final class MockPixelDeliveryAPI: NexusRelayAPI {
     func listRootFolders() async throws -> [FolderDTO] { fatalError() }
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO { fatalError() }
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse { fatalError() }
+    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64, progress: HTTPUploadProgressHandler?) async throws -> StreamUploadResponse { fatalError() }
     func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse { fatalError() }
-    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL) async throws { fatalError() }
+    func uploadChunk(uploadId: UUID, chunkIndex: Int, chunkSize: Int64, chunkFileURL: URL, progress: HTTPUploadProgressHandler?) async throws { fatalError() }
     func completeUpload(uploadId: UUID, fileHash: String?) async throws { fatalError() }
 }
 

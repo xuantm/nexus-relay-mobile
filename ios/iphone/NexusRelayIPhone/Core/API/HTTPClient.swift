@@ -13,10 +13,27 @@ struct HTTPResponse {
     let body: Data
 }
 
+struct HTTPUploadProgress: Equatable, Sendable {
+    let bytesSent: Int64
+    let totalBytes: Int64?
+}
+
+typealias HTTPUploadProgressHandler = @Sendable (HTTPUploadProgress) async -> Void
+
 protocol HTTPClient {
     func send(_ request: HTTPRequest) async throws -> HTTPResponse
-    func uploadFile(_ request: HTTPRequest, fileURL: URL) async throws -> HTTPResponse
+    func uploadFile(
+        _ request: HTTPRequest,
+        fileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> HTTPResponse
     func clearCSRFToken()
+}
+
+extension HTTPClient {
+    func uploadFile(_ request: HTTPRequest, fileURL: URL) async throws -> HTTPResponse {
+        try await uploadFile(request, fileURL: fileURL, progress: nil)
+    }
 }
 
 final class SystemHTTPClient: HTTPClient {
@@ -41,29 +58,51 @@ final class SystemHTTPClient: HTTPClient {
         return try await sendWithRetry(request, fileURL: nil)
     }
 
-    func uploadFile(_ request: HTTPRequest, fileURL: URL) async throws -> HTTPResponse {
-        return try await sendWithRetry(request, fileURL: fileURL)
+    func uploadFile(
+        _ request: HTTPRequest,
+        fileURL: URL,
+        progress: HTTPUploadProgressHandler?
+    ) async throws -> HTTPResponse {
+        return try await sendWithRetry(request, fileURL: fileURL, progress: progress)
     }
 
     func clearCSRFToken() {
         csrfProvider.clearToken()
     }
 
-    private func sendWithRetry(_ request: HTTPRequest, fileURL: URL?, isRetry: Bool = false) async throws -> HTTPResponse {
+    private func sendWithRetry(
+        _ request: HTTPRequest,
+        fileURL: URL?,
+        progress: HTTPUploadProgressHandler? = nil,
+        isRetry: Bool = false
+    ) async throws -> HTTPResponse {
         let urlRequest = try await prepareRequest(request)
         let response: HTTPResponse
 
+        var progressRelay: UploadProgressRelay?
+
         do {
             if let fileURL = fileURL {
-                let (data, urlResponse) = try await urlSession.upload(for: urlRequest, fromFile: fileURL)
-                let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
+                let relay = UploadProgressRelay(progress: progress)
+                progressRelay = relay
+                let uploadDelegate = UploadProgressDelegate(progressRelay: relay)
+                let (data, urlResponse) = try await urlSession.upload(
+                    for: urlRequest,
+                    fromFile: fileURL,
+                    delegate: uploadDelegate
+                )
+                await relay.drain()
+                let httpResponse = urlResponse as? HTTPURLResponse
+                    ?? HTTPURLResponse(url: urlRequest.url ?? baseURL, statusCode: 0, httpVersion: nil, headerFields: nil)!
                 response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
             } else {
                 let (data, urlResponse) = try await urlSession.data(for: urlRequest)
-                let httpResponse = urlResponse as? HTTPURLResponse ?? HTTPURLResponse()
+                let httpResponse = urlResponse as? HTTPURLResponse
+                    ?? HTTPURLResponse(url: urlRequest.url ?? baseURL, statusCode: 0, httpVersion: nil, headerFields: nil)!
                 response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
             }
         } catch {
+            await progressRelay?.drain()
             let nsError = error as NSError
             if let fileURL = fileURL, !isRetry,
                (nsError.domain == NSURLErrorDomain &&
@@ -73,7 +112,7 @@ final class SystemHTTPClient: HTTPClient {
                 // Connection was reset or timed out (often due to server rejecting request early on 401)
                 // Proactively attempt to refresh the token and retry the upload
                 if let refreshSuccess = try? await performRefresh(), refreshSuccess {
-                    return try await sendWithRetry(request, fileURL: fileURL, isRetry: true)
+                    return try await sendWithRetry(request, fileURL: fileURL, progress: progress, isRetry: true)
                 }
             }
             throw error
@@ -85,14 +124,14 @@ final class SystemHTTPClient: HTTPClient {
             let refreshSuccess = try await performRefresh()
             if refreshSuccess {
                 // Retry once
-                return try await sendWithRetry(request, fileURL: fileURL, isRetry: true)
+                return try await sendWithRetry(request, fileURL: fileURL, progress: progress, isRetry: true)
             }
         }
 
         // If CSRF expired/invalid (often returns 400 or 403), retry once with forced fresh CSRF
         if (response.statusCode == 400 || response.statusCode == 403) && !isRetry && isUnsafeMethod(request.method) && request.path != "api/auth/csrf" {
             csrfProvider.clearToken()
-            return try await sendWithRetry(request, fileURL: fileURL, isRetry: true)
+            return try await sendWithRetry(request, fileURL: fileURL, progress: progress, isRetry: true)
         }
 
         return response
@@ -220,5 +259,55 @@ final class SystemHTTPClient: HTTPClient {
         }
 
         return result
+    }
+}
+
+private final class UploadProgressRelay: @unchecked Sendable {
+    private let progress: HTTPUploadProgressHandler?
+    private let lock = NSLock()
+    private var tail: Task<Void, Never>?
+
+    init(progress: HTTPUploadProgressHandler?) {
+        self.progress = progress
+    }
+
+    func report(_ event: HTTPUploadProgress) {
+        guard let progress else { return }
+
+        lock.lock()
+        let previous = tail
+        let next = Task {
+            await previous?.value
+            await progress(event)
+        }
+        tail = next
+        lock.unlock()
+    }
+
+    func drain() async {
+        lock.lock()
+        let currentTail = tail
+        lock.unlock()
+
+        await currentTail?.value
+    }
+}
+
+private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate {
+    private let progressRelay: UploadProgressRelay
+
+    init(progressRelay: UploadProgressRelay) {
+        self.progressRelay = progressRelay
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        let totalBytes = totalBytesExpectedToSend > 0 ? totalBytesExpectedToSend : nil
+        progressRelay.report(HTTPUploadProgress(bytesSent: totalBytesSent, totalBytes: totalBytes))
     }
 }
