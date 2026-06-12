@@ -53,4 +53,65 @@ final class ChunkFileBuilderTests: XCTestCase {
             try builder.buildChunkFile(recordId: "record-error", sourceURL: sourceURL, chunkIndex: 3, chunkSize: 10, totalSize: 26)
         )
     }
+
+    func testBuildChunkFileUsesBufferedCopyForMiddleChunk() throws {
+        let fileSize = 5 * 1024 * 1024 + 123
+        let chunkSize = 1 * 1024 * 1024
+        let chunkIndex = 2
+        let copyBufferSize = 64 * 1024
+
+        let sourceData = Data((0..<fileSize).map { UInt8(truncatingIfNeeded: $0) })
+        try sourceData.write(to: sourceURL)
+
+        builder = SystemChunkFileBuilder(copyBufferSize: copyBufferSize)
+
+        let chunkURL = try builder.buildChunkFile(
+            recordId: "record-buffered",
+            sourceURL: sourceURL,
+            chunkIndex: chunkIndex,
+            chunkSize: Int64(chunkSize),
+            totalSize: Int64(fileSize)
+        )
+        defer { builder.cleanChunks(recordId: "record-buffered") }
+
+        let chunkData = try Data(contentsOf: chunkURL)
+        let expectedRangeStart = chunkIndex * chunkSize
+        let expectedRangeEnd = expectedRangeStart + chunkSize
+        let expectedData = sourceData.subdata(in: expectedRangeStart..<expectedRangeEnd)
+
+        XCTAssertEqual(chunkData.count, chunkSize)
+        XCTAssertEqual(chunkData, expectedData)
+    }
+
+    func testBuildChunkFileReplacesExistingChunkOutput() throws {
+        let recordId = "record-replace"
+        let chunkSize = 10
+        let totalSize = 26
+
+        let firstSource = "abcdefghij".data(using: .utf8)!
+        try firstSource.write(to: sourceURL)
+        let initialChunkURL = try builder.buildChunkFile(
+            recordId: recordId,
+            sourceURL: sourceURL,
+            chunkIndex: 0,
+            chunkSize: Int64(chunkSize),
+            totalSize: Int64(totalSize)
+        )
+        XCTAssertEqual(try Data(contentsOf: initialChunkURL), firstSource)
+
+        let secondSource = "uvwxyz".data(using: .utf8)!
+        try secondSource.write(to: sourceURL)
+        let replacedChunkURL = try builder.buildChunkFile(
+            recordId: recordId,
+            sourceURL: sourceURL,
+            chunkIndex: 0,
+            chunkSize: Int64(chunkSize),
+            totalSize: Int64(secondSource.count)
+        )
+        defer { builder.cleanChunks(recordId: recordId) }
+
+        let replacedData = try Data(contentsOf: replacedChunkURL)
+        XCTAssertEqual(replacedData.count, secondSource.count)
+        XCTAssertEqual(replacedData, secondSource)
+    }
 }
