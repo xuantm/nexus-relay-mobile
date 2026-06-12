@@ -128,13 +128,17 @@ final class LibrarySyncViewModel: ObservableObject {
         let lastSynced = lastSyncDate.map { "Last synced: \($0.formatted(date: .abbreviated, time: .shortened)) | \(sessionText)" }
             ?? "Last synced: Not yet | \(sessionText)"
 
+        let isSyncActive = activeStatus == .scanning || activeStatus == .exporting || activeStatus == .uploading
+        let speedText = isSyncActive ? LibrarySyncDashboardFormatter.speed(runtime.telemetry.bytesPerSecond) : "-- MB/s"
+        let etaText = isSyncActive ? LibrarySyncDashboardFormatter.eta(runtime.telemetry.estimatedSecondsRemaining) : "Estimating"
+
         dashboard = LibrarySyncDashboardState(
             progressPercentText: "\(Int((progressFraction * 100).rounded()))%",
             progressLabelText: "Uploaded",
             statusText: activeStatus.rawValue,
             progressFraction: progressFraction,
-            etaText: LibrarySyncDashboardFormatter.eta(runtime.telemetry.estimatedSecondsRemaining),
-            speedText: LibrarySyncDashboardFormatter.speed(runtime.telemetry.bytesPerSecond),
+            etaText: etaText,
+            speedText: speedText,
             remainingText: LibrarySyncDashboardFormatter.bytes(runtime.ledgerSummary.remainingBytes),
             scannedText: LibrarySyncDashboardFormatter.count(runtime.scannedAssetCount ?? total),
             exportingText: LibrarySyncDashboardFormatter.count(counts.exporting),

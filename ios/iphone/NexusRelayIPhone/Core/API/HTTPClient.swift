@@ -86,7 +86,10 @@ final class SystemHTTPClient: HTTPClient {
         progress: HTTPUploadProgressHandler? = nil,
         isRetry: Bool = false
     ) async throws -> HTTPResponse {
-        let urlRequest = try await prepareRequest(request)
+        var urlRequest = try await prepareRequest(request)
+        if fileURL != nil {
+            urlRequest.timeoutInterval = 90.0
+        }
         let response: HTTPResponse
 
         var progressRelay: UploadProgressRelay?

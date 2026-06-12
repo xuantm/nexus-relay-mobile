@@ -22,7 +22,7 @@ final class AuthSessionRuntime {
         configuration.httpCookieAcceptPolicy = .always
         configuration.httpShouldSetCookies = true
         configuration.httpMaximumConnectionsPerHost = 12
-        configuration.timeoutIntervalForRequest = 240.0
+        configuration.timeoutIntervalForRequest = 30.0
         configuration.timeoutIntervalForResource = 3600.0
         let urlSession = URLSession(configuration: configuration)
 

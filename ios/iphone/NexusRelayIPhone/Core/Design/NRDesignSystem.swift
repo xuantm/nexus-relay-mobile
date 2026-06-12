@@ -1,14 +1,50 @@
 import SwiftUI
+import UIKit
 
 enum NRDesign {
     enum ColorToken {
-        static let appBackground = Color(red: 0.980, green: 0.980, blue: 0.973)
-        static let surface = Color.white
-        static let surfaceMuted = Color(red: 0.955, green: 0.960, blue: 0.955)
-        static let surfaceElevated = Color(red: 1.000, green: 1.000, blue: 0.995)
-        static let primaryText = Color(red: 0.090, green: 0.090, blue: 0.090)
-        static let secondaryText = Color(red: 0.420, green: 0.447, blue: 0.502)
-        static let hairline = Color(red: 0.902, green: 0.906, blue: 0.890)
+        static let appBackground = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0)
+                : UIColor(red: 0.980, green: 0.980, blue: 0.973, alpha: 1.0)
+        })
+
+        static let surface = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1.0)
+                : UIColor.white
+        })
+
+        static let surfaceMuted = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.18, green: 0.18, blue: 0.19, alpha: 1.0)
+                : UIColor(red: 0.955, green: 0.960, blue: 0.955, alpha: 1.0)
+        })
+
+        static let surfaceElevated = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.20, green: 0.20, blue: 0.21, alpha: 1.0)
+                : UIColor(red: 1.000, green: 1.000, blue: 0.995, alpha: 1.0)
+        })
+
+        static let primaryText = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 1.0)
+                : UIColor(red: 0.090, green: 0.090, blue: 0.090, alpha: 1.0)
+        })
+
+        static let secondaryText = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.65, green: 0.67, blue: 0.72, alpha: 1.0)
+                : UIColor(red: 0.420, green: 0.447, blue: 0.502, alpha: 1.0)
+        })
+
+        static let hairline = Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.22, green: 0.22, blue: 0.24, alpha: 1.0)
+                : UIColor(red: 0.902, green: 0.906, blue: 0.890, alpha: 1.0)
+        })
+
         static let divider = hairline
         static let accent = Color(red: 0.039, green: 0.518, blue: 0.647)
         static let accentSoft = accent.opacity(0.12)
