@@ -64,7 +64,7 @@ struct FolderPickerView: View {
                 } else if let error = viewModel.errorMessage {
                     Section {
                         Text("Error: \(error)")
-                            .foregroundColor(.red)
+                            .foregroundStyle(NRDesign.ColorToken.error)
                         Button("Retry") {
                             Task {
                                 await viewModel.loadFoldersAndAutoSetup()
@@ -79,7 +79,7 @@ struct FolderPickerView: View {
                                 Spacer()
                                 if folder.id == viewModel.selectedFolderId {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
+                                        .foregroundStyle(NRDesign.ColorToken.accent)
                                 }
                             }
                             .contentShape(Rectangle())
