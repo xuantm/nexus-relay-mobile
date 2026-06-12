@@ -66,16 +66,7 @@ struct UploadQueueView: View {
             .onChange(of: viewModel.selectedSegment) { _, _ in
                 Task { await viewModel.load() }
             }
-            .onReceive(syncStatusViewModel.$queuedCount) { _ in
-                Task { await viewModel.load() }
-            }
-            .onReceive(syncStatusViewModel.$failedCount) { _ in
-                Task { await viewModel.load() }
-            }
-            .onReceive(syncStatusViewModel.$exportingCount) { _ in
-                Task { await viewModel.load() }
-            }
-            .onReceive(syncStatusViewModel.$uploadingCount) { _ in
+            .onReceive(syncStatusViewModel.$statusSnapshot) { _ in
                 Task { await viewModel.load() }
             }
             .sheet(item: $selectedItem) { item in

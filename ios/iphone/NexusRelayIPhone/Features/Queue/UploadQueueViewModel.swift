@@ -10,6 +10,7 @@ final class UploadQueueViewModel: ObservableObject {
 
     private let ledger: UploadLedger
     private let settingsStore: SettingsStore
+    private var needsReloadAfterCurrentLoad = false
 
     init(ledger: UploadLedger? = nil, settingsStore: SettingsStore = UserDefaultsSettingsStore()) {
         self.settingsStore = settingsStore
@@ -25,34 +26,49 @@ final class UploadQueueViewModel: ObservableObject {
     }
 
     func load() async {
-        isLoading = true
+        if isLoading {
+            needsReloadAfterCurrentLoad = true
+            return
+        }
+
+        repeat {
+            needsReloadAfterCurrentLoad = false
+            isLoading = true
+            await loadCurrentSelection()
+            isLoading = false
+        } while needsReloadAfterCurrentLoad
+    }
+
+    private func loadCurrentSelection() async {
+        let requestedSegment = selectedSegment
         errorMessage = nil
         destinationFolderName = settingsStore.settings.destinationFolderName
         do {
-            let records = try await ledger.listQueueRecords(filter: selectedSegment.ledgerFilter, limit: 100)
-            items = records.map(UploadQueueItem.init(record:))
+            let records = try await ledger.listQueueRecords(filter: requestedSegment.ledgerFilter, limit: 100)
+            if requestedSegment == selectedSegment {
+                items = records.map(UploadQueueItem.init(record:))
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
-        isLoading = false
-     }
+    }
 
-     func retryAll() async {
-         let ids = items.filter(\.canRetry).map(\.id)
-         await retry(ids: ids)
-     }
+    func retryAll() async {
+        let ids = items.filter(\.canRetry).map(\.id)
+        await retry(ids: ids)
+    }
 
-     func retry(id: String) async {
-         await retry(ids: [id])
-     }
+    func retry(id: String) async {
+        await retry(ids: [id])
+    }
 
-     private func retry(ids: [String]) async {
-         guard !ids.isEmpty else { return }
-         do {
-             try await ledger.retryFailed(ids: ids)
-             await load()
-         } catch {
-             errorMessage = error.localizedDescription
-         }
-     }
+    private func retry(ids: [String]) async {
+        guard !ids.isEmpty else { return }
+        do {
+            try await ledger.retryFailed(ids: ids)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }

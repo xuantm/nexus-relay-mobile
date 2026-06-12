@@ -98,6 +98,28 @@ final class UploadQueueViewModelTests: XCTestCase {
         XCTAssertEqual(ledger.retriedIds, ["2"])
     }
 
+    @MainActor
+    func testLoadCoalescesConcurrentSegmentChangeToLatestRows() async throws {
+        let ledger = FakeQueueLedger(records: [
+            makeRecord(id: "1", status: .uploading),
+            makeRecord(id: "2", status: .failed)
+        ])
+        ledger.delayNanoseconds = 200_000_000
+        let viewModel = UploadQueueViewModel(ledger: ledger)
+
+        let firstLoad = Task { await viewModel.load() }
+        while !viewModel.isLoading {
+            await Task.yield()
+        }
+        viewModel.selectedSegment = .failed
+        await viewModel.load()
+        await firstLoad.value
+
+        XCTAssertEqual(ledger.listCallCount, 2)
+        XCTAssertEqual(ledger.requestedFilters, [.all, .failed])
+        XCTAssertEqual(viewModel.items.map(\.id), ["2"])
+    }
+
     private func makeRecord(id: String, status: UploadLedgerStatus) -> UploadLedgerRecord {
         UploadLedgerRecord(
             id: id,
@@ -120,14 +142,37 @@ final class UploadQueueViewModelTests: XCTestCase {
 }
 
 final class FakeQueueLedger: UploadLedger {
+    private let lock = NSLock()
     var records: [UploadLedgerRecord]
     var retriedIds: [String] = []
+    private var _listCallCount = 0
+    private var _requestedFilters: [UploadQueueFilter] = []
+    var delayNanoseconds: UInt64 = 0
+
+    var listCallCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return _listCallCount
+    }
+    var requestedFilters: [UploadQueueFilter] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _requestedFilters
+    }
 
     init(records: [UploadLedgerRecord]) {
         self.records = records
     }
 
     func listQueueRecords(filter: UploadQueueFilter, limit: Int) async throws -> [UploadLedgerRecord] {
+        lock.lock()
+        _listCallCount += 1
+        _requestedFilters.append(filter)
+        lock.unlock()
+        if delayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+        }
+
         switch filter {
         case .all: return records
         case .active: return records.filter { $0.status == .uploading || $0.status == .exporting }

@@ -1,13 +1,37 @@
 import Foundation
 import SwiftUI
 
-enum ActiveSyncStatus: String {
+enum ActiveSyncStatus: String, Equatable {
     case idle = "Idle"
     case scanning = "Scanning"
     case exporting = "Exporting"
     case uploading = "Uploading"
     case pausing = "Pausing"
     case error = "Error"
+}
+
+struct SyncStatusSnapshot: Equatable {
+    let queuedCount: Int
+    let uploadedCount: Int
+    let failedCount: Int
+    let exportingCount: Int
+    let uploadingCount: Int
+    let activeStatus: ActiveSyncStatus
+    let lastSyncDate: Date?
+    let errorMessage: String?
+    let requiresSignInRepair: Bool
+
+    static let empty = SyncStatusSnapshot(
+        queuedCount: 0,
+        uploadedCount: 0,
+        failedCount: 0,
+        exportingCount: 0,
+        uploadingCount: 0,
+        activeStatus: .idle,
+        lastSyncDate: nil,
+        errorMessage: nil,
+        requiresSignInRepair: false
+    )
 }
 
 @MainActor
@@ -25,6 +49,7 @@ final class SyncStatusViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var requiresSignInRepair = false
     @Published var isLoggedOut = false
+    @Published private(set) var statusSnapshot: SyncStatusSnapshot = .empty
     
     private let settingsStore: SettingsStore
     private var orchestrator: SyncOrchestrator?
@@ -98,6 +123,7 @@ final class SyncStatusViewModel: ObservableObject {
                     activeStatus = .exporting
                 }
             }
+            publishSnapshot()
         } catch {
             print("Failed to get ledger counts: \(error)")
         }
@@ -107,12 +133,14 @@ final class SyncStatusViewModel: ObservableObject {
         guard let orchestrator = orchestrator else {
             errorMessage = "Sync orchestrator not initialized"
             activeStatus = .error
+            publishSnapshot()
             return
         }
         
         errorMessage = nil
         requiresSignInRepair = false
         activeStatus = .scanning
+        publishSnapshot()
         
         let pollingTask = Task {
             while activeStatus != .idle && activeStatus != .error && !Task.isCancelled {
@@ -125,11 +153,13 @@ final class SyncStatusViewModel: ObservableObject {
             _ = try await orchestrator.startSync()
             lastSyncDate = Date()
             activeStatus = .idle
+            publishSnapshot()
         } catch {
             let issue = UserFacingSyncIssue.from(error: error)
             errorMessage = issue.message
             requiresSignInRepair = issue.requiresRepairAction
             activeStatus = .error
+            publishSnapshot()
         }
         
         pollingTask.cancel()
@@ -143,6 +173,7 @@ final class SyncStatusViewModel: ObservableObject {
 
         orchestrator?.cancelSync()
         activeStatus = .pausing
+        publishSnapshot()
     }
     
     func reconcile() async {
@@ -150,22 +181,26 @@ final class SyncStatusViewModel: ObservableObject {
               let folderId = settingsStore.settings.destinationFolderId else {
             errorMessage = "Reconciliation service not initialized or folder not set"
             activeStatus = .error
+            publishSnapshot()
             return
         }
         
         errorMessage = nil
         requiresSignInRepair = false
         activeStatus = .scanning
+        publishSnapshot()
         
         do {
             try await reconciliationService.reconcile(folderId: folderId)
             lastSyncDate = Date()
             activeStatus = .idle
+            publishSnapshot()
         } catch {
             let issue = UserFacingSyncIssue.from(error: error)
             errorMessage = issue.message
             requiresSignInRepair = issue.requiresRepairAction
             activeStatus = .error
+            publishSnapshot()
         }
         
         await refreshCounts()
@@ -206,7 +241,22 @@ final class SyncStatusViewModel: ObservableObject {
         self.lastSyncDate = nil
         self.errorMessage = nil
         self.requiresSignInRepair = false
+        publishSnapshot()
         
         self.isLoggedOut = true
+    }
+
+    private func publishSnapshot() {
+        statusSnapshot = SyncStatusSnapshot(
+            queuedCount: queuedCount,
+            uploadedCount: uploadedCount,
+            failedCount: failedCount,
+            exportingCount: exportingCount,
+            uploadingCount: uploadingCount,
+            activeStatus: activeStatus,
+            lastSyncDate: lastSyncDate,
+            errorMessage: errorMessage,
+            requiresSignInRepair: requiresSignInRepair
+        )
     }
 }

@@ -82,49 +82,29 @@ final class LibrarySyncViewModel: ObservableObject {
         self.settingsStore = settingsStore
         refreshFromSyncViewModel()
 
-        svm.$queuedCount
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$uploadedCount
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$failedCount
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$exportingCount
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$uploadingCount
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$activeStatus
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$lastSyncDate
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$errorMessage
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
-            .store(in: &cancellables)
-        svm.$requiresSignInRepair
-            .sink { [weak self] _ in self?.refreshFromSyncViewModel() }
+        svm.$statusSnapshot
+            .sink { [weak self] snapshot in self?.refresh(from: snapshot) }
             .store(in: &cancellables)
     }
 
     func refreshFromSyncViewModel() {
+        refresh(from: syncStatusViewModel.statusSnapshot)
+    }
+
+    private func refresh(from snapshot: SyncStatusSnapshot) {
         let nextSummary = LibrarySyncSummary(
-            uploaded: syncStatusViewModel.uploadedCount,
-            waiting: syncStatusViewModel.queuedCount,
-            failed: syncStatusViewModel.failedCount,
-            active: syncStatusViewModel.exportingCount + syncStatusViewModel.uploadingCount
+            uploaded: snapshot.uploadedCount,
+            waiting: snapshot.queuedCount,
+            failed: snapshot.failedCount,
+            active: snapshot.exportingCount + snapshot.uploadingCount
         )
-        let nextStatus = syncStatusViewModel.activeStatus
+        let nextStatus = snapshot.activeStatus
 
         summary = nextSummary
         activeStatus = nextStatus
-        lastSyncDate = syncStatusViewModel.lastSyncDate
-        errorMessage = syncStatusViewModel.errorMessage
-        requiresSignInRepair = syncStatusViewModel.requiresSignInRepair
+        lastSyncDate = snapshot.lastSyncDate
+        errorMessage = snapshot.errorMessage
+        requiresSignInRepair = snapshot.requiresSignInRepair
 
         smoothProgress.updateTarget(
             nextSummary.progressFraction,
