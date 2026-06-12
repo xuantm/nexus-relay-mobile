@@ -29,14 +29,26 @@ final class SQLiteUploadLedger: UploadLedger {
     }
 
     private func openDatabase() throws {
-        let path = dbURL.path
+        let path = dbURL.path.contains(":memory:") ? ":memory:" : dbURL.path
+        
+        if path != ":memory:" {
+            try? FileManager.default.createDirectory(at: dbURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+        
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         if sqlite3_open_v2(path, &db, flags, nil) != SQLITE_OK {
             let error = sqlite3_errmsg(db).map { String(cString: $0) } ?? "Unknown error"
             throw DatabaseError.openFailed(error)
         }
-        // Enable WAL mode for safe concurrent reads/writes across connections
-        try execute("PRAGMA journal_mode=WAL;")
+        
+        // Enable WAL mode for safe concurrent reads/writes across connections.
+        // Fallback to standard journal mode if WAL fails (e.g. disk I/O error or filesystem limitation).
+        do {
+            try execute("PRAGMA journal_mode=WAL;")
+        } catch {
+            try? execute("PRAGMA journal_mode=DELETE;")
+        }
+        
         // Allow up to 5 seconds wait when another connection holds a write lock
         sqlite3_busy_timeout(db, 5000)
     }
@@ -469,6 +481,12 @@ final class SQLiteUploadLedger: UploadLedger {
         if sqlite3_step(stmt) != SQLITE_DONE {
             throw DatabaseError.executionFailed(errorMessage())
         }
+    }
+
+    func clearAllRecords() async throws {
+        lock.lock()
+        defer { lock.unlock() }
+        try execute("DELETE FROM upload_ledger;")
     }
 
     private func errorMessage() -> String {

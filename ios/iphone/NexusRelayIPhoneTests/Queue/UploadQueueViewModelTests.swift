@@ -195,4 +195,17 @@ final class FakeQueueLedger: UploadLedger {
     func getLedgerCounts() async throws -> LedgerCounts {
         LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)
     }
+
+    func getDashboardSummary(nextBatchLimit: Int) async throws -> LedgerDashboardSummary {
+        let counts = try await getLedgerCounts()
+        return LedgerDashboardSummary(
+            counts: counts,
+            remainingBytes: 0,
+            nextBatch: LedgerNextBatchSummary(photoCount: 0, videoCount: 0, totalBytes: 0)
+        )
+     }
+
+     func clearAllRecords() async throws {
+         records.removeAll()
+     }
 }

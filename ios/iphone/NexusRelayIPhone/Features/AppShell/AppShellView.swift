@@ -42,10 +42,17 @@ struct AppShellView: View {
                 }
                 .tag(AppTab.pixel)
 
-            SettingsView(onLogout: {
-                syncStatusViewModel.logout()
-                onLogout()
-            })
+            SettingsView(
+                onLogout: {
+                    syncStatusViewModel.logout()
+                    onLogout()
+                },
+                onClearLedger: {
+                    Task {
+                        await syncStatusViewModel.clearLedger()
+                    }
+                }
+            )
                 .tabItem {
                     Label("Settings", systemImage: "gearshape")
                 }

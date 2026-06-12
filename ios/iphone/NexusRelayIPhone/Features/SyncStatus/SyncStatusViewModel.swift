@@ -34,6 +34,27 @@ struct SyncStatusSnapshot: Equatable {
     )
 }
 
+struct SyncDashboardRuntimeSnapshot: Equatable {
+    let ledgerSummary: LedgerDashboardSummary
+    let telemetry: UploadProgressTelemetrySnapshot
+    let scannedAssetCount: Int?
+
+    static let empty = SyncDashboardRuntimeSnapshot(
+        ledgerSummary: LedgerDashboardSummary(
+            counts: LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0),
+            remainingBytes: 0,
+            nextBatch: LedgerNextBatchSummary(photoCount: 0, videoCount: 0, totalBytes: 0)
+        ),
+        telemetry: UploadProgressTelemetrySnapshot(
+            activeUploadedBytes: 0,
+            activeTotalBytes: 0,
+            bytesPerSecond: nil,
+            estimatedSecondsRemaining: nil
+        ),
+        scannedAssetCount: nil
+    )
+}
+
 @MainActor
 final class SyncStatusViewModel: ObservableObject {
     @Published var queuedCount = 0
@@ -58,9 +79,16 @@ final class SyncStatusViewModel: ObservableObject {
     private var ledger: UploadLedger?
     private let uploadProgressTracker = UploadProgressTracker()
     private var latestScannedAssetCount: Int?
+    private let dbURL: URL
+    private var refreshTask: Task<Void, Never>?
     
-    init(settingsStore: SettingsStore = UserDefaultsSettingsStore()) {
+    init(
+        settingsStore: SettingsStore = UserDefaultsSettingsStore(),
+        dbURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ledger.sqlite")
+    ) {
         self.settingsStore = settingsStore
+        self.dbURL = dbURL
         initializeServices()
     }
     
@@ -74,8 +102,6 @@ final class SyncStatusViewModel: ObservableObject {
         let runtime = AuthSessionRuntime(baseURL: url, sessionStore: sessionStore)
         let apiClient = runtime.apiClient
         
-        let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ledger.sqlite")
         var isCorrupt = false
         let ledger = LedgerFactory.createOrRecoverLedger(dbURL: dbURL, isCorrupted: &isCorrupt)
         self.ledger = ledger
@@ -106,15 +132,17 @@ final class SyncStatusViewModel: ObservableObject {
             ledger: ledger
         )
         
-        Task {
+        self.refreshTask = Task {
             await refreshCounts()
         }
     }
     
     func refreshCounts() async {
+        if Task.isCancelled { return }
         guard let ledger = ledger else { return }
         do {
             let counts = try await ledger.getLedgerCounts()
+            if Task.isCancelled { return }
             self.queuedCount = counts.queued
             self.uploadedCount = counts.uploaded
             self.failedCount = counts.failed
@@ -131,7 +159,9 @@ final class SyncStatusViewModel: ObservableObject {
             }
             
             let dashboardSummary = try await ledger.getDashboardSummary(nextBatchLimit: 50)
+            if Task.isCancelled { return }
             let telemetry = await uploadProgressTracker.snapshot(remainingBytes: dashboardSummary.remainingBytes)
+            if Task.isCancelled { return }
             dashboardRuntimeSnapshot = SyncDashboardRuntimeSnapshot(
                 ledgerSummary: dashboardSummary,
                 telemetry: telemetry,
@@ -235,13 +265,15 @@ final class SyncStatusViewModel: ObservableObject {
         
         settingsStore.settings = .defaults
         
+        // Explicitly cancel background refresh task to stop any concurrent database access
+        self.refreshTask?.cancel()
+        self.refreshTask = nil
+        
         // Explicitly clear references to trigger deinit / database close before file removal
         self.orchestrator = nil
         self.reconciliationService = nil
         self.ledger = nil
         
-        let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ledger.sqlite")
         try? FileManager.default.removeItem(at: dbURL)
         
         self.serverURLString = ""
@@ -258,6 +290,15 @@ final class SyncStatusViewModel: ObservableObject {
         publishSnapshot()
         
         self.isLoggedOut = true
+    }
+
+    func clearLedger() async {
+        do {
+            try await ledger?.clearAllRecords()
+            await refreshCounts()
+        } catch {
+            print("Failed to clear ledger: \(error)")
+        }
     }
 
     private func publishSnapshot() {

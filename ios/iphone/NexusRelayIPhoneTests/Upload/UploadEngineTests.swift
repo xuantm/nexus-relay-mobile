@@ -22,6 +22,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
     func listRootFolders() async throws -> [FolderDTO] { fatalError() }
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO { fatalError() }
+    func getAccountSucceededDeviceSyncJobs(targetId: UUID, take: Int, cursor: String?) async throws -> CursorPageDTO<AccountSyncSucceededJobDTO> { fatalError() }
 
     func streamUpload(
         fileURL: URL,

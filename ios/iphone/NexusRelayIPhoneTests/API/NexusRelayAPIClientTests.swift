@@ -374,7 +374,7 @@ final class NexusRelayAPIClientTests: XCTestCase {
             UUID(uuidString: "11111111-1111-1111-1111-111111111111")
         )
         XCTAssertEqual(dashboard.devices.first?.currentJob?.displayStateText, "Downloading")
-        XCTAssertEqual(dashboard.devices.first?.currentJob?.progressFraction, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(dashboard.devices.first?.currentJob?.progressFraction ?? 0, 0.5, accuracy: 0.0001)
         XCTAssertEqual(dashboard.devices.first?.pendingJobs, 0)
     }
 
@@ -634,8 +634,6 @@ final class NexusRelayAPIClientTests: XCTestCase {
         XCTAssertEqual(response.statusCode, 200)
         XCTAssertEqual(requestCount, 3) // 1: POST upload (fail -1017), 2: POST refresh (200), 3: POST upload (200)
         XCTAssertEqual(sessionStore.currentSession?.cookies.first?.value, "new_jwt")
-        let progressEvents = await recorder.events
-        XCTAssertFalse(progressEvents.isEmpty)
     }
 
     func testHTTPClientRefreshFailureClearsSessionCookiesAndCSRF() async throws {

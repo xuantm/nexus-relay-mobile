@@ -12,8 +12,16 @@ struct LedgerFactory {
                 .appendingPathComponent("UploadLedger.corrupt.\(timestamp).sqlite")
             try? fm.moveItem(at: dbURL, to: corruptURL)
             
-            // Fallback to recreating database
-            return try! SQLiteUploadLedger(dbURL: dbURL)
+            // Fallback to recreating database, or in-memory if disk creation fails
+            do {
+                return try SQLiteUploadLedger(dbURL: dbURL)
+            } catch {
+                do {
+                    return try SQLiteUploadLedger(dbURL: URL(fileURLWithPath: ":memory:"))
+                } catch {
+                    return InMemoryUploadLedger()
+                }
+            }
         }
     }
 }

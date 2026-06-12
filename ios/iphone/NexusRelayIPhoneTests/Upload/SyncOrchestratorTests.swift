@@ -391,6 +391,21 @@ final class MockUploadLedger: UploadLedger {
             }
         }
     }
+
+    func getDashboardSummary(nextBatchLimit: Int) async throws -> LedgerDashboardSummary {
+        let counts = try await getLedgerCounts()
+        return LedgerDashboardSummary(
+            counts: counts,
+            remainingBytes: 0,
+            nextBatch: LedgerNextBatchSummary(photoCount: 0, videoCount: 0, totalBytes: 0)
+        )
+    }
+
+    func clearAllRecords() async throws {
+        lock.lock()
+        defer { lock.unlock() }
+        _records.removeAll()
+    }
 }
 
 // MARK: - Orchestrator Tests

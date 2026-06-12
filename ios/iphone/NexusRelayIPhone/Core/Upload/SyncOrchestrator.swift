@@ -73,6 +73,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         self.settingsStore = settingsStore
         self.policy = policy
         self.wifiChecker = wifiChecker
+        self.onScanCompleted = onScanCompleted
     }
 
     func startSync() async throws -> Int {
@@ -115,7 +116,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             includeLivePhotoVideo: settings.includeLivePhotoVideo
         )
         syncLogger.info(
-            "sync.scan.completed count=\(candidates.count) elapsedMs=\(loggingMilliseconds(since: scanStart)) itemsPerSec=\(loggingItemsPerSecond(count: candidates.count, since: scanStart))"
+            "sync.scan.completed count=\(candidates.count) elapsedMs=\(self.loggingMilliseconds(since: scanStart)) itemsPerSec=\(self.loggingItemsPerSecond(count: candidates.count, since: scanStart))"
         )
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
         await onScanCompleted?(candidates.count)
@@ -156,7 +157,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             )
             uploadedCount += batchUploadedCount
             syncLogger.info(
-                "sync.batch.completed count=\(pendingBatch.count) uploaded=\(batchUploadedCount) elapsedMs=\(loggingMilliseconds(since: batchStart)) recordsPerSec=\(loggingItemsPerSecond(count: pendingBatch.count, since: batchStart))"
+                "sync.batch.completed count=\(pendingBatch.count) uploaded=\(batchUploadedCount) elapsedMs=\(self.loggingMilliseconds(since: batchStart)) recordsPerSec=\(self.loggingItemsPerSecond(count: pendingBatch.count, since: batchStart))"
             )
 
             if isCancellationRequested() {
@@ -266,7 +267,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
             try? tempFileStore.deleteStagedFile(recordId: record.id)
             syncLogger.info(
-                "sync.record.completed id=\(record.id, privacy: .public) bytes=\(actualSize) elapsedMs=\(loggingMilliseconds(since: recordStart)) bytesPerSec=\(loggingBytesPerSecond(bytes: actualSize, since: recordStart))"
+                "sync.record.completed id=\(record.id, privacy: .public) bytes=\(actualSize) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) bytesPerSec=\(self.loggingBytesPerSecond(bytes: actualSize, since: recordStart))"
             )
             return true
         } catch {
@@ -275,7 +276,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
             try? tempFileStore.deleteStagedFile(recordId: record.id)
             syncLogger.error(
-                "sync.record.failed id=\(record.id, privacy: .public) elapsedMs=\(loggingMilliseconds(since: recordStart)) error=\(userFacingMessage, privacy: .private)"
+                "sync.record.failed id=\(record.id, privacy: .public) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) error=\(userFacingMessage, privacy: .private)"
             )
             return false
         }

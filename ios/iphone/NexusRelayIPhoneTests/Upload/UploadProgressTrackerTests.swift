@@ -9,7 +9,7 @@ final class UploadProgressTrackerTests: XCTestCase {
         await tracker.recordUploadProgress(recordId: "a", bytesSent: 100, totalBytes: 1_000, at: Date(timeIntervalSince1970: 10))
         await tracker.recordUploadProgress(recordId: "a", bytesSent: 700, totalBytes: 1_000, at: Date(timeIntervalSince1970: 13))
 
-        let snapshot = await tracker.snapshot(remainingBytes: 3_000)
+        let snapshot = await tracker.snapshot(remainingBytes: 3_000, at: Date(timeIntervalSince1970: 13))
 
         XCTAssertEqual(snapshot.activeUploadedBytes, 700)
         XCTAssertEqual(snapshot.activeTotalBytes, 1_000)

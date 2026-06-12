@@ -290,9 +290,13 @@ final class SQLiteUploadLedgerTests: XCTestCase {
 
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
         let records = try await ledger.nextUploadBatch(limit: 10)
-        try await ledger.markExporting(id: records[0].id)
-        try await ledger.markReady(id: records[0].id, stagedFileURL: URL(fileURLWithPath: "/tmp/photo"), sizeBytes: 120)
-        try await ledger.markUploaded(id: records[0].id, backendUploadId: UUID())
+        guard let photoRecord = records.first(where: { $0.assetLocalIdentifier == "photo-1" }) else {
+            XCTFail("Could not find photo-1 in next upload batch")
+            return
+        }
+        try await ledger.markExporting(id: photoRecord.id)
+        try await ledger.markReady(id: photoRecord.id, stagedFileURL: URL(fileURLWithPath: "/tmp/photo"), sizeBytes: 120)
+        try await ledger.markUploaded(id: photoRecord.id, backendUploadId: UUID())
 
         let summary = try await ledger.getDashboardSummary(nextBatchLimit: 10)
 

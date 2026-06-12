@@ -56,17 +56,17 @@ final class SystemUploadEngine: UploadEngine {
                     folderId: folderId,
                     mimeType: record.mimeType,
                     fileSize: fileSize,
-                    progress: self.progressHandler(for: record)
+                    progress: self.progressHandler(for: record, fileSize: fileSize)
                 )
                 uploadLogger.info(
-                    "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(loggingMilliseconds(since: uploadStart))"
+                    "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(self.loggingMilliseconds(since: uploadStart))"
                 )
                 return response.uploadId
             }
         case .chunked:
             let uploadId = try await uploadChunked(record: record, folderId: folderId, localURL: localURL, fileSize: fileSize)
             uploadLogger.info(
-                "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(loggingMilliseconds(since: uploadStart))"
+                "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(self.loggingMilliseconds(since: uploadStart))"
             )
             return uploadId
         }
@@ -116,11 +116,16 @@ final class SystemUploadEngine: UploadEngine {
                     chunkIndex: chunkIndex,
                     chunkSize: actualChunkSize,
                     chunkFileURL: chunkURL,
-                    progress: self.progressHandler(for: record)
+                    progress: self.progressHandler(
+                        for: record,
+                        chunkIndex: chunkIndex,
+                        chunkSize: chunkSize,
+                        fileSize: fileSize
+                    )
                 )
             }
             uploadLogger.info(
-                "upload.chunk.completed id=\(record.id, privacy: .public) index=\(chunkIndex) bytes=\(actualChunkSize) elapsedMs=\(loggingMilliseconds(since: chunkStart)) bytesPerSec=\(loggingBytesPerSecond(bytes: actualChunkSize, since: chunkStart))"
+                "upload.chunk.completed id=\(record.id, privacy: .public) index=\(chunkIndex) bytes=\(actualChunkSize) elapsedMs=\(self.loggingMilliseconds(since: chunkStart)) bytesPerSec=\(self.loggingBytesPerSecond(bytes: actualChunkSize, since: chunkStart))"
             )
         }
 
@@ -128,22 +133,42 @@ final class SystemUploadEngine: UploadEngine {
             try await apiClient.completeUpload(uploadId: uploadId, fileHash: nil)
         }
         uploadLogger.info(
-            "upload.chunked.completed id=\(record.id, privacy: .public) uploadId=\(uploadId.uuidString, privacy: .public) chunks=\(totalChunks) elapsedMs=\(loggingMilliseconds(since: chunkedStart))"
+            "upload.chunked.completed id=\(record.id, privacy: .public) uploadId=\(uploadId.uuidString, privacy: .public) chunks=\(totalChunks) elapsedMs=\(self.loggingMilliseconds(since: chunkedStart))"
         )
 
         return uploadId
     }
 
-    private func progressHandler(for record: UploadLedgerRecord) -> HTTPUploadProgressHandler? {
+    private func progressHandler(
+        for record: UploadLedgerRecord,
+        chunkIndex: Int? = nil,
+        chunkSize: Int64? = nil,
+        fileSize: Int64? = nil
+    ) -> HTTPUploadProgressHandler? {
         guard let progressTracker else {
             return nil
         }
 
         return { progress in
+            let offset: Int64
+            if let chunkIndex = chunkIndex, let chunkSize = chunkSize {
+                offset = Int64(chunkIndex) * chunkSize
+            } else {
+                offset = 0
+            }
+            
+            let actualBytesSent = offset + progress.bytesSent
+            let actualTotalBytes: Int64
+            if chunkIndex != nil {
+                actualTotalBytes = fileSize ?? record.sizeBytes ?? progress.totalBytes ?? progress.bytesSent
+            } else {
+                actualTotalBytes = progress.totalBytes ?? fileSize ?? record.sizeBytes ?? progress.bytesSent
+            }
+            
             await progressTracker.recordUploadProgress(
                 recordId: record.id,
-                bytesSent: progress.bytesSent,
-                totalBytes: progress.totalBytes ?? record.sizeBytes ?? progress.bytesSent
+                bytesSent: actualBytesSent,
+                totalBytes: actualTotalBytes
             )
         }
     }

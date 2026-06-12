@@ -20,11 +20,13 @@ final class MockPixelDeliveryAPI: NexusRelayAPI {
         )
     )
     var waitForRelease = false
+    var isAwaitingRelease = false
     private var releaseContinuation: CheckedContinuation<Void, Never>?
 
     func release() {
         releaseContinuation?.resume()
         releaseContinuation = nil
+        isAwaitingRelease = false
     }
 
     func login(username: String, password: String) async throws -> AuthSession { fatalError() }
@@ -32,6 +34,7 @@ final class MockPixelDeliveryAPI: NexusRelayAPI {
     func currentUser() async throws -> BrowserAuthResponse { fatalError() }
     func getAccountSyncDashboard() async throws -> AccountSyncDashboardDTO {
         if waitForRelease {
+            isAwaitingRelease = true
             await withCheckedContinuation { continuation in
                 releaseContinuation = continuation
             }
@@ -109,11 +112,8 @@ final class PixelDeliveryViewModelTests: XCTestCase {
         let viewModel = PixelDeliveryViewModel(apiClient: api)
         let refreshTask = Task { await viewModel.refresh() }
 
-        for _ in 0..<20 {
-            if viewModel.isLoading {
-                break
-            }
-            await Task.yield()
+        while !api.isAwaitingRelease {
+            try? await Task.sleep(nanoseconds: 5_000_000) // 5ms
         }
 
         XCTAssertTrue(viewModel.isLoading)
@@ -126,7 +126,7 @@ final class PixelDeliveryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.devices.count, 1)
         XCTAssertEqual(viewModel.devices.first?.deviceName, "Pixel 8")
         XCTAssertEqual(viewModel.devices.first?.currentJob?.displayStateText, "Downloading")
-        XCTAssertEqual(viewModel.devices.first?.currentJob?.progressFraction, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(viewModel.devices.first?.currentJob?.progressFraction ?? 0, 0.5, accuracy: 0.0001)
         XCTAssertNotNil(viewModel.lastRefreshDate)
     }
 

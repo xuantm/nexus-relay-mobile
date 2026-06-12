@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     var onLogout: () -> Void
+    var onClearLedger: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -25,6 +26,14 @@ struct SettingsView: View {
                     Toggle("Wi-Fi Only", isOn: $viewModel.wifiOnly)
                     Toggle("Include Videos", isOn: $viewModel.includeVideos)
                     Toggle("Live Photo Video", isOn: $viewModel.includeLivePhotoVideo)
+                }
+
+                Section("Maintenance") {
+                    Button(role: .destructive) {
+                        onClearLedger()
+                    } label: {
+                        Label("Reset Sync Ledger", systemImage: "trash")
+                    }
                 }
 
                 Section {

@@ -23,6 +23,7 @@ final class MockNexusRelayReconciliationAPI: NexusRelayAPI {
     func getAccountSyncDashboard() async throws -> AccountSyncDashboardDTO { fatalError() }
     func listRootFolders() async throws -> [FolderDTO] { fatalError() }
     func createFolder(name: String, parentId: UUID?) async throws -> FolderDTO { fatalError() }
+    func getAccountSucceededDeviceSyncJobs(targetId: UUID, take: Int, cursor: String?) async throws -> CursorPageDTO<AccountSyncSucceededJobDTO> { fatalError() }
     
     func listFolderMedia(folderId: UUID, pageSize: Int, cursor: String?) async throws -> FolderContentDTO {
         let folder = FolderDTO(id: folderId, name: "iPhone Uploads", parentId: nil, googleDriveFolderId: nil, createdAt: Date(), childCount: 0, mediaCount: 0)

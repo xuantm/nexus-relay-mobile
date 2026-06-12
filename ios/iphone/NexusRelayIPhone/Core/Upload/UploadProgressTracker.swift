@@ -14,27 +14,34 @@ actor UploadProgressTracker {
         let date: Date
     }
 
+    private struct GlobalSample {
+        let totalBytesSent: Int64
+        let date: Date
+    }
+
     private var latestByRecord: [String: Sample] = [:]
-    private var previousSample: Sample?
-    private var latestSample: Sample?
+    private var globalHistory: [GlobalSample] = []
 
     func resetSession() {
         latestByRecord.removeAll()
-        previousSample = nil
-        latestSample = nil
+        globalHistory.removeAll()
     }
 
     func recordUploadProgress(recordId: String, bytesSent: Int64, totalBytes: Int64, at date: Date = Date()) {
         let sample = Sample(bytesSent: bytesSent, totalBytes: totalBytes, date: date)
         latestByRecord[recordId] = sample
 
-        if let latestSample, date.timeIntervalSince(latestSample.date) > 0 {
-            previousSample = latestSample
-        }
-        latestSample = sample
+        let totalSent = latestByRecord.values.reduce(Int64(0)) { $0 + $1.bytesSent }
+        globalHistory.append(GlobalSample(totalBytesSent: totalSent, date: date))
+        
+        let windowLimit = date.addingTimeInterval(-3.0)
+        globalHistory.removeAll { $0.date < windowLimit }
     }
 
-    func snapshot(remainingBytes: Int64) -> UploadProgressTelemetrySnapshot {
+    func snapshot(remainingBytes: Int64, at date: Date = Date()) -> UploadProgressTelemetrySnapshot {
+        let windowLimit = date.addingTimeInterval(-3.0)
+        globalHistory.removeAll { $0.date < windowLimit }
+
         let activeUploadedBytes = latestByRecord.values.reduce(Int64(0)) { $0 + $1.bytesSent }
         let activeTotalBytes = latestByRecord.values.reduce(Int64(0)) { $0 + $1.totalBytes }
         let speed = currentBytesPerSecond()
@@ -49,20 +56,20 @@ actor UploadProgressTracker {
     }
 
     private func currentBytesPerSecond() -> Double? {
-        guard let previousSample, let latestSample else {
+        guard globalHistory.count >= 2 else {
             return nil
         }
-
-        let elapsed = latestSample.date.timeIntervalSince(previousSample.date)
-        guard elapsed > 0 else {
+        guard let first = globalHistory.first, let last = globalHistory.last else {
             return nil
         }
-
-        let deltaBytes = latestSample.bytesSent - previousSample.bytesSent
+        let elapsed = last.date.timeIntervalSince(first.date)
+        guard elapsed > 0.1 else {
+            return nil
+        }
+        let deltaBytes = last.totalBytesSent - first.totalBytesSent
         guard deltaBytes >= 0 else {
             return nil
         }
-
         return Double(deltaBytes) / elapsed
     }
 }
