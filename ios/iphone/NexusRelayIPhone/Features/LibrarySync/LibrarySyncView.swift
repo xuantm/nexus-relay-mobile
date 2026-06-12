@@ -110,8 +110,9 @@ struct LibrarySyncView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(NRDesign.ColorToken.primaryText)
 
-                ProgressView(value: viewModel.summary.progressFraction)
+                ProgressView(value: viewModel.displayedProgress)
                     .tint(NRDesign.ColorToken.accent)
+                    .animation(.easeOut(duration: 0.25), value: viewModel.displayedProgress)
 
                 Text(viewModel.summary.summaryText)
                     .font(.footnote)

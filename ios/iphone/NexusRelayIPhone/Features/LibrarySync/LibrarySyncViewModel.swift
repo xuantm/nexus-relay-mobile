@@ -57,6 +57,7 @@ struct LibraryPreviewItem: Identifiable {
 @MainActor
 final class LibrarySyncViewModel: ObservableObject {
     @Published var summary = LibrarySyncSummary(uploaded: 0, waiting: 0, failed: 0, active: 0)
+    @Published var displayedProgress: Double = 0
     @Published var activeStatus: ActiveSyncStatus = .idle
     @Published var lastSyncDate: Date?
     @Published var errorMessage: String?
@@ -68,6 +69,7 @@ final class LibrarySyncViewModel: ObservableObject {
     private let thumbnailProvider: PhotoThumbnailProvider
     private let settingsStore: SettingsStore
     private var cancellables = Set<AnyCancellable>()
+    private var smoothProgress = SmoothProgressModel()
 
     init(
         syncStatusViewModel: SyncStatusViewModel? = nil,
@@ -110,16 +112,25 @@ final class LibrarySyncViewModel: ObservableObject {
     }
 
     func refreshFromSyncViewModel() {
-        summary = LibrarySyncSummary(
+        let nextSummary = LibrarySyncSummary(
             uploaded: syncStatusViewModel.uploadedCount,
             waiting: syncStatusViewModel.queuedCount,
             failed: syncStatusViewModel.failedCount,
             active: syncStatusViewModel.exportingCount + syncStatusViewModel.uploadingCount
         )
-        activeStatus = syncStatusViewModel.activeStatus
+        let nextStatus = syncStatusViewModel.activeStatus
+
+        summary = nextSummary
+        activeStatus = nextStatus
         lastSyncDate = syncStatusViewModel.lastSyncDate
         errorMessage = syncStatusViewModel.errorMessage
         requiresSignInRepair = syncStatusViewModel.requiresSignInRepair
+
+        smoothProgress.updateTarget(
+            nextSummary.progressFraction,
+            allowBackward: nextStatus == .idle || nextStatus == .error
+        )
+        displayedProgress = smoothProgress.displayedProgress
     }
 
     func loadPreviewItems() async {
