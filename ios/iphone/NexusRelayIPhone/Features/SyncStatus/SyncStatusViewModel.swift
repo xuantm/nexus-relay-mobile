@@ -50,11 +50,14 @@ final class SyncStatusViewModel: ObservableObject {
     @Published var requiresSignInRepair = false
     @Published var isLoggedOut = false
     @Published private(set) var statusSnapshot: SyncStatusSnapshot = .empty
+    @Published private(set) var dashboardRuntimeSnapshot: SyncDashboardRuntimeSnapshot = .empty
     
     private let settingsStore: SettingsStore
     private var orchestrator: SyncOrchestrator?
     private var reconciliationService: ReconciliationService?
     private var ledger: UploadLedger?
+    private let uploadProgressTracker = UploadProgressTracker()
+    private var latestScannedAssetCount: Int?
     
     init(settingsStore: SettingsStore = UserDefaultsSettingsStore()) {
         self.settingsStore = settingsStore
@@ -80,7 +83,7 @@ final class SyncStatusViewModel: ObservableObject {
         let scanner = PhotoKitPhotoLibraryClient()
         let exporter = PhotoKitAssetExporter()
         let tempStore = SystemTemporaryFileStore()
-        let engine = SystemUploadEngine(apiClient: apiClient)
+        let engine = SystemUploadEngine(apiClient: apiClient, progressTracker: uploadProgressTracker)
         
         self.orchestrator = SystemSyncOrchestrator(
             apiClient: apiClient,
@@ -89,7 +92,12 @@ final class SyncStatusViewModel: ObservableObject {
             exporter: exporter,
             tempFileStore: tempStore,
             uploadEngine: engine,
-            settingsStore: settingsStore
+            settingsStore: settingsStore,
+            onScanCompleted: { [weak self] count in
+                await MainActor.run {
+                    self?.latestScannedAssetCount = count
+                }
+            }
         )
         
         self.reconciliationService = ReconciliationService(
@@ -121,6 +129,15 @@ final class SyncStatusViewModel: ObservableObject {
                     activeStatus = .exporting
                 }
             }
+            
+            let dashboardSummary = try await ledger.getDashboardSummary(nextBatchLimit: 50)
+            let telemetry = await uploadProgressTracker.snapshot(remainingBytes: dashboardSummary.remainingBytes)
+            dashboardRuntimeSnapshot = SyncDashboardRuntimeSnapshot(
+                ledgerSummary: dashboardSummary,
+                telemetry: telemetry,
+                scannedAssetCount: latestScannedAssetCount
+            )
+            
             publishSnapshot()
         } catch {
             print("Failed to get ledger counts: \(error)")
@@ -134,6 +151,9 @@ final class SyncStatusViewModel: ObservableObject {
             publishSnapshot()
             return
         }
+        
+        await uploadProgressTracker.resetSession()
+        latestScannedAssetCount = nil
         
         errorMessage = nil
         requiresSignInRepair = false

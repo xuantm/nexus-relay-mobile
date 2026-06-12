@@ -50,4 +50,10 @@ final class SyncStatusViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.folderName, "")
         XCTAssertEqual(settingsStore.settings, AppSettings.defaults)
     }
+
+    func testDashboardRuntimeSnapshotStartsEmpty() {
+        let viewModel = SyncStatusViewModel(settingsStore: settingsStore)
+
+        XCTAssertEqual(viewModel.dashboardRuntimeSnapshot, .empty)
+    }
 }

@@ -4,6 +4,7 @@ import OSLog
 
 private let syncLogger = Logger(subsystem: "com.nexusrelay.iphone", category: "sync")
 
+
 protocol SyncOrchestrator: AnyObject {
     var isSyncing: Bool { get }
     func startSync() async throws -> Int // Returns number of successfully uploaded assets
@@ -19,6 +20,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     private let uploadEngine: UploadEngine
     private let settingsStore: SettingsStore
     private let policy: UploadPolicy
+    private let onScanCompleted: (@Sendable (Int) async -> Void)?
 
     private let wifiChecker: () -> Bool
     private let lock = NSLock()
@@ -46,6 +48,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         uploadEngine: UploadEngine,
         settingsStore: SettingsStore,
         policy: UploadPolicy = .nexusRelayDefault,
+        onScanCompleted: (@Sendable (Int) async -> Void)? = nil,
         wifiChecker: @escaping () -> Bool = {
             let monitor = NWPathMonitor()
             let semaphore = DispatchSemaphore(value: 0)
@@ -115,6 +118,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             "sync.scan.completed count=\(candidates.count) elapsedMs=\(loggingMilliseconds(since: scanStart)) itemsPerSec=\(loggingItemsPerSecond(count: candidates.count, since: scanStart))"
         )
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
+        await onScanCompleted?(candidates.count)
         if isCancellationRequested() {
             try? tempFileStore.cleanStaleFiles()
             return uploadedCount
