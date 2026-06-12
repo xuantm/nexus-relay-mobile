@@ -63,7 +63,13 @@ enum LibrarySyncDashboardFormatter {
         }
 
         let megabytes = bytesPerSecond / 1_000_000
-        return "\(Int(megabytes.rounded())) MB/s"
+        if megabytes < 0.1 {
+            return "-- MB/s"
+        } else if megabytes < 10 {
+            return String(format: "%.1f MB/s", megabytes)
+        } else {
+            return "\(Int(megabytes.rounded())) MB/s"
+        }
     }
 
     static func eta(_ seconds: Double?) -> String {
@@ -71,7 +77,10 @@ enum LibrarySyncDashboardFormatter {
             return "Estimating"
         }
 
-        let minutes = max(Int((seconds / 60).rounded()), 1)
-        return "\(minutes) min left"
+        if seconds < 30 {
+            return "< 1 min left"
+        }
+        let minutes = Int((seconds / 60).rounded())
+        return "\(max(minutes, 1)) min left"
     }
 }

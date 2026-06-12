@@ -42,6 +42,10 @@ final class SystemHTTPClient: HTTPClient {
     private let csrfProvider: CSRFTokenProvider
     private let urlSession: URLSession
     private let cookieStore: SessionCookieStore
+    private var activeRefreshTask: Task<Bool, Error>?
+    private var activeRefreshId: UUID?
+    private let refreshLock = NSLock()
+
 
     init(
         baseURL: URL,
@@ -221,34 +225,68 @@ final class SystemHTTPClient: HTTPClient {
     }
 
     private func performRefresh() async throws -> Bool {
-        guard let session = sessionStore.currentSession else { return false }
-        
-        // Sync cookies first to ensure getting the CSRF token and the refresh request use the current session cookies
-        syncCookies(for: baseURL)
-        
-        let refreshURL = baseURL.appendingPathComponent("api/auth/refresh")
-        var refreshRequest = URLRequest(url: refreshURL)
-        refreshRequest.httpMethod = "POST"
-
-        // Fetch new CSRF
-        if let csrf = try? await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: true) {
-            refreshRequest.setValue(csrf, forHTTPHeaderField: "X-NexusRelay-CSRF")
+        refreshLock.lock()
+        if let activeTask = activeRefreshTask {
+            refreshLock.unlock()
+            return try await activeTask.value
         }
 
-        do {
-            let (_, response) = try await urlSession.data(for: refreshRequest)
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                saveCookies(from: httpResponse)
-                clearCSRFToken()
-                return true
-            } else {
-                clearSessionArtifacts()
-                return false
+        let refreshId = UUID()
+        self.activeRefreshId = refreshId
+
+        let task = Task<Bool, Error> { [weak self] in
+            guard let self = self else { return false }
+            do {
+                guard let session = self.sessionStore.currentSession else { return false }
+                
+                // Sync cookies first to ensure getting the CSRF token and the refresh request use the current session cookies
+                self.syncCookies(for: self.baseURL)
+                
+                let refreshURL = self.baseURL.appendingPathComponent("api/auth/refresh")
+                var refreshRequest = URLRequest(url: refreshURL)
+                refreshRequest.httpMethod = "POST"
+
+                // Fetch new CSRF
+                if let csrf = try? await self.csrfProvider.getCSRFToken(baseURL: self.baseURL, forceRefresh: true) {
+                    refreshRequest.setValue(csrf, forHTTPHeaderField: "X-NexusRelay-CSRF")
+                }
+
+                let (_, response) = try await self.urlSession.data(for: refreshRequest)
+                let success = (response as? HTTPURLResponse)?.statusCode == 200
+                
+                if success {
+                    if let httpResponse = response as? HTTPURLResponse {
+                        self.saveCookies(from: httpResponse)
+                    }
+                    self.clearCSRFToken()
+                } else {
+                    self.clearSessionArtifacts()
+                }
+                
+                self.refreshLock.lock()
+                if self.activeRefreshId == refreshId {
+                    self.activeRefreshTask = nil
+                    self.activeRefreshId = nil
+                }
+                self.refreshLock.unlock()
+                
+                return success
+            } catch {
+                self.clearSessionArtifacts()
+                self.refreshLock.lock()
+                if self.activeRefreshId == refreshId {
+                    self.activeRefreshTask = nil
+                    self.activeRefreshId = nil
+                }
+                self.refreshLock.unlock()
+                throw error
             }
-        } catch {
-            clearSessionArtifacts()
-            throw error
         }
+
+        self.activeRefreshTask = task
+        refreshLock.unlock()
+
+        return try await task.value
     }
 
     private func saveCookies(from response: HTTPURLResponse) {

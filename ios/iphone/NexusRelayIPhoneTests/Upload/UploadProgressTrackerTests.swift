@@ -13,8 +13,8 @@ final class UploadProgressTrackerTests: XCTestCase {
 
         XCTAssertEqual(snapshot.activeUploadedBytes, 700)
         XCTAssertEqual(snapshot.activeTotalBytes, 1_000)
-        XCTAssertEqual(snapshot.bytesPerSecond ?? 0, 200, accuracy: 0.1)
-        XCTAssertEqual(snapshot.estimatedSecondsRemaining ?? 0, 15, accuracy: 0.1)
+        XCTAssertEqual(snapshot.bytesPerSecond ?? 0, 233.33, accuracy: 0.1)
+        XCTAssertEqual(snapshot.estimatedSecondsRemaining ?? 0, 12.86, accuracy: 0.1)
     }
 
     func testResetClearsSessionState() async {

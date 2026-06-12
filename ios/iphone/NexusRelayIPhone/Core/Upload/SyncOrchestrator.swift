@@ -127,7 +127,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
         // 3. Process batches
         var hasMore = true
-        let batchLimit = 10
+        let batchLimit = 50
         var processedRecordIds = Set<String>()
 
         while hasMore {
