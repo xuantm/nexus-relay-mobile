@@ -23,15 +23,18 @@ final class SystemUploadEngine: UploadEngine {
     private let apiClient: NexusRelayAPI
     private let chunkFileBuilder: ChunkFileBuilder
     private let policy: UploadPolicy
+    private let progressTracker: UploadProgressTracker?
 
     init(
         apiClient: NexusRelayAPI,
         chunkFileBuilder: ChunkFileBuilder = SystemChunkFileBuilder(),
-        policy: UploadPolicy = .nexusRelayDefault
+        policy: UploadPolicy = .nexusRelayDefault,
+        progressTracker: UploadProgressTracker? = nil
     ) {
         self.apiClient = apiClient
         self.chunkFileBuilder = chunkFileBuilder
         self.policy = policy
+        self.progressTracker = progressTracker
     }
 
     func upload(record: UploadLedgerRecord, folderId: UUID) async throws -> UUID {
@@ -52,7 +55,8 @@ final class SystemUploadEngine: UploadEngine {
                     fileName: record.uploadedFileName,
                     folderId: folderId,
                     mimeType: record.mimeType,
-                    fileSize: fileSize
+                    fileSize: fileSize,
+                    progress: self.progressHandler(for: record)
                 )
                 uploadLogger.info(
                     "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(loggingMilliseconds(since: uploadStart))"
@@ -111,7 +115,8 @@ final class SystemUploadEngine: UploadEngine {
                     uploadId: uploadId,
                     chunkIndex: chunkIndex,
                     chunkSize: actualChunkSize,
-                    chunkFileURL: chunkURL
+                    chunkFileURL: chunkURL,
+                    progress: self.progressHandler(for: record)
                 )
             }
             uploadLogger.info(
@@ -127,6 +132,20 @@ final class SystemUploadEngine: UploadEngine {
         )
 
         return uploadId
+    }
+
+    private func progressHandler(for record: UploadLedgerRecord) -> HTTPUploadProgressHandler? {
+        guard let progressTracker else {
+            return nil
+        }
+
+        return { progress in
+            await progressTracker.recordUploadProgress(
+                recordId: record.id,
+                bytesSent: progress.bytesSent,
+                totalBytes: progress.totalBytes ?? record.sizeBytes ?? progress.bytesSent
+            )
+        }
     }
 
     private func retry<T>(_ operation: () async throws -> T) async throws -> T {

@@ -12,6 +12,9 @@ final class MockNexusRelayAPI: NexusRelayAPI {
     var uploadChunkResult: Result<Void, Error> = .success(())
     var completeUploadResult: Result<Void, Error> = .success(())
 
+    var onStreamUpload: ((HTTPUploadProgressHandler?) async -> Void)?
+    var onUploadChunk: ((HTTPUploadProgressHandler?) async -> Void)?
+
     func login(username: String, password: String) async throws -> AuthSession { fatalError() }
     func exchangeIosSession(code: String) async throws -> AuthSession { fatalError() }
     func currentUser() async throws -> BrowserAuthResponse { fatalError() }
@@ -29,6 +32,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
         progress: HTTPUploadProgressHandler?
     ) async throws -> StreamUploadResponse {
         streamUploadCount += 1
+        await onStreamUpload?(progress)
         return try streamUploadResult.get()
     }
 
@@ -45,6 +49,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
         progress: HTTPUploadProgressHandler?
     ) async throws {
         uploadChunkCount += 1
+        await onUploadChunk?(progress)
         try uploadChunkResult.get()
     }
 
@@ -228,5 +233,43 @@ final class UploadEngineTests: XCTestCase {
         } catch {
             XCTAssertEqual(api.streamUploadCount, 1) // Fails immediately, no retry
         }
+    }
+
+    func testStreamUploadForwardsProgressToTracker() async throws {
+        api.onStreamUpload = { progress in
+            await progress?(HTTPUploadProgress(bytesSent: 50, totalBytes: 100))
+        }
+
+        let tracker = UploadProgressTracker()
+        let engine = SystemUploadEngine(
+            apiClient: api,
+            chunkFileBuilder: chunkBuilder,
+            policy: policy,
+            progressTracker: tracker
+        )
+
+        let record = UploadLedgerRecord(
+            id: "progress-stream",
+            assetLocalIdentifier: "asset-progress",
+            resourceKind: .image,
+            fingerprintSuffix: "progresssuffix",
+            originalFilename: "progress.jpg",
+            uploadedFileName: "progress__nr-progresssuffix.jpg",
+            mimeType: "image/jpeg",
+            sizeBytes: 80,
+            status: .readyToUpload,
+            backendFolderId: nil,
+            backendUploadId: nil,
+            localStagedFileURL: tempFileURL,
+            attemptCount: 0,
+            lastAttemptAt: nil,
+            lastError: nil
+        )
+
+        _ = try await engine.upload(record: record, folderId: UUID())
+        let snapshot = await tracker.snapshot(remainingBytes: 80)
+
+        XCTAssertEqual(snapshot.activeUploadedBytes, 50)
+        XCTAssertEqual(snapshot.activeTotalBytes, 100)
     }
 }
