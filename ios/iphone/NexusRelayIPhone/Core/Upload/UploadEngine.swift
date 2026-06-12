@@ -35,10 +35,11 @@ final class SystemUploadEngine: UploadEngine {
         guard let localURL = record.localStagedFileURL else {
             throw UploadEngineError.missingLocalFile
         }
-        
+
         let fileSize = record.sizeBytes ?? 0
-        
-        if fileSize <= policy.streamThresholdBytes {
+
+        switch policy.route(forFileSize: fileSize) {
+        case .multipartStream, .resumableStream:
             return try await retry {
                 let response = try await apiClient.streamUpload(
                     fileURL: localURL,
@@ -49,61 +50,61 @@ final class SystemUploadEngine: UploadEngine {
                 )
                 return response.uploadId
             }
-        } else {
-            // Chunked upload
-            let chunkSize = policy.chunkSizeBytes
-            let totalChunks = Int(ceil(Double(fileSize) / Double(chunkSize)))
-            
-            defer {
-                chunkFileBuilder.cleanChunks(recordId: record.id)
-            }
-            
-            // 1. Initialize
-            let initResponse = try await retry {
-                try await apiClient.initUpload(
-                    folderId: folderId,
-                    fileName: record.uploadedFileName,
-                    totalSize: fileSize,
-                    totalChunks: totalChunks
-                )
-            }
-            let uploadId = initResponse.uploadId
-            
-            // 2. Upload chunks
-            for chunkIndex in 0..<totalChunks {
-                let chunkURL = try chunkFileBuilder.buildChunkFile(
-                    recordId: record.id,
-                    sourceURL: localURL,
-                    chunkIndex: chunkIndex,
-                    chunkSize: chunkSize,
-                    totalSize: fileSize
-                )
-                
-                defer {
-                    if chunkURL.standardizedFileURL != localURL.standardizedFileURL {
-                        try? FileManager.default.removeItem(at: chunkURL)
-                    }
-                }
-                
-                let actualChunkSize = try getFileSize(at: chunkURL)
-                
-                try await retry {
-                    try await apiClient.uploadChunk(
-                        uploadId: uploadId,
-                        chunkIndex: chunkIndex,
-                        chunkSize: actualChunkSize,
-                        chunkFileURL: chunkURL
-                    )
-                }
-            }
-            
-            // 3. Complete
-            try await retry {
-                try await apiClient.completeUpload(uploadId: uploadId, fileHash: nil)
-            }
-            
-            return uploadId
+        case .chunked:
+            return try await uploadChunked(record: record, folderId: folderId, localURL: localURL, fileSize: fileSize)
         }
+    }
+
+    private func uploadChunked(record: UploadLedgerRecord, folderId: UUID, localURL: URL, fileSize: Int64) async throws -> UUID {
+        let chunkSize = policy.chunkSizeBytes
+        let totalChunks = Int(ceil(Double(fileSize) / Double(chunkSize)))
+
+        defer {
+            chunkFileBuilder.cleanChunks(recordId: record.id)
+        }
+
+        let initResponse = try await retry {
+            try await apiClient.initUpload(
+                folderId: folderId,
+                fileName: record.uploadedFileName,
+                totalSize: fileSize,
+                totalChunks: totalChunks
+            )
+        }
+        let uploadId = initResponse.uploadId
+
+        for chunkIndex in 0..<totalChunks {
+            let chunkURL = try chunkFileBuilder.buildChunkFile(
+                recordId: record.id,
+                sourceURL: localURL,
+                chunkIndex: chunkIndex,
+                chunkSize: chunkSize,
+                totalSize: fileSize
+            )
+
+            defer {
+                if chunkURL.standardizedFileURL != localURL.standardizedFileURL {
+                    try? FileManager.default.removeItem(at: chunkURL)
+                }
+            }
+
+            let actualChunkSize = try getFileSize(at: chunkURL)
+
+            try await retry {
+                try await apiClient.uploadChunk(
+                    uploadId: uploadId,
+                    chunkIndex: chunkIndex,
+                    chunkSize: actualChunkSize,
+                    chunkFileURL: chunkURL
+                )
+            }
+        }
+
+        try await retry {
+            try await apiClient.completeUpload(uploadId: uploadId, fileHash: nil)
+        }
+
+        return uploadId
     }
 
     private func retry<T>(_ operation: () async throws -> T) async throws -> T {

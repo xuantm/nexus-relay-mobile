@@ -65,11 +65,15 @@ final class UploadEngineTests: XCTestCase {
         
         // Define policy with small thresholds for easy testing
         policy = UploadPolicy(
-            streamThresholdBytes: 100, // <= 100 bytes is stream
+            multipartStreamMaxBytes: 50,
+            directStreamMaxBytes: 100,
             chunkSizeBytes: 50,       // chunk size 50 bytes
             maxRetries: 3,
             foregroundChunkConcurrency: 1,
-            backgroundChunkConcurrency: 1
+            backgroundChunkConcurrency: 1,
+            recordUploadConcurrency: 1,
+            progressThrottleMilliseconds: 300,
+            chunkCopyBufferSize: 64 * 1024
         )
         
         engine = SystemUploadEngine(apiClient: api, chunkFileBuilder: chunkBuilder, policy: policy)

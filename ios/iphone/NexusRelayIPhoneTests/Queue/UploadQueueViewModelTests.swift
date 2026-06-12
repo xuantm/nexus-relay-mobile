@@ -20,7 +20,22 @@ final class UploadQueueViewModelTests: XCTestCase {
         XCTAssertEqual(UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil)).progressFraction, 0)
     }
 
-    private func makeRecord(status: UploadLedgerStatus, lastError: String?) -> UploadLedgerRecord {
+    func testQueueItemUploadModeTextUsesRouteDisplayName() {
+        XCTAssertEqual(
+            UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil, sizeBytes: 5 * 1024 * 1024)).uploadModeText,
+            "Direct multipart upload"
+        )
+        XCTAssertEqual(
+            UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil, sizeBytes: (5 * 1024 * 1024) + 1)).uploadModeText,
+            "Direct resumable upload"
+        )
+        XCTAssertEqual(
+            UploadQueueItem(record: makeRecord(status: .discovered, lastError: nil, sizeBytes: (90 * 1024 * 1024) + 1)).uploadModeText,
+            "Chunked upload"
+        )
+    }
+
+    private func makeRecord(status: UploadLedgerStatus, lastError: String?, sizeBytes: Int64 = 1024) -> UploadLedgerRecord {
         UploadLedgerRecord(
             id: "record-1",
             assetLocalIdentifier: "asset-1",
@@ -29,7 +44,7 @@ final class UploadQueueViewModelTests: XCTestCase {
             originalFilename: "IMG_1234.HEIC",
             uploadedFileName: "IMG_1234__nr-a3f91c0d8e74b210.HEIC",
             mimeType: "image/heic",
-            sizeBytes: 1024,
+            sizeBytes: sizeBytes,
             status: status,
             backendFolderId: nil,
             backendUploadId: nil,

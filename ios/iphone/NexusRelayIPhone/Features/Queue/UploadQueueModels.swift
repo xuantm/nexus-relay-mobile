@@ -74,7 +74,7 @@ struct UploadQueueItem: Identifiable, Equatable {
 
     var uploadModeText: String {
         guard let sizeBytes else { return "Determined during upload" }
-        return sizeBytes > UploadPolicy.nexusRelayDefault.streamThresholdBytes ? "Chunked upload" : "Direct upload"
+        return UploadPolicy.nexusRelayDefault.route(forFileSize: sizeBytes).displayName
     }
 
     var lastErrorText: String? {
