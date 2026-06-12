@@ -1,5 +1,8 @@
 import Foundation
 import Network
+import OSLog
+
+private let syncLogger = Logger(subsystem: "com.nexusrelay.iphone", category: "sync")
 
 protocol SyncOrchestrator: AnyObject {
     var isSyncing: Bool { get }
@@ -103,9 +106,13 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         var uploadedCount = 0
 
         // 2. Scan and register new files
+        let scanStart = Date()
         let candidates = try await photosScanner.fetchCandidates(
             includeVideos: settings.includeVideos,
             includeLivePhotoVideo: settings.includeLivePhotoVideo
+        )
+        syncLogger.info(
+            "sync.scan.completed count=\(candidates.count) elapsedMs=\(loggingMilliseconds(since: scanStart)) itemsPerSec=\(loggingItemsPerSecond(count: candidates.count, since: scanStart))"
         )
         try await ledger.upsertDiscovered(candidates, folderId: folderId)
         if isCancellationRequested() {
@@ -135,11 +142,17 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                 break
             }
 
+            syncLogger.info("sync.batch.started count=\(pendingBatch.count) concurrency=\(max(self.policy.recordUploadConcurrency, 1))")
+            let batchStart = Date()
             processedRecordIds.formUnion(pendingBatch.map(\.id))
-            uploadedCount += try await processBatchConcurrently(
+            let batchUploadedCount = try await processBatchConcurrently(
                 pendingBatch,
                 folderId: folderId,
                 settings: settings
+            )
+            uploadedCount += batchUploadedCount
+            syncLogger.info(
+                "sync.batch.completed count=\(pendingBatch.count) uploaded=\(batchUploadedCount) elapsedMs=\(loggingMilliseconds(since: batchStart)) recordsPerSec=\(loggingItemsPerSecond(count: pendingBatch.count, since: batchStart))"
             )
 
             if isCancellationRequested() {
@@ -193,6 +206,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         folderId: UUID,
         settings: AppSettings
     ) async throws -> Bool {
+        let recordStart = Date()
         do {
             try await ledger.markExporting(id: record.id)
 
@@ -247,12 +261,18 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
             try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
             try? tempFileStore.deleteStagedFile(recordId: record.id)
+            syncLogger.info(
+                "sync.record.completed id=\(record.id, privacy: .public) bytes=\(actualSize) elapsedMs=\(loggingMilliseconds(since: recordStart)) bytesPerSec=\(loggingBytesPerSecond(bytes: actualSize, since: recordStart))"
+            )
             return true
         } catch {
             let retryable = isRetryableError(error)
             let userFacingMessage = UserFacingSyncIssue.from(error: error).message
             try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
             try? tempFileStore.deleteStagedFile(recordId: record.id)
+            syncLogger.error(
+                "sync.record.failed id=\(record.id, privacy: .public) elapsedMs=\(loggingMilliseconds(since: recordStart)) error=\(userFacingMessage, privacy: .private)"
+            )
             return false
         }
     }
@@ -305,6 +325,20 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         }
         
         return true
+    }
+
+    private func loggingMilliseconds(since start: Date) -> Int {
+        Int((Date().timeIntervalSince(start) * 1000).rounded())
+    }
+
+    private func loggingItemsPerSecond(count: Int, since start: Date) -> Int {
+        let elapsed = max(Date().timeIntervalSince(start), 0.001)
+        return Int((Double(count) / elapsed).rounded())
+    }
+
+    private func loggingBytesPerSecond(bytes: Int64, since start: Date) -> Int64 {
+        let elapsed = max(Date().timeIntervalSince(start), 0.001)
+        return Int64((Double(bytes) / elapsed).rounded())
     }
 }
 

@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let uploadLogger = Logger(subsystem: "com.nexusrelay.iphone", category: "upload")
 
 enum UploadEngineError: Error, LocalizedError {
     case missingLocalFile
@@ -36,9 +39,12 @@ final class SystemUploadEngine: UploadEngine {
             throw UploadEngineError.missingLocalFile
         }
 
+        let uploadStart = Date()
         let fileSize = record.sizeBytes ?? 0
+        let route = policy.route(forFileSize: fileSize)
+        uploadLogger.info("upload.record.started id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize)")
 
-        switch policy.route(forFileSize: fileSize) {
+        switch route {
         case .multipartStream, .resumableStream:
             return try await retry {
                 let response = try await apiClient.streamUpload(
@@ -48,16 +54,25 @@ final class SystemUploadEngine: UploadEngine {
                     mimeType: record.mimeType,
                     fileSize: fileSize
                 )
+                uploadLogger.info(
+                    "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(loggingMilliseconds(since: uploadStart))"
+                )
                 return response.uploadId
             }
         case .chunked:
-            return try await uploadChunked(record: record, folderId: folderId, localURL: localURL, fileSize: fileSize)
+            let uploadId = try await uploadChunked(record: record, folderId: folderId, localURL: localURL, fileSize: fileSize)
+            uploadLogger.info(
+                "upload.record.completed id=\(record.id, privacy: .public) route=\(route.displayName, privacy: .public) bytes=\(fileSize) elapsedMs=\(loggingMilliseconds(since: uploadStart))"
+            )
+            return uploadId
         }
     }
 
     private func uploadChunked(record: UploadLedgerRecord, folderId: UUID, localURL: URL, fileSize: Int64) async throws -> UUID {
+        let chunkedStart = Date()
         let chunkSize = policy.chunkSizeBytes
         let totalChunks = Int(ceil(Double(fileSize) / Double(chunkSize)))
+        uploadLogger.info("upload.chunked.started id=\(record.id, privacy: .public) chunks=\(totalChunks) chunkBytes=\(chunkSize)")
 
         defer {
             chunkFileBuilder.cleanChunks(recordId: record.id)
@@ -74,6 +89,7 @@ final class SystemUploadEngine: UploadEngine {
         let uploadId = initResponse.uploadId
 
         for chunkIndex in 0..<totalChunks {
+            let chunkStart = Date()
             let chunkURL = try chunkFileBuilder.buildChunkFile(
                 recordId: record.id,
                 sourceURL: localURL,
@@ -98,11 +114,17 @@ final class SystemUploadEngine: UploadEngine {
                     chunkFileURL: chunkURL
                 )
             }
+            uploadLogger.info(
+                "upload.chunk.completed id=\(record.id, privacy: .public) index=\(chunkIndex) bytes=\(actualChunkSize) elapsedMs=\(loggingMilliseconds(since: chunkStart)) bytesPerSec=\(loggingBytesPerSecond(bytes: actualChunkSize, since: chunkStart))"
+            )
         }
 
         try await retry {
             try await apiClient.completeUpload(uploadId: uploadId, fileHash: nil)
         }
+        uploadLogger.info(
+            "upload.chunked.completed id=\(record.id, privacy: .public) uploadId=\(uploadId.uuidString, privacy: .public) chunks=\(totalChunks) elapsedMs=\(loggingMilliseconds(since: chunkedStart))"
+        )
 
         return uploadId
     }
@@ -148,5 +170,14 @@ final class SystemUploadEngine: UploadEngine {
             return size.int64Value
         }
         return attrs[.size] as? Int64 ?? 0
+    }
+
+    private func loggingMilliseconds(since start: Date) -> Int {
+        Int((Date().timeIntervalSince(start) * 1000).rounded())
+    }
+
+    private func loggingBytesPerSecond(bytes: Int64, since start: Date) -> Int64 {
+        let elapsed = max(Date().timeIntervalSince(start), 0.001)
+        return Int64((Double(bytes) / elapsed).rounded())
     }
 }
