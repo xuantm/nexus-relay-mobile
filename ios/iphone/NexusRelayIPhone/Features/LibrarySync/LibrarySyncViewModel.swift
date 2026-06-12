@@ -62,8 +62,7 @@ final class LibrarySyncViewModel: ObservableObject {
     @Published var lastSyncDate: Date?
     @Published var errorMessage: String?
     @Published var requiresSignInRepair = false
-    @Published var previewItems: [LibraryPreviewItem] = []
-    @Published var selectedPreviewItem: LibraryPreviewItem?
+    @Published var dashboard = LibrarySyncDashboardState.empty
 
     private let syncStatusViewModel: SyncStatusViewModel
     private let thumbnailProvider: PhotoThumbnailProvider
@@ -84,6 +83,10 @@ final class LibrarySyncViewModel: ObservableObject {
 
         svm.$statusSnapshot
             .sink { [weak self] snapshot in self?.refresh(from: snapshot) }
+            .store(in: &cancellables)
+
+        svm.$dashboardRuntimeSnapshot
+            .sink { [weak self] runtime in self?.refreshDashboard(runtime: runtime) }
             .store(in: &cancellables)
     }
 
@@ -113,58 +116,46 @@ final class LibrarySyncViewModel: ObservableObject {
         displayedProgress = smoothProgress.displayedProgress
     }
 
-    func loadPreviewItems() async {
-        let includeVideos = settingsStore.settings.includeVideos
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 5
-        if !includeVideos {
-            options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-        }
-        let assets = PHAsset.fetchAssets(with: options)
+    private func refreshDashboard(runtime: SyncDashboardRuntimeSnapshot) {
+        let counts = runtime.ledgerSummary.counts
+        let total = counts.queued + counts.uploaded + counts.failed + counts.exporting + counts.uploading
+        let progressFraction = total > 0 ? Double(counts.uploaded) / Double(total) : 0
+        let nextBatch = runtime.ledgerSummary.nextBatch
+        let nextBatchText = nextBatch.photoCount == 0 && nextBatch.videoCount == 0
+            ? "Next batch: Nothing waiting"
+            : "Next batch: \(nextBatch.photoCount) photos | \(nextBatch.videoCount) videos"
+        let sessionText = requiresSignInRepair ? "Session needs repair" : "Session healthy"
+        let lastSynced = lastSyncDate.map { "Last synced: \($0.formatted(date: .abbreviated, time: .shortened)) | \(sessionText)" }
+            ?? "Last synced: Not yet | \(sessionText)"
 
-        var items: [LibraryPreviewItem] = []
-        for i in 0..<assets.count {
-            let asset = assets.object(at: i)
-            guard asset.mediaType == .image || asset.mediaType == .video else {
-                continue
-            }
-            if asset.mediaType == .video && !includeVideos {
-                continue
-            }
-
-            if let img = await thumbnailProvider.thumbnail(
-                forAssetLocalIdentifier: asset.localIdentifier,
-                targetSize: CGSize(width: 280, height: 280)
-            ) {
-                let resources = PHAssetResource.assetResources(for: asset)
-                let filename = resources.first?.originalFilename
-                let mediaType: LibraryPreviewMediaType = asset.mediaType == .video ? .video : .image
-
-                items.append(
-                    LibraryPreviewItem(
-                        id: asset.localIdentifier,
-                        assetLocalIdentifier: asset.localIdentifier,
-                        image: img,
-                        mediaType: mediaType,
-                        creationDate: asset.creationDate,
-                        filename: filename
-                    )
-                )
-            }
-        }
-
-        previewItems = items
-
-        if let selectedPreviewItem, !items.contains(where: { $0.id == selectedPreviewItem.id }) {
-            self.selectedPreviewItem = nil
-        }
+        dashboard = LibrarySyncDashboardState(
+            progressPercentText: "\(Int((progressFraction * 100).rounded()))%",
+            progressLabelText: "Uploaded",
+            statusText: activeStatus.rawValue,
+            progressFraction: progressFraction,
+            etaText: LibrarySyncDashboardFormatter.eta(runtime.telemetry.estimatedSecondsRemaining),
+            speedText: LibrarySyncDashboardFormatter.speed(runtime.telemetry.bytesPerSecond),
+            remainingText: LibrarySyncDashboardFormatter.bytes(runtime.ledgerSummary.remainingBytes),
+            scannedText: LibrarySyncDashboardFormatter.count(runtime.scannedAssetCount ?? total),
+            exportingText: LibrarySyncDashboardFormatter.count(counts.exporting),
+            uploadingText: LibrarySyncDashboardFormatter.count(counts.uploading),
+            uploadedText: LibrarySyncDashboardFormatter.count(counts.uploaded),
+            waitingText: LibrarySyncDashboardFormatter.count(counts.queued),
+            activeText: LibrarySyncDashboardFormatter.count(counts.exporting + counts.uploading),
+            failedText: LibrarySyncDashboardFormatter.count(counts.failed),
+            nextBatchText: nextBatchText,
+            nextBatchDetailText: "Est. \(LibrarySyncDashboardFormatter.eta(runtime.telemetry.estimatedSecondsRemaining).replacingOccurrences(of: " left", with: "")) - \(LibrarySyncDashboardFormatter.bytes(nextBatch.totalBytes))",
+            lastSyncedText: lastSynced,
+            safeToCloseTitle: requiresSignInRepair ? "Safe to close app: No" : "Safe to close app: Yes",
+            safeToCloseSubtitle: requiresSignInRepair ? "Repair sign-in before background sync can continue" : "Sync will continue in the background",
+            canPause: activeStatus == .scanning || activeStatus == .exporting || activeStatus == .uploading,
+            primaryActionTitle: activeStatus == .scanning || activeStatus == .exporting || activeStatus == .uploading ? "Pause Sync" : "Start Sync"
+        )
     }
 
     func syncNow() async {
         await syncStatusViewModel.syncNow()
         refreshFromSyncViewModel()
-        await loadPreviewItems()
     }
 
     func pauseSync() {
@@ -175,6 +166,5 @@ final class LibrarySyncViewModel: ObservableObject {
     func reconcile() async {
         await syncStatusViewModel.reconcile()
         refreshFromSyncViewModel()
-        await loadPreviewItems()
     }
 }
