@@ -15,6 +15,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     private let tempFileStore: TemporaryFileStore
     private let uploadEngine: UploadEngine
     private let settingsStore: SettingsStore
+    private let policy: UploadPolicy
 
     private let wifiChecker: () -> Bool
     private let lock = NSLock()
@@ -41,6 +42,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         tempFileStore: TemporaryFileStore,
         uploadEngine: UploadEngine,
         settingsStore: SettingsStore,
+        policy: UploadPolicy = .nexusRelayDefault,
         wifiChecker: @escaping () -> Bool = {
             let monitor = NWPathMonitor()
             let semaphore = DispatchSemaphore(value: 0)
@@ -63,6 +65,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         self.tempFileStore = tempFileStore
         self.uploadEngine = uploadEngine
         self.settingsStore = settingsStore
+        self.policy = policy
         self.wifiChecker = wifiChecker
     }
 
@@ -132,83 +135,12 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                 break
             }
 
-            for record in pendingBatch {
-                if isCancellationRequested() {
-                    break
-                }
-
-                processedRecordIds.insert(record.id)
-                do {
-                    // Stage: mark exporting
-                    try await ledger.markExporting(id: record.id)
-                    
-                    // Generate photo candidate from record data for export compatibility
-                    let candidate = PhotoAssetCandidate(
-                        assetLocalIdentifier: record.assetLocalIdentifier,
-                        resourceKind: record.resourceKind,
-                        originalFilename: record.originalFilename,
-                        uniformTypeIdentifier: record.mimeType, // UTType mapping is simplified here
-                        mimeType: record.mimeType,
-                        creationDate: record.lastAttemptAt,
-                        modificationDate: nil,
-                        pixelWidth: 0,
-                        pixelHeight: 0,
-                        durationSeconds: nil,
-                        resourceFileSize: record.sizeBytes
-                    )
-
-                    let stagedURL = try tempFileStore.getStagedFileURL(
-                        recordId: record.id,
-                        fileName: record.uploadedFileName
-                    )
-
-                    // Export resource to temporary storage
-                    try await exporter.exportOriginalResource(
-                        candidate: candidate,
-                        outputURL: stagedURL,
-                        allowNetworkAccess: !settings.wifiOnly
-                    )
-
-                    // Stage: mark ready
-                    let actualSize = try getFileSize(at: stagedURL)
-                    try await ledger.markReady(id: record.id, stagedFileURL: stagedURL, sizeBytes: actualSize)
-
-                    // Upload: mark uploading
-                    try await ledger.markUploading(id: record.id)
-                    
-                    // Run upload engine
-                    let updatedRecord = UploadLedgerRecord(
-                        id: record.id,
-                        assetLocalIdentifier: record.assetLocalIdentifier,
-                        resourceKind: record.resourceKind,
-                        fingerprintSuffix: record.fingerprintSuffix,
-                        originalFilename: record.originalFilename,
-                        uploadedFileName: record.uploadedFileName,
-                        mimeType: record.mimeType,
-                        sizeBytes: actualSize,
-                        status: .readyToUpload,
-                        backendFolderId: folderId,
-                        backendUploadId: nil,
-                        localStagedFileURL: stagedURL,
-                        attemptCount: record.attemptCount,
-                        lastAttemptAt: Date(),
-                        lastError: nil
-                    )
-                    
-                    let uploadId = try await uploadEngine.upload(record: updatedRecord, folderId: folderId)
-                    
-                    // Complete: mark uploaded & clean
-                    try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
-                    try? tempFileStore.deleteStagedFile(recordId: record.id)
-                    uploadedCount += 1
-                } catch {
-                    // Mark failed (retryable or terminal depending on error)
-                    let retryable = isRetryableError(error)
-                    let userFacingMessage = UserFacingSyncIssue.from(error: error).message
-                    try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
-                    try? tempFileStore.deleteStagedFile(recordId: record.id)
-                }
-            }
+            processedRecordIds.formUnion(pendingBatch.map(\.id))
+            uploadedCount += try await processBatchConcurrently(
+                pendingBatch,
+                folderId: folderId,
+                settings: settings
+            )
 
             if isCancellationRequested() {
                 break
@@ -219,6 +151,110 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         try? tempFileStore.cleanStaleFiles()
         
         return uploadedCount
+    }
+
+    private func processBatchConcurrently(
+        _ records: [UploadLedgerRecord],
+        folderId: UUID,
+        settings: AppSettings
+    ) async throws -> Int {
+        let concurrency = max(policy.recordUploadConcurrency, 1)
+        var iterator = records.makeIterator()
+        var uploadedCount = 0
+
+        try await withThrowingTaskGroup(of: Bool.self) { group in
+            for _ in 0..<concurrency {
+                guard !isCancellationRequested(), let record = iterator.next() else { break }
+                group.addTask { [self] in
+                    try await processRecord(record, folderId: folderId, settings: settings)
+                }
+            }
+
+            while let didUpload = try await group.next() {
+                if didUpload {
+                    uploadedCount += 1
+                }
+
+                guard !isCancellationRequested(), let next = iterator.next() else {
+                    continue
+                }
+
+                group.addTask { [self] in
+                    try await processRecord(next, folderId: folderId, settings: settings)
+                }
+            }
+        }
+
+        return uploadedCount
+    }
+
+    private func processRecord(
+        _ record: UploadLedgerRecord,
+        folderId: UUID,
+        settings: AppSettings
+    ) async throws -> Bool {
+        do {
+            try await ledger.markExporting(id: record.id)
+
+            let candidate = PhotoAssetCandidate(
+                assetLocalIdentifier: record.assetLocalIdentifier,
+                resourceKind: record.resourceKind,
+                originalFilename: record.originalFilename,
+                uniformTypeIdentifier: record.mimeType,
+                mimeType: record.mimeType,
+                creationDate: record.lastAttemptAt,
+                modificationDate: nil,
+                pixelWidth: 0,
+                pixelHeight: 0,
+                durationSeconds: nil,
+                resourceFileSize: record.sizeBytes
+            )
+
+            let stagedURL = try tempFileStore.getStagedFileURL(
+                recordId: record.id,
+                fileName: record.uploadedFileName
+            )
+
+            try await exporter.exportOriginalResource(
+                candidate: candidate,
+                outputURL: stagedURL,
+                allowNetworkAccess: !settings.wifiOnly
+            )
+
+            let actualSize = try getFileSize(at: stagedURL)
+            try await ledger.markReady(id: record.id, stagedFileURL: stagedURL, sizeBytes: actualSize)
+            try await ledger.markUploading(id: record.id)
+
+            let updatedRecord = UploadLedgerRecord(
+                id: record.id,
+                assetLocalIdentifier: record.assetLocalIdentifier,
+                resourceKind: record.resourceKind,
+                fingerprintSuffix: record.fingerprintSuffix,
+                originalFilename: record.originalFilename,
+                uploadedFileName: record.uploadedFileName,
+                mimeType: record.mimeType,
+                sizeBytes: actualSize,
+                status: .readyToUpload,
+                backendFolderId: folderId,
+                backendUploadId: nil,
+                localStagedFileURL: stagedURL,
+                attemptCount: record.attemptCount,
+                lastAttemptAt: Date(),
+                lastError: nil
+            )
+
+            let uploadId = try await uploadEngine.upload(record: updatedRecord, folderId: folderId)
+
+            try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
+            try? tempFileStore.deleteStagedFile(recordId: record.id)
+            return true
+        } catch {
+            let retryable = isRetryableError(error)
+            let userFacingMessage = UserFacingSyncIssue.from(error: error).message
+            try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
+            try? tempFileStore.deleteStagedFile(recordId: record.id)
+            return false
+        }
     }
 
     private func isCancellationRequested() -> Bool {
