@@ -7,16 +7,23 @@ protocol CSRFTokenProvider: AnyObject {
 
 final class SystemCSRFTokenProvider: CSRFTokenProvider {
     private var cachedToken: String?
+    private var cachedFingerprint: String?
     private let urlSession: URLSession
+    private let sessionFingerprint: () -> String?
     private let lock = NSLock()
 
-    init(urlSession: URLSession = .shared) {
+    init(
+        urlSession: URLSession = .shared,
+        sessionFingerprint: @escaping () -> String? = { nil }
+    ) {
         self.urlSession = urlSession
+        self.sessionFingerprint = sessionFingerprint
     }
 
     func getCSRFToken(baseURL: URL, forceRefresh: Bool = false) async throws -> String {
+        let fingerprint = sessionFingerprint()
         lock.lock()
-        if !forceRefresh, let cached = cachedToken {
+        if !forceRefresh, let cached = cachedToken, cachedFingerprint == fingerprint {
             lock.unlock()
             return cached
         }
@@ -37,6 +44,7 @@ final class SystemCSRFTokenProvider: CSRFTokenProvider {
         
         lock.lock()
         self.cachedToken = csrfResponse.token
+        self.cachedFingerprint = fingerprint
         lock.unlock()
         
         return csrfResponse.token
@@ -45,6 +53,7 @@ final class SystemCSRFTokenProvider: CSRFTokenProvider {
     func clearToken() {
         lock.lock()
         cachedToken = nil
+        cachedFingerprint = nil
         lock.unlock()
     }
 }

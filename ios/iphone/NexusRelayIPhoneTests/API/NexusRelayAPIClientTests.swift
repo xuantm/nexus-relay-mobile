@@ -637,4 +637,55 @@ final class NexusRelayAPIClientTests: XCTestCase {
         let progressEvents = await recorder.events
         XCTAssertFalse(progressEvents.isEmpty)
     }
+
+    func testHTTPClientRefreshFailureClearsSessionCookiesAndCSRF() async throws {
+        let access = HTTPCookie(properties: [
+            .name: "access_token",
+            .value: "old_jwt",
+            .domain: "relay.xuantruong.org",
+            .path: "/"
+        ])!
+        let refresh = HTTPCookie(properties: [
+            .name: "refresh_token",
+            .value: "bad_refresh",
+            .domain: "relay.xuantruong.org",
+            .path: "/"
+        ])!
+        let cookieStore = SessionCookieStore(storage: URLSessionConfiguration.ephemeral.httpCookieStorage)
+        sessionStore.currentSession = AuthSession(userId: UUID(), username: "xuan", role: "Admin", cookies: [access, refresh])
+        csrfProvider.tokenValue = "stale-csrf"
+        httpClient = SystemHTTPClient(
+            baseURL: baseURL,
+            sessionStore: sessionStore,
+            csrfProvider: csrfProvider,
+            urlSession: urlSession,
+            cookieStore: cookieStore
+        )
+        apiClient = SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: httpClient, sessionStore: sessionStore)
+
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            if request.url?.path == "/api/folders" {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+                return (response, Data())
+            }
+            if request.url?.path == "/api/auth/refresh" {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
+                return (response, Data())
+            }
+            XCTFail("Unexpected request: \(request.url?.path ?? "")")
+            throw NSError(domain: "test", code: -1)
+        }
+
+        do {
+            _ = try await apiClient.listRootFolders()
+            XCTFail("Expected request failure")
+        } catch {
+            XCTAssertNil(sessionStore.currentSession)
+            XCTAssertTrue(cookieStore.cookies(for: baseURL).isEmpty)
+            XCTAssertEqual(csrfProvider.clearCount, 1)
+        }
+        XCTAssertEqual(requestCount, 2)
+    }
 }

@@ -39,11 +39,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             throw SyncError.missingFolder
         }
         
-        let keychain = SystemKeychainStore()
-        let sessionStore = CookieSessionStore(keychain: keychain)
-        let csrfProvider = SystemCSRFTokenProvider()
-        let httpClient = SystemHTTPClient(baseURL: url, sessionStore: sessionStore, csrfProvider: csrfProvider)
-        let apiClient = SystemNexusRelayAPIClient(baseURL: url, httpClient: httpClient, sessionStore: sessionStore)
+        let sessionStore = CookieSessionStore(keychain: SystemKeychainStore())
+        let runtime = AuthSessionRuntime(baseURL: url, sessionStore: sessionStore)
+        let apiClient = runtime.apiClient
         
         let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ledger.sqlite")

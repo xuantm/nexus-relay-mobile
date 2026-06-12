@@ -87,10 +87,8 @@ final class SetupViewModel: ObservableObject {
                 return
             }
             
-            let keychain = SystemKeychainStore()
-            let csrfProvider = SystemCSRFTokenProvider()
-            let httpClient = SystemHTTPClient(baseURL: backendURL, sessionStore: sessionStore, csrfProvider: csrfProvider)
-            let apiClient = SystemNexusRelayAPIClient(baseURL: backendURL, httpClient: httpClient, sessionStore: sessionStore)
+            let runtime = AuthSessionRuntime(baseURL: backendURL, sessionStore: sessionStore)
+            let apiClient = runtime.apiClient
             
             _ = try await apiClient.exchangeIosSession(code: code)
             

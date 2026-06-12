@@ -115,14 +115,22 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
     private let baseURL: URL
     private let httpClient: HTTPClient
     private let sessionStore: SessionStore
+    private let cookieStore: SessionCookieStore?
 
-    init(baseURL: URL, httpClient: HTTPClient, sessionStore: SessionStore) {
+    init(
+        baseURL: URL,
+        httpClient: HTTPClient,
+        sessionStore: SessionStore,
+        cookieStore: SessionCookieStore? = nil
+    ) {
         self.baseURL = baseURL
         self.httpClient = httpClient
         self.sessionStore = sessionStore
+        self.cookieStore = cookieStore
     }
 
     func login(username: String, password: String) async throws -> AuthSession {
+        clearBootstrapAuthArtifacts()
         let req = LoginRequest(username: username, password: password)
         let body = try JSONEncoder().encode(req)
         let request = HTTPRequest(method: "POST", path: "api/auth/login", headers: [:], body: body)
@@ -136,13 +144,14 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         let authResponse = try decoder.decode(BrowserAuthResponse.self, from: response.body)
         
         let responseCookies = Self.cookies(from: response.headers, for: baseURL)
-        let cookies = responseCookies.isEmpty ? (HTTPCookieStorage.shared.cookies(for: baseURL) ?? []) : responseCookies
+        let cookies = responseCookies.isEmpty ? fallbackCookies() : responseCookies
         let session = AuthSession(userId: authResponse.id, username: authResponse.username, role: authResponse.role, cookies: cookies)
         try sessionStore.saveSession(session)
         return session
     }
 
     func exchangeIosSession(code: String) async throws -> AuthSession {
+        clearBootstrapAuthArtifacts()
         let req = IosSessionExchangeRequest(code: code)
         let body = try JSONEncoder().encode(req)
         let request = HTTPRequest(method: "POST", path: "api/auth/ios/session-exchange", headers: [:], body: body)
@@ -156,7 +165,7 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         let authResponse = try decoder.decode(BrowserAuthResponse.self, from: response.body)
         
         let responseCookies = Self.cookies(from: response.headers, for: baseURL)
-        let cookies = responseCookies.isEmpty ? (HTTPCookieStorage.shared.cookies(for: baseURL) ?? []) : responseCookies
+        let cookies = responseCookies.isEmpty ? fallbackCookies() : responseCookies
         
         guard !cookies.isEmpty else {
             throw APIError.loginFailed(statusCode: response.statusCode)
@@ -344,5 +353,20 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         }
 
         return HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+            .filter { $0.name == "access_token" || $0.name == "refresh_token" }
+    }
+
+    private func fallbackCookies() -> [HTTPCookie] {
+        if let cookieStore {
+            return cookieStore.sessionCookies(for: baseURL)
+        }
+
+        return []
+    }
+
+    private func clearBootstrapAuthArtifacts() {
+        try? sessionStore.clearSession()
+        cookieStore?.clearManagedCookies(for: baseURL)
+        httpClient.clearCSRFToken()
     }
 }

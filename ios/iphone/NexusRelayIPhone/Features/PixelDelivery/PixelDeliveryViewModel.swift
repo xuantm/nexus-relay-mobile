@@ -137,11 +137,8 @@ final class PixelDeliveryViewModel: ObservableObject {
             throw APIError.invalidURL
         }
 
-        let keychain = SystemKeychainStore()
-        let sessionStore = CookieSessionStore(keychain: keychain)
-        let csrfProvider = SystemCSRFTokenProvider()
-        let httpClient = SystemHTTPClient(baseURL: baseURL, sessionStore: sessionStore, csrfProvider: csrfProvider)
-        return SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: httpClient, sessionStore: sessionStore)
+        let sessionStore = CookieSessionStore(keychain: SystemKeychainStore())
+        return AuthSessionRuntime(baseURL: baseURL, sessionStore: sessionStore).apiClient
     }
 
     private func mergeRecentSucceededJobs(

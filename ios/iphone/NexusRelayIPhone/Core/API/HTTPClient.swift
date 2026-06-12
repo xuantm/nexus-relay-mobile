@@ -41,17 +41,22 @@ final class SystemHTTPClient: HTTPClient {
     private let sessionStore: SessionStore
     private let csrfProvider: CSRFTokenProvider
     private let urlSession: URLSession
+    private let cookieStore: SessionCookieStore
 
     init(
         baseURL: URL,
         sessionStore: SessionStore,
         csrfProvider: CSRFTokenProvider,
-        urlSession: URLSession = .shared
+        urlSession: URLSession = .shared,
+        cookieStore: SessionCookieStore? = nil
     ) {
         self.baseURL = baseURL
         self.sessionStore = sessionStore
         self.csrfProvider = csrfProvider
         self.urlSession = urlSession
+        self.cookieStore = cookieStore ?? SessionCookieStore(
+            storage: urlSession.configuration.httpCookieStorage
+        )
     }
 
     func send(_ request: HTTPRequest) async throws -> HTTPResponse {
@@ -68,6 +73,7 @@ final class SystemHTTPClient: HTTPClient {
 
     func clearCSRFToken() {
         csrfProvider.clearToken()
+        cookieStore.clearCSRFCookies(for: baseURL)
     }
 
     private func sendWithRetry(
@@ -130,7 +136,7 @@ final class SystemHTTPClient: HTTPClient {
 
         // If CSRF expired/invalid (often returns 400 or 403), retry once with forced fresh CSRF
         if (response.statusCode == 400 || response.statusCode == 403) && !isRetry && isUnsafeMethod(request.method) && request.path != "api/auth/csrf" {
-            csrfProvider.clearToken()
+            clearCSRFToken()
             return try await sendWithRetry(request, fileURL: fileURL, progress: progress, isRetry: true)
         }
 
@@ -194,20 +200,24 @@ final class SystemHTTPClient: HTTPClient {
 
     private func syncCookies(for url: URL) {
         if let session = sessionStore.currentSession {
-            let storage = HTTPCookieStorage.shared
-            for cookie in session.cookies {
-                storage.setCookie(cookie)
-            }
+            cookieStore.replaceSessionCookies(session.cookies, for: url)
+        } else {
+            cookieStore.clearManagedCookies(for: url)
         }
     }
 
     private func saveCookies(for url: URL) {
         guard let session = sessionStore.currentSession else { return }
-        let storage = HTTPCookieStorage.shared
-        if let cookies = storage.cookies(for: url) {
-            let newSession = AuthSession(userId: session.userId, username: session.username, role: session.role, cookies: cookies)
-            try? sessionStore.saveSession(newSession)
-        }
+        let cookies = cookieStore.sessionCookies(for: url)
+        let newSession = AuthSession(
+            userId: session.userId,
+            username: session.username,
+            role: session.role,
+            cookies: cookies,
+            email: session.email,
+            authProvider: session.authProvider
+        )
+        try? sessionStore.saveSession(newSession)
     }
 
     private func performRefresh() async throws -> Bool {
@@ -221,44 +231,36 @@ final class SystemHTTPClient: HTTPClient {
         refreshRequest.httpMethod = "POST"
 
         // Fetch new CSRF
-        csrfProvider.clearToken()
         if let csrf = try? await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: true) {
             refreshRequest.setValue(csrf, forHTTPHeaderField: "X-NexusRelay-CSRF")
         }
 
-        let (_, response) = try await urlSession.data(for: refreshRequest)
-        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-            saveCookies(from: httpResponse)
-            return true
-        } else {
-            try? sessionStore.clearSession()
-            return false
+        do {
+            let (_, response) = try await urlSession.data(for: refreshRequest)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                saveCookies(from: httpResponse)
+                clearCSRFToken()
+                return true
+            } else {
+                clearSessionArtifacts()
+                return false
+            }
+        } catch {
+            clearSessionArtifacts()
+            throw error
         }
     }
 
     private func saveCookies(from response: HTTPURLResponse) {
-        guard let session = sessionStore.currentSession else { return }
-
-        let responseCookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields(from: response.allHeaderFields), for: baseURL)
-        let storage = HTTPCookieStorage.shared
-        for cookie in responseCookies {
-            storage.setCookie(cookie)
-        }
+        cookieStore.storeResponseCookies(from: response, for: baseURL)
 
         saveCookies(for: baseURL)
     }
 
-    private func headerFields(from headers: [AnyHashable: Any]) -> [String: String] {
-        var result: [String: String] = [:]
-
-        for (key, value) in headers {
-            guard let headerName = key as? String else { continue }
-            if let headerValue = value as? String {
-                result[headerName] = headerValue
-            }
-        }
-
-        return result
+    private func clearSessionArtifacts() {
+        try? sessionStore.clearSession()
+        cookieStore.clearManagedCookies(for: baseURL)
+        csrfProvider.clearToken()
     }
 }
 

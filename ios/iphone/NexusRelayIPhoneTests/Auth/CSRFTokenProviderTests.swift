@@ -76,6 +76,33 @@ final class CSRFTokenProviderTests: XCTestCase {
         XCTAssertEqual(token2, "test-csrf-token-2")
         XCTAssertEqual(requestCount, 2)
     }
+
+    func testCSRFTokenCacheInvalidatesWhenSessionFingerprintChanges() async throws {
+        let baseURL = URL(string: "https://relay.xuantruong.org")!
+        var fingerprint = "session-a"
+        var requestCount = 0
+        csrfProvider = SystemCSRFTokenProvider(
+            urlSession: session,
+            sessionFingerprint: { fingerprint }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            let json = "{\"token\": \"token-\(requestCount)\"}".data(using: .utf8)!
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, json)
+        }
+
+        let first = try await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: false)
+        let second = try await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: false)
+        fingerprint = "session-b"
+        let third = try await csrfProvider.getCSRFToken(baseURL: baseURL, forceRefresh: false)
+
+        XCTAssertEqual(first, "token-1")
+        XCTAssertEqual(second, "token-1")
+        XCTAssertEqual(third, "token-2")
+        XCTAssertEqual(requestCount, 2)
+    }
 }
 
 // MARK: - MockURLProtocol for Testing

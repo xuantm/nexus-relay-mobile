@@ -67,11 +67,9 @@ final class SyncStatusViewModel: ObservableObject {
         self.serverURLString = url.absoluteString
         self.folderName = settings.destinationFolderName
         
-        let keychain = SystemKeychainStore()
-        let sessionStore = CookieSessionStore(keychain: keychain)
-        let csrfProvider = SystemCSRFTokenProvider()
-        let httpClient = SystemHTTPClient(baseURL: url, sessionStore: sessionStore, csrfProvider: csrfProvider)
-        let apiClient = SystemNexusRelayAPIClient(baseURL: url, httpClient: httpClient, sessionStore: sessionStore)
+        let sessionStore = CookieSessionStore(keychain: SystemKeychainStore())
+        let runtime = AuthSessionRuntime(baseURL: url, sessionStore: sessionStore)
+        let apiClient = runtime.apiClient
         
         let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ledger.sqlite")
@@ -207,16 +205,12 @@ final class SyncStatusViewModel: ObservableObject {
     }
     
     func logout() {
-        let keychain = SystemKeychainStore()
-        let sessionStore = CookieSessionStore(keychain: keychain)
-        try? sessionStore.clearSession()
-        
-        let cookieStorage = HTTPCookieStorage.shared
-        if let url = settingsStore.settings.backendBaseURL,
-           let cookies = cookieStorage.cookies(for: url) {
-            for cookie in cookies {
-                cookieStorage.deleteCookie(cookie)
-            }
+        let sessionStore = CookieSessionStore(keychain: SystemKeychainStore())
+        if let url = settingsStore.settings.backendBaseURL {
+            let runtime = AuthSessionRuntime(baseURL: url, sessionStore: sessionStore)
+            runtime.clearAuthArtifacts()
+        } else {
+            try? sessionStore.clearSession()
         }
         
         settingsStore.settings = .defaults
