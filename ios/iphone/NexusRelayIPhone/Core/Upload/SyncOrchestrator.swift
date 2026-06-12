@@ -326,6 +326,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                    nsError.code == NSURLErrorCannotFindHost ||
                    nsError.code == NSURLErrorCannotConnectToHost ||
                    nsError.code == NSURLErrorNetworkConnectionLost ||
+                   nsError.code == NSURLErrorCannotParseResponse ||
                    nsError.code == NSURLErrorNotConnectedToInternet
         }
         

@@ -80,6 +80,7 @@ enum UserFacingSyncIssue: Equatable {
                  NSURLErrorCannotFindHost,
                  NSURLErrorCannotConnectToHost,
                  NSURLErrorNetworkConnectionLost,
+                 NSURLErrorCannotParseResponse,
                  NSURLErrorNotConnectedToInternet:
                 return .waitingForConnection(error.localizedDescription)
             default:

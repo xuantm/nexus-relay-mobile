@@ -17,17 +17,37 @@ final class AuthSessionRuntime {
         self.sessionStore = sessionStore
         self.cookieStore = cookieStore
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.httpCookieStorage = cookieStore.httpCookieStorage
-        configuration.httpCookieAcceptPolicy = .always
-        configuration.httpShouldSetCookies = true
-        configuration.httpMaximumConnectionsPerHost = 12
-        configuration.timeoutIntervalForRequest = 30.0
-        configuration.timeoutIntervalForResource = 3600.0
-        let urlSession = URLSession(configuration: configuration)
+        let sharedCookieStorage = cookieStore.httpCookieStorage
+
+        // Control session: CSRF fetch, token refresh, lightweight API queries.
+        // Fast timeout so stale control-plane requests fail quickly and don't
+        // block the upload pipeline.
+        let controlConfig = URLSessionConfiguration.ephemeral
+        controlConfig.httpCookieStorage = sharedCookieStorage
+        controlConfig.httpCookieAcceptPolicy = .always
+        controlConfig.httpShouldSetCookies = true
+        controlConfig.httpMaximumConnectionsPerHost = 2
+        controlConfig.timeoutIntervalForRequest = 15.0
+        controlConfig.timeoutIntervalForResource = 300.0
+        let controlDelegate = SessionDelegateRouter()
+        let controlSession = URLSession(configuration: controlConfig, delegate: controlDelegate, delegateQueue: nil)
+
+        // Upload session: file uploads only.
+        // Generous idle timeout prevents connection-pool cleanup from
+        // killing active transfers. Per-request overrides in HTTPClient
+        // (90s) provide the real upload-level timeout.
+        let uploadConfig = URLSessionConfiguration.ephemeral
+        uploadConfig.httpCookieStorage = sharedCookieStorage
+        uploadConfig.httpCookieAcceptPolicy = .always
+        uploadConfig.httpShouldSetCookies = true
+        uploadConfig.httpMaximumConnectionsPerHost = 12
+        uploadConfig.timeoutIntervalForRequest = 300.0
+        uploadConfig.timeoutIntervalForResource = 3600.0
+        let uploadDelegate = SessionDelegateRouter()
+        let uploadSession = URLSession(configuration: uploadConfig, delegate: uploadDelegate, delegateQueue: nil)
 
         let csrfProvider = SystemCSRFTokenProvider(
-            urlSession: urlSession,
+            urlSession: controlSession,
             sessionFingerprint: {
                 Self.sessionFingerprint(for: sessionStore.currentSession)
             }
@@ -38,8 +58,11 @@ final class AuthSessionRuntime {
             baseURL: baseURL,
             sessionStore: sessionStore,
             csrfProvider: csrfProvider,
-            urlSession: urlSession,
-            cookieStore: cookieStore
+            controlSession: controlSession,
+            uploadSession: uploadSession,
+            cookieStore: cookieStore,
+            uploadDelegate: uploadDelegate,
+            controlDelegate: controlDelegate
         )
         self.httpClient = httpClient
         self.apiClient = SystemNexusRelayAPIClient(

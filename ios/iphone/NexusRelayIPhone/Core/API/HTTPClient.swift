@@ -40,8 +40,11 @@ final class SystemHTTPClient: HTTPClient {
     private let baseURL: URL
     private let sessionStore: SessionStore
     private let csrfProvider: CSRFTokenProvider
-    private let urlSession: URLSession
+    private let controlSession: URLSession
+    private let uploadSession: URLSession
     private let cookieStore: SessionCookieStore
+    private let uploadDelegate: SessionDelegateRouter
+    private let controlDelegate: SessionDelegateRouter
     private var activeRefreshTask: Task<Bool, Error>?
     private var activeRefreshId: UUID?
     private let refreshLock = NSLock()
@@ -51,15 +54,46 @@ final class SystemHTTPClient: HTTPClient {
         baseURL: URL,
         sessionStore: SessionStore,
         csrfProvider: CSRFTokenProvider,
-        urlSession: URLSession = .shared,
-        cookieStore: SessionCookieStore? = nil
+        controlSession: URLSession,
+        uploadSession: URLSession,
+        cookieStore: SessionCookieStore? = nil,
+        uploadDelegate: SessionDelegateRouter,
+        controlDelegate: SessionDelegateRouter
     ) {
         self.baseURL = baseURL
         self.sessionStore = sessionStore
         self.csrfProvider = csrfProvider
-        self.urlSession = urlSession
+        self.controlSession = controlSession
+        self.uploadSession = uploadSession
         self.cookieStore = cookieStore ?? SessionCookieStore(
-            storage: urlSession.configuration.httpCookieStorage
+            storage: controlSession.configuration.httpCookieStorage
+        )
+        self.uploadDelegate = uploadDelegate
+        self.controlDelegate = controlDelegate
+    }
+
+    /// Convenience init for tests. Recreates URLSession with a delegate router
+    /// so that MockURLProtocol tests correctly fire delegate callbacks.
+    convenience init(
+        baseURL: URL,
+        sessionStore: SessionStore,
+        csrfProvider: CSRFTokenProvider,
+        controlSession: URLSession,
+        cookieStore: SessionCookieStore? = nil
+    ) {
+        let controlDelegate = SessionDelegateRouter()
+        // Must recreate session to attach the delegate!
+        let delegatedSession = URLSession(configuration: controlSession.configuration, delegate: controlDelegate, delegateQueue: nil)
+        
+        self.init(
+            baseURL: baseURL,
+            sessionStore: sessionStore,
+            csrfProvider: csrfProvider,
+            controlSession: delegatedSession,
+            uploadSession: delegatedSession,
+            cookieStore: cookieStore,
+            uploadDelegate: controlDelegate,
+            controlDelegate: controlDelegate
         )
     }
 
@@ -98,18 +132,38 @@ final class SystemHTTPClient: HTTPClient {
             if let fileURL = fileURL {
                 let relay = UploadProgressRelay(progress: progress)
                 progressRelay = relay
-                let uploadDelegate = UploadProgressDelegate(progressRelay: relay)
-                let (data, urlResponse) = try await urlSession.upload(
-                    for: urlRequest,
-                    fromFile: fileURL,
-                    delegate: uploadDelegate
-                )
+                
+                let timeoutSeconds = 3600.0 // File uploads can take a long time
+                let task = self.uploadSession.uploadTask(with: urlRequest, fromFile: fileURL)
+                let (data, urlResponse): (Data, URLResponse) = try await withNetworkTimeout(seconds: timeoutSeconds) {
+                    try await withTaskCancellationHandler {
+                        try await withCheckedThrowingContinuation { continuation in
+                            self.uploadDelegate.register(taskIdentifier: task.taskIdentifier, continuation: continuation, progressRelay: relay)
+                            task.resume()
+                        }
+                    } onCancel: {
+                        task.cancel()
+                    }
+                }
+                
                 await relay.drain()
                 let httpResponse = urlResponse as? HTTPURLResponse
                     ?? HTTPURLResponse(url: urlRequest.url ?? baseURL, statusCode: 0, httpVersion: nil, headerFields: nil)!
                 response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
             } else {
-                let (data, urlResponse) = try await urlSession.data(for: urlRequest)
+                let timeoutSeconds = urlRequest.timeoutInterval + 30.0
+                let task = self.controlSession.dataTask(with: urlRequest)
+                let (data, urlResponse): (Data, URLResponse) = try await withNetworkTimeout(seconds: timeoutSeconds) {
+                    try await withTaskCancellationHandler {
+                        try await withCheckedThrowingContinuation { continuation in
+                            self.controlDelegate.register(taskIdentifier: task.taskIdentifier, continuation: continuation, progressRelay: nil)
+                            task.resume()
+                        }
+                    } onCancel: {
+                        task.cancel()
+                    }
+                }
+                
                 let httpResponse = urlResponse as? HTTPURLResponse
                     ?? HTTPURLResponse(url: urlRequest.url ?? baseURL, statusCode: 0, httpVersion: nil, headerFields: nil)!
                 response = HTTPResponse(statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, body: data)
@@ -254,15 +308,26 @@ final class SystemHTTPClient: HTTPClient {
                     refreshRequest.setValue(csrf, forHTTPHeaderField: "X-NexusRelay-CSRF")
                 }
 
-                let (_, response) = try await self.urlSession.data(for: refreshRequest)
-                let success = (response as? HTTPURLResponse)?.statusCode == 200
+                let task = self.controlSession.dataTask(with: refreshRequest)
+                let (_, response): (Data, URLResponse) = try await withNetworkTimeout(seconds: 45.0) {
+                    try await withTaskCancellationHandler {
+                        try await withCheckedThrowingContinuation { continuation in
+                            self.controlDelegate.register(taskIdentifier: task.taskIdentifier, continuation: continuation, progressRelay: nil)
+                            task.resume()
+                        }
+                    } onCancel: {
+                        task.cancel()
+                    }
+                }
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                let success = statusCode == 200
                 
                 if success {
                     if let httpResponse = response as? HTTPURLResponse {
                         self.saveCookies(from: httpResponse)
                     }
                     self.clearCSRFToken()
-                } else {
+                } else if statusCode == 401 || statusCode == 403 {
                     self.clearSessionArtifacts()
                 }
                 
@@ -275,7 +340,6 @@ final class SystemHTTPClient: HTTPClient {
                 
                 return success
             } catch {
-                self.clearSessionArtifacts()
                 self.refreshLock.lock()
                 if self.activeRefreshId == refreshId {
                     self.activeRefreshTask = nil
@@ -305,10 +369,11 @@ final class SystemHTTPClient: HTTPClient {
     }
 }
 
-private final class UploadProgressRelay: @unchecked Sendable {
+final class UploadProgressRelay: @unchecked Sendable {
     private let progress: HTTPUploadProgressHandler?
     private let lock = NSLock()
-    private var tail: Task<Void, Never>?
+    private var pendingEvent: HTTPUploadProgress?
+    private var activeTask: Task<Void, Never>?
 
     init(progress: HTTPUploadProgressHandler?) {
         self.progress = progress
@@ -318,39 +383,122 @@ private final class UploadProgressRelay: @unchecked Sendable {
         guard let progress else { return }
 
         lock.lock()
-        let previous = tail
-        let next = Task {
-            await previous?.value
-            await progress(event)
+        pendingEvent = event
+        if activeTask == nil {
+            activeTask = Task {
+                var currentEvent: HTTPUploadProgress?
+                
+                self.lock.lock()
+                currentEvent = self.pendingEvent
+                self.pendingEvent = nil
+                self.lock.unlock()
+                
+                while let ev = currentEvent {
+                    await progress(ev)
+                    
+                    self.lock.lock()
+                    currentEvent = self.pendingEvent
+                    self.pendingEvent = nil
+                    if currentEvent == nil {
+                        self.activeTask = nil
+                    }
+                    self.lock.unlock()
+                }
+            }
         }
-        tail = next
         lock.unlock()
     }
 
     func drain() async {
+        var currentTask: Task<Void, Never>?
         lock.lock()
-        let currentTail = tail
+        currentTask = activeTask
         lock.unlock()
 
-        await currentTail?.value
+        await currentTask?.value
     }
 }
 
-private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate {
-    private let progressRelay: UploadProgressRelay
-
-    init(progressRelay: UploadProgressRelay) {
-        self.progressRelay = progressRelay
+final class SessionDelegateRouter: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+    struct TaskState {
+        let continuation: CheckedContinuation<(Data, URLResponse), Error>
+        let progressRelay: UploadProgressRelay?
+        var responseData = Data()
+        var urlResponse: URLResponse?
     }
 
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        didSendBodyData bytesSent: Int64,
-        totalBytesSent: Int64,
-        totalBytesExpectedToSend: Int64
-    ) {
+    private let lock = NSLock()
+    private var tasks: [Int: TaskState] = [:]
+
+    func register(taskIdentifier: Int, continuation: CheckedContinuation<(Data, URLResponse), Error>, progressRelay: UploadProgressRelay?) {
+        lock.lock()
+        tasks[taskIdentifier] = TaskState(continuation: continuation, progressRelay: progressRelay)
+        lock.unlock()
+    }
+
+    // MARK: - URLSessionTaskDelegate
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        lock.lock()
+        let relay = tasks[task.taskIdentifier]?.progressRelay
+        lock.unlock()
+
         let totalBytes = totalBytesExpectedToSend > 0 ? totalBytesExpectedToSend : nil
-        progressRelay.report(HTTPUploadProgress(bytesSent: totalBytesSent, totalBytes: totalBytes))
+        relay?.report(HTTPUploadProgress(bytesSent: totalBytesSent, totalBytes: totalBytes))
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        lock.lock()
+        guard var state = tasks.removeValue(forKey: task.taskIdentifier) else {
+            lock.unlock()
+            return
+        }
+        lock.unlock()
+
+        if let error = error {
+            state.continuation.resume(throwing: error)
+        } else if let response = state.urlResponse {
+            state.continuation.resume(returning: (state.responseData, response))
+        } else {
+            let fallbackError = NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil)
+            state.continuation.resume(throwing: fallbackError)
+        }
+    }
+
+    // MARK: - URLSessionDataDelegate
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        lock.lock()
+        tasks[dataTask.taskIdentifier]?.responseData.append(data)
+        lock.unlock()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        lock.lock()
+        tasks[dataTask.taskIdentifier]?.urlResponse = response
+        lock.unlock()
+        completionHandler(.allow)
     }
 }
+
+private func withNetworkTimeout<T: Sendable>(
+    seconds: Double,
+    operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw URLError(.timedOut)
+        }
+
+        guard let result = try await group.next() else {
+            throw URLError(.timedOut)
+        }
+        group.cancelAll()
+        return result
+    }
+}
+

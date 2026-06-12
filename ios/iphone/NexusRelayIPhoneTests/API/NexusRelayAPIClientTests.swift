@@ -80,7 +80,7 @@ final class NexusRelayAPIClientTests: XCTestCase {
         config.protocolClasses = [MockURLProtocol.self]
         urlSession = URLSession(configuration: config)
         
-        httpClient = SystemHTTPClient(baseURL: baseURL, sessionStore: sessionStore, csrfProvider: csrfProvider, urlSession: urlSession)
+        httpClient = SystemHTTPClient(baseURL: baseURL, sessionStore: sessionStore, csrfProvider: csrfProvider, controlSession: urlSession)
         apiClient = SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: httpClient, sessionStore: sessionStore)
     }
 
@@ -656,7 +656,7 @@ final class NexusRelayAPIClientTests: XCTestCase {
             baseURL: baseURL,
             sessionStore: sessionStore,
             csrfProvider: csrfProvider,
-            urlSession: urlSession,
+            controlSession: urlSession,
             cookieStore: cookieStore
         )
         apiClient = SystemNexusRelayAPIClient(baseURL: baseURL, httpClient: httpClient, sessionStore: sessionStore)

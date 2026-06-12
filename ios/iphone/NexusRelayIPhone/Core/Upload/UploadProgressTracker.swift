@@ -22,11 +22,13 @@ actor UploadProgressTracker {
     private var incrementHistory: [Increment] = []
     private var smoothedBytesPerSecond: Double?
     private let emaAlpha: Double = 0.3
+    private var lastCleanupDate: Date = Date.distantPast
 
     func resetSession() {
         recordStates.removeAll()
         incrementHistory.removeAll()
         smoothedBytesPerSecond = nil
+        lastCleanupDate = Date.distantPast
     }
 
     func recordUploadProgress(recordId: String, bytesSent: Int64, totalBytes: Int64, at date: Date = Date()) {
@@ -39,13 +41,17 @@ actor UploadProgressTracker {
             incrementHistory.append(Increment(bytes: delta, date: date))
         }
         
-        let windowLimit = date.addingTimeInterval(-3.0)
-        incrementHistory.removeAll { $0.date < windowLimit }
+        if date.timeIntervalSince(lastCleanupDate) > 1.0 {
+            let windowLimit = date.addingTimeInterval(-3.0)
+            incrementHistory.removeAll { $0.date < windowLimit }
+            lastCleanupDate = date
+        }
     }
 
     func snapshot(remainingBytes: Int64, at date: Date = Date()) -> UploadProgressTelemetrySnapshot {
         let windowLimit = date.addingTimeInterval(-3.0)
         incrementHistory.removeAll { $0.date < windowLimit }
+        lastCleanupDate = date
 
         let activeUploadedBytes = recordStates.values.reduce(Int64(0)) { $0 + $1.lastBytesSent }
         let activeTotalBytes = recordStates.values.reduce(Int64(0)) { $0 + $1.totalBytes }
@@ -74,12 +80,13 @@ actor UploadProgressTracker {
         
         let speed = smoothedBytesPerSecond
         let eta = speed.flatMap { $0 > 0 ? Double(max(remainingBytes, 0)) / $0 : nil }
+        let cappedEta = eta.map { min($0, 60000.0) }
 
         return UploadProgressTelemetrySnapshot(
             activeUploadedBytes: activeUploadedBytes,
             activeTotalBytes: activeTotalBytes,
             bytesPerSecond: speed,
-            estimatedSecondsRemaining: eta
+            estimatedSecondsRemaining: cappedEta
         )
     }
 
