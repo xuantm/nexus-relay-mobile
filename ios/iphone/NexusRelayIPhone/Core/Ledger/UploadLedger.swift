@@ -8,6 +8,18 @@ struct LedgerCounts: Equatable {
     let uploading: Int
 }
 
+struct LedgerNextBatchSummary: Equatable {
+    let photoCount: Int
+    let videoCount: Int
+    let totalBytes: Int64
+}
+
+struct LedgerDashboardSummary: Equatable {
+    let counts: LedgerCounts
+    let remainingBytes: Int64
+    let nextBatch: LedgerNextBatchSummary
+}
+
 enum UploadQueueFilter: Equatable {
     case all
     case active
@@ -26,5 +38,6 @@ protocol UploadLedger: AnyObject {
     func markSyncedByUploadedFileNames(_ fileNames: Set<String>, folderId: UUID) async throws
     func markFailed(id: String, error: String, retryable: Bool) async throws
     func getLedgerCounts() async throws -> LedgerCounts
+    func getDashboardSummary(nextBatchLimit: Int) async throws -> LedgerDashboardSummary
 }
 

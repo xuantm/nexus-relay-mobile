@@ -398,6 +398,53 @@ final class SQLiteUploadLedger: UploadLedger {
         return LedgerCounts(queued: 0, uploaded: 0, failed: 0, exporting: 0, uploading: 0)
     }
 
+    func getDashboardSummary(nextBatchLimit: Int) async throws -> LedgerDashboardSummary {
+        let counts = try await getLedgerCounts()
+        let remainingBytes = try await sumBytes(
+            whereClause: "status IN ('discovered', 'exporting', 'readyToUpload', 'uploading', 'failed')"
+        )
+        let nextBatch = try await nextBatchSummary(limit: nextBatchLimit)
+
+        return LedgerDashboardSummary(
+            counts: counts,
+            remainingBytes: remainingBytes,
+            nextBatch: nextBatch
+        )
+    }
+
+    private func sumBytes(whereClause: String) async throws -> Int64 {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let sql = "SELECT COALESCE(SUM(COALESCE(size_bytes, 0)), 0) FROM upload_ledger WHERE \(whereClause);"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw DatabaseError.prepareFailed(errorMessage())
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            return 0
+        }
+
+        return sqlite3_column_int64(stmt, 0)
+    }
+
+    private func nextBatchSummary(limit: Int) async throws -> LedgerNextBatchSummary {
+        let records = try await nextUploadBatch(limit: limit)
+        let photoCount = records.filter { $0.resourceKind == .image }.count
+        let videoCount = records.filter { $0.resourceKind == .video || $0.resourceKind == .livePhotoVideo }.count
+        let totalBytes = records.reduce(Int64(0)) { partial, record in
+            partial + (record.sizeBytes ?? 0)
+        }
+
+        return LedgerNextBatchSummary(
+            photoCount: photoCount,
+            videoCount: videoCount,
+            totalBytes: totalBytes
+        )
+    }
+
     private func runUpdate(_ sql: String, params: [Any]) throws {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {

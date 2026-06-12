@@ -244,6 +244,66 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         XCTAssertEqual(UploadLedgerStatus.failed.uploadStatus, .Failed)
     }
 
+    func testDashboardSummaryIncludesRemainingBytesAndNextBatchKinds() async throws {
+        let folderId = UUID()
+        let candidates = [
+            PhotoAssetCandidate(
+                assetLocalIdentifier: "photo-1",
+                resourceKind: .image,
+                originalFilename: "IMG_0001.JPG",
+                uniformTypeIdentifier: "public.jpeg",
+                mimeType: "image/jpeg",
+                creationDate: Date(timeIntervalSince1970: 1),
+                modificationDate: nil,
+                pixelWidth: 4032,
+                pixelHeight: 3024,
+                durationSeconds: nil,
+                resourceFileSize: 100
+            ),
+            PhotoAssetCandidate(
+                assetLocalIdentifier: "video-1",
+                resourceKind: .video,
+                originalFilename: "VID_0001.MOV",
+                uniformTypeIdentifier: "com.apple.quicktime-movie",
+                mimeType: "video/quicktime",
+                creationDate: Date(timeIntervalSince1970: 2),
+                modificationDate: nil,
+                pixelWidth: 1920,
+                pixelHeight: 1080,
+                durationSeconds: 12,
+                resourceFileSize: 400
+            ),
+            PhotoAssetCandidate(
+                assetLocalIdentifier: "live-1",
+                resourceKind: .livePhotoVideo,
+                originalFilename: "IMG_0002.MOV",
+                uniformTypeIdentifier: "com.apple.quicktime-movie",
+                mimeType: "video/quicktime",
+                creationDate: Date(timeIntervalSince1970: 3),
+                modificationDate: nil,
+                pixelWidth: 1920,
+                pixelHeight: 1080,
+                durationSeconds: 3,
+                resourceFileSize: 300
+            )
+        ]
+
+        try await ledger.upsertDiscovered(candidates, folderId: folderId)
+        let records = try await ledger.nextUploadBatch(limit: 10)
+        try await ledger.markExporting(id: records[0].id)
+        try await ledger.markReady(id: records[0].id, stagedFileURL: URL(fileURLWithPath: "/tmp/photo"), sizeBytes: 120)
+        try await ledger.markUploaded(id: records[0].id, backendUploadId: UUID())
+
+        let summary = try await ledger.getDashboardSummary(nextBatchLimit: 10)
+
+        XCTAssertEqual(summary.counts.uploaded, 1)
+        XCTAssertEqual(summary.counts.queued, 2)
+        XCTAssertEqual(summary.remainingBytes, 700)
+        XCTAssertEqual(summary.nextBatch.photoCount, 0)
+        XCTAssertEqual(summary.nextBatch.videoCount, 2)
+        XCTAssertEqual(summary.nextBatch.totalBytes, 700)
+    }
+
     private func makeCandidate(assetId: String, fileName: String) -> PhotoAssetCandidate {
         PhotoAssetCandidate(
             assetLocalIdentifier: assetId,
@@ -260,4 +320,3 @@ final class SQLiteUploadLedgerTests: XCTestCase {
         )
     }
 }
-
