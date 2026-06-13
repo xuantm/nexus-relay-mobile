@@ -1,6 +1,6 @@
 import Foundation
 
-enum UploadLedgerStatus: String, Codable, Equatable {
+enum UploadLedgerStatus: String, Codable, Equatable, Sendable {
     case discovered
     case exporting
     case readyToUpload
@@ -26,7 +26,7 @@ extension UploadLedgerStatus {
     }
 }
 
-struct UploadLedgerRecord: Codable, Equatable, Identifiable {
+struct UploadLedgerRecord: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let assetLocalIdentifier: String
     let resourceKind: PhotoResourceKind
@@ -42,6 +42,7 @@ struct UploadLedgerRecord: Codable, Equatable, Identifiable {
     let attemptCount: Int
     let lastAttemptAt: Date?
     let lastError: String?
+    let clientSyncId: UUID
 
     var uploadStatus: UploadStatus {
         status.uploadStatus

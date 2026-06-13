@@ -38,9 +38,10 @@ protocol NexusRelayAPI {
         folderId: UUID,
         mimeType: String,
         fileSize: Int64,
+        clientSyncId: String,
         progress: HTTPUploadProgressHandler?
     ) async throws -> StreamUploadResponse
-    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse
+    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int, clientSyncId: String) async throws -> InitUploadResponse
     func uploadChunk(
         uploadId: UUID,
         chunkIndex: Int,
@@ -52,13 +53,14 @@ protocol NexusRelayAPI {
 }
 
 extension NexusRelayAPI {
-    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64) async throws -> StreamUploadResponse {
+    func streamUpload(fileURL: URL, fileName: String, folderId: UUID, mimeType: String, fileSize: Int64, clientSyncId: String) async throws -> StreamUploadResponse {
         try await streamUpload(
             fileURL: fileURL,
             fileName: fileName,
             folderId: folderId,
             mimeType: mimeType,
             fileSize: fileSize,
+            clientSyncId: clientSyncId,
             progress: nil
         )
     }
@@ -273,6 +275,7 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         folderId: UUID,
         mimeType: String,
         fileSize: Int64,
+        clientSyncId: String,
         progress: HTTPUploadProgressHandler?
     ) async throws -> StreamUploadResponse {
         // Percent encode file name for header
@@ -283,7 +286,8 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
             "x-file-name": encodedName,
             "x-folder-id": folderId.uuidString.lowercased(),
             "x-file-size": String(fileSize),
-            "Content-Type": mimeType
+            "Content-Type": mimeType,
+            "x-client-sync-id": clientSyncId
         ]
         
         let request = HTTPRequest(method: "POST", path: "api/upload/stream", headers: headers, body: nil)
@@ -296,8 +300,8 @@ final class SystemNexusRelayAPIClient: NexusRelayAPI {
         return try JSONDecoder.apiDecoder.decode(StreamUploadResponse.self, from: response.body)
     }
 
-    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse {
-        let req = InitUploadRequest(folderId: folderId, fileName: fileName, totalSize: totalSize, totalChunks: totalChunks)
+    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int, clientSyncId: String) async throws -> InitUploadResponse {
+        let req = InitUploadRequest(folderId: folderId, fileName: fileName, totalSize: totalSize, totalChunks: totalChunks, clientSyncId: clientSyncId)
         let body = try JSONEncoder().encode(req)
         let request = HTTPRequest(method: "POST", path: "api/upload/init", headers: [:], body: body)
         let response = try await httpClient.send(request)

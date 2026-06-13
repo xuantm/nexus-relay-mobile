@@ -127,7 +127,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
         // 3. Process batches
         var hasMore = true
-        let batchLimit = 50
+        let batchLimit = 200
         var processedRecordIds = Set<String>()
 
         while hasMore {
@@ -150,7 +150,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
             syncLogger.info("sync.batch.started count=\(pendingBatch.count) concurrency=\(max(self.policy.recordUploadConcurrency, 1))")
             let batchStart = Date()
             processedRecordIds.formUnion(pendingBatch.map(\.id))
-            let batchUploadedCount = try await processBatchConcurrently(
+            let batchUploadedCount = try await processWithPipeline(
                 pendingBatch,
                 folderId: folderId,
                 settings: settings
@@ -171,50 +171,66 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         return uploadedCount
     }
 
-    private func processBatchConcurrently(
+    private func processWithPipeline(
         _ records: [UploadLedgerRecord],
         folderId: UUID,
         settings: AppSettings
     ) async throws -> Int {
-        let concurrency = max(policy.recordUploadConcurrency, 1)
-        var iterator = records.makeIterator()
-        var uploadedCount = 0
-
-        try await withThrowingTaskGroup(of: Bool.self) { group in
-            for _ in 0..<concurrency {
-                guard !isCancellationRequested(), let record = iterator.next() else { break }
-                group.addTask { [self] in
-                    try await processRecord(record, folderId: folderId, settings: settings)
-                }
+        let buffer = BoundedAsyncBuffer(maxCapacity: 32, maxBytes: 1_000_000_000)
+        
+        return try await withThrowingTaskGroup(of: Int.self) { group in
+            // --- Producer task (internally runs up to 2 concurrent exports) ---
+            group.addTask {
+                await self.runProducer(records: records, settings: settings, buffer: buffer)
+                return 0 // Producer doesn't count uploads
             }
 
-            while let didUpload = try await group.next() {
-                if didUpload {
-                    uploadedCount += 1
-                }
+            // --- Consumer task (internally runs up to 8 concurrent uploads) ---
+            group.addTask {
+                return try await self.runConsumer(
+                    buffer: buffer,
+                    folderId: folderId
+                )
+            }
 
-                guard !isCancellationRequested(), let next = iterator.next() else {
-                    continue
-                }
+            var totalUploaded = 0
+            while let count = try await group.next() {
+                totalUploaded += count
+            }
+            return totalUploaded
+        }
+    }
 
-                group.addTask { [self] in
-                    try await processRecord(next, folderId: folderId, settings: settings)
-                }
+    private func runProducer(
+        records: [UploadLedgerRecord],
+        settings: AppSettings,
+        buffer: BoundedAsyncBuffer
+    ) async {
+        await withTaskGroup(of: Void.self) { group in
+            var iterator = records.makeIterator()
+            let exportConcurrency = 2
+
+            for _ in 0..<exportConcurrency {
+                guard !isCancellationRequested(), let record = iterator.next() else { break }
+                group.addTask { [self] in await self.exportAndPush(record, settings: settings, buffer: buffer) }
+            }
+
+            while let _ = await group.next() {
+                guard !isCancellationRequested(), let next = iterator.next() else { continue }
+                group.addTask { [self] in await self.exportAndPush(next, settings: settings, buffer: buffer) }
             }
         }
 
-        return uploadedCount
+        await buffer.finish() // Signal no more items coming
     }
 
-    private func processRecord(
+    private func exportAndPush(
         _ record: UploadLedgerRecord,
-        folderId: UUID,
-        settings: AppSettings
-    ) async throws -> Bool {
-        let recordStart = Date()
+        settings: AppSettings,
+        buffer: BoundedAsyncBuffer
+    ) async {
         do {
             try await ledger.markExporting(id: record.id)
-
             let candidate = PhotoAssetCandidate(
                 assetLocalIdentifier: record.assetLocalIdentifier,
                 resourceKind: record.resourceKind,
@@ -229,10 +245,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                 resourceFileSize: record.sizeBytes
             )
 
-            let stagedURL = try tempFileStore.getStagedFileURL(
-                recordId: record.id,
-                fileName: record.uploadedFileName
-            )
+            let stagedURL = try tempFileStore.getStagedFileURL(recordId: record.id, fileName: record.uploadedFileName)
 
             try await exporter.exportOriginalResource(
                 candidate: candidate,
@@ -242,42 +255,90 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
             let actualSize = try getFileSize(at: stagedURL)
             try await ledger.markReady(id: record.id, stagedFileURL: stagedURL, sizeBytes: actualSize)
-            try await ledger.markUploading(id: record.id)
+
+            let item = ExportedItem(record: record, stagedFileURL: stagedURL, actualSizeBytes: actualSize)
+            await buffer.push(item)
+        } catch {
+            if error is CancellationError {
+                try? tempFileStore.deleteStagedFile(recordId: record.id)
+                return
+            }
+            let retryable = isRetryableError(error)
+            let message = UserFacingSyncIssue.from(error: error).message
+            try? await ledger.markFailed(id: record.id, error: message, retryable: retryable)
+            try? tempFileStore.deleteStagedFile(recordId: record.id)
+        }
+    }
+
+    private func runConsumer(
+        buffer: BoundedAsyncBuffer,
+        folderId: UUID
+    ) async throws -> Int {
+        var uploadedCount = 0
+        let uploadConcurrency = max(policy.recordUploadConcurrency, 1)
+
+        try await withThrowingTaskGroup(of: Bool.self) { group in
+            for _ in 0..<uploadConcurrency {
+                guard let item = await buffer.pop() else { break }
+                group.addTask { [self] in try await self.uploadItem(item, folderId: folderId) }
+            }
+
+            while let didUpload = try await group.next() {
+                if didUpload { uploadedCount += 1 }
+
+                guard !isCancellationRequested(), let next = await buffer.pop() else { continue }
+                group.addTask { [self] in try await self.uploadItem(next, folderId: folderId) }
+            }
+        }
+
+        return uploadedCount
+    }
+
+    private func uploadItem(_ item: ExportedItem, folderId: UUID) async throws -> Bool {
+        let recordStart = Date()
+        do {
+            try await ledger.markUploading(id: item.record.id)
 
             let updatedRecord = UploadLedgerRecord(
-                id: record.id,
-                assetLocalIdentifier: record.assetLocalIdentifier,
-                resourceKind: record.resourceKind,
-                fingerprintSuffix: record.fingerprintSuffix,
-                originalFilename: record.originalFilename,
-                uploadedFileName: record.uploadedFileName,
-                mimeType: record.mimeType,
-                sizeBytes: actualSize,
+                id: item.record.id,
+                assetLocalIdentifier: item.record.assetLocalIdentifier,
+                resourceKind: item.record.resourceKind,
+                fingerprintSuffix: item.record.fingerprintSuffix,
+                originalFilename: item.record.originalFilename,
+                uploadedFileName: item.record.uploadedFileName,
+                mimeType: item.record.mimeType,
+                sizeBytes: item.actualSizeBytes,
                 status: .readyToUpload,
                 backendFolderId: folderId,
                 backendUploadId: nil,
-                localStagedFileURL: stagedURL,
-                attemptCount: record.attemptCount,
+                localStagedFileURL: item.stagedFileURL,
+                attemptCount: item.record.attemptCount,
                 lastAttemptAt: Date(),
-                lastError: nil
+                lastError: nil,
+                clientSyncId: item.record.clientSyncId
             )
 
             let uploadId = try await uploadEngine.upload(record: updatedRecord, folderId: folderId)
 
-            try await ledger.markUploaded(id: record.id, backendUploadId: uploadId)
-            try? tempFileStore.deleteStagedFile(recordId: record.id)
-            syncLogger.info(
-                "sync.record.completed id=\(record.id, privacy: .public) bytes=\(actualSize) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) bytesPerSec=\(self.loggingBytesPerSecond(bytes: actualSize, since: recordStart))"
-            )
+            try await ledger.markUploaded(id: item.record.id, backendUploadId: uploadId)
+            try? tempFileStore.deleteStagedFile(recordId: item.record.id)
+            syncLogger.info("sync.record.completed id=\(item.record.id, privacy: .public) bytes=\(item.actualSizeBytes) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) bytesPerSec=\(self.loggingBytesPerSecond(bytes: item.actualSizeBytes, since: recordStart))")
             return true
         } catch {
+            if let apiErr = error as? APIError, case .requestFailed(let code, _) = apiErr, code == 401 || code == 403 {
+                // Circuit Breaker: bubble up immediately
+                throw error
+            }
+            if error is CancellationError {
+                try? tempFileStore.deleteStagedFile(recordId: item.record.id)
+                throw error
+            }
+
             let retryable = isRetryableError(error)
             let userFacingMessage = UserFacingSyncIssue.from(error: error).message
-            try await ledger.markFailed(id: record.id, error: userFacingMessage, retryable: retryable)
-            try? tempFileStore.deleteStagedFile(recordId: record.id)
-            syncLogger.error(
-                "sync.record.failed id=\(record.id, privacy: .public) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) error=\(userFacingMessage, privacy: .private)"
-            )
+            try? await ledger.markFailed(id: item.record.id, error: userFacingMessage, retryable: retryable)
+            try? tempFileStore.deleteStagedFile(recordId: item.record.id)
+            syncLogger.error("sync.record.failed id=\(item.record.id, privacy: .public) elapsedMs=\(self.loggingMilliseconds(since: recordStart)) error=\(userFacingMessage, privacy: .private)")
             return false
         }
     }

@@ -152,6 +152,7 @@ struct InitUploadRequest: Encodable {
     let fileName: String
     let totalSize: Int64
     let totalChunks: Int
+    let clientSyncId: String
 }
 
 struct InitUploadResponse: Codable {

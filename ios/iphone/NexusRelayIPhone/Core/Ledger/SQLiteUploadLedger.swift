@@ -70,12 +70,16 @@ final class SQLiteUploadLedger: UploadLedger {
             local_staged_file_url TEXT,
             attempt_count INTEGER DEFAULT 0,
             last_attempt_at INTEGER,
-            last_error TEXT
+            last_error TEXT,
+            client_sync_id TEXT
         );
         DROP INDEX IF EXISTS idx_ledger_unique;
         """
         
         try execute(sql)
+        
+        // Ensure migration for existing DBs
+        try? execute("ALTER TABLE upload_ledger ADD COLUMN client_sync_id TEXT;")
     }
 
     private func execute(_ sql: String) throws {
@@ -99,8 +103,8 @@ final class SQLiteUploadLedger: UploadLedger {
         INSERT INTO upload_ledger (
             id, asset_local_identifier, resource_kind, fingerprint_suffix,
             original_filename, uploaded_file_name, mime_type, size_bytes,
-            status, backend_folder_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'discovered', ?)
+            status, backend_folder_id, client_sync_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'discovered', ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             original_filename = excluded.original_filename,
             uploaded_file_name = excluded.uploaded_file_name,
@@ -141,6 +145,9 @@ final class SQLiteUploadLedger: UploadLedger {
                 }
                 sqlite3_bind_text(stmt, 9, folderId.uuidString.lowercased(), -1, SQLITE_TRANSIENT)
                 
+                let clientSyncId = UUID().uuidString.lowercased()
+                sqlite3_bind_text(stmt, 10, clientSyncId, -1, SQLITE_TRANSIENT)
+                
                 if sqlite3_step(stmt) != SQLITE_DONE {
                     throw DatabaseError.executionFailed(errorMessage())
                 }
@@ -159,7 +166,7 @@ final class SQLiteUploadLedger: UploadLedger {
         SELECT id, asset_local_identifier, resource_kind, fingerprint_suffix,
                original_filename, uploaded_file_name, mime_type, size_bytes,
                status, backend_folder_id, backend_upload_id, local_staged_file_url,
-               attempt_count, last_attempt_at, last_error
+               attempt_count, last_attempt_at, last_error, client_sync_id
         FROM upload_ledger
         WHERE status IN ('discovered', 'exporting', 'readyToUpload', 'uploading', 'failed') AND attempt_count < 3
         ORDER BY last_attempt_at ASC, id ASC
@@ -186,7 +193,7 @@ final class SQLiteUploadLedger: UploadLedger {
         SELECT id, asset_local_identifier, resource_kind, fingerprint_suffix,
                original_filename, uploaded_file_name, mime_type, size_bytes,
                status, backend_folder_id, backend_upload_id, local_staged_file_url,
-               attempt_count, last_attempt_at, last_error
+               attempt_count, last_attempt_at, last_error, client_sync_id
         FROM upload_ledger
         WHERE \(statusClause)
         ORDER BY
@@ -289,6 +296,9 @@ final class SQLiteUploadLedger: UploadLedger {
         let attemptCount = Int(sqlite3_column_int(stmt, 12))
         let lastAttempt = sqlite3_column_type(stmt, 13) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(stmt, 13)))
         let lastError = sqlite3_column_type(stmt, 14) == SQLITE_NULL ? nil : String(cString: sqlite3_column_text(stmt, 14))
+        
+        let clientSyncIdRaw = sqlite3_column_type(stmt, 15) == SQLITE_NULL ? UUID().uuidString : String(cString: sqlite3_column_text(stmt, 15))
+        let clientSyncId = UUID(uuidString: clientSyncIdRaw) ?? UUID()
 
         return UploadLedgerRecord(
             id: id,
@@ -305,7 +315,8 @@ final class SQLiteUploadLedger: UploadLedger {
             localStagedFileURL: localUrl,
             attemptCount: attemptCount,
             lastAttemptAt: lastAttempt,
-            lastError: lastError
+            lastError: lastError,
+            clientSyncId: clientSyncId
         )
     }
 

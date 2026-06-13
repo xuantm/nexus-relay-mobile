@@ -79,7 +79,8 @@ final class InMemoryUploadLedger: UploadLedger {
                     localStagedFileURL: existing.localStagedFileURL,
                     attemptCount: existing.attemptCount,
                     lastAttemptAt: existing.lastAttemptAt,
-                    lastError: existing.lastError
+                    lastError: existing.lastError,
+                    clientSyncId: existing.clientSyncId
                 )
             } else {
                 records[recordId] = UploadLedgerRecord(
@@ -97,7 +98,8 @@ final class InMemoryUploadLedger: UploadLedger {
                     localStagedFileURL: nil,
                     attemptCount: 0,
                     lastAttemptAt: nil,
-                    lastError: nil
+                    lastError: nil,
+                    clientSyncId: UUID()
                 )
             }
         }
@@ -200,7 +202,8 @@ final class InMemoryUploadLedger: UploadLedger {
                     localStagedFileURL: existing.localStagedFileURL,
                     attemptCount: 0,
                     lastAttemptAt: nil,
-                    lastError: nil
+                    lastError: nil,
+                    clientSyncId: existing.clientSyncId
                 )
             }
         }
@@ -233,7 +236,8 @@ final class InMemoryUploadLedger: UploadLedger {
                 localStagedFileURL: stagedFileURL,
                 attemptCount: existing.attemptCount,
                 lastAttemptAt: existing.lastAttemptAt,
-                lastError: existing.lastError
+                lastError: existing.lastError,
+                clientSyncId: existing.clientSyncId
             )
         }
     }
@@ -265,7 +269,8 @@ final class InMemoryUploadLedger: UploadLedger {
                 localStagedFileURL: existing.localStagedFileURL,
                 attemptCount: existing.attemptCount,
                 lastAttemptAt: existing.lastAttemptAt,
-                lastError: existing.lastError
+                lastError: existing.lastError,
+                clientSyncId: existing.clientSyncId
             )
         }
     }
@@ -300,7 +305,8 @@ final class InMemoryUploadLedger: UploadLedger {
                 localStagedFileURL: existing.localStagedFileURL,
                 attemptCount: nextAttempts,
                 lastAttemptAt: Date(),
-                lastError: error
+                lastError: error,
+                clientSyncId: existing.clientSyncId
             )
         }
     }
@@ -373,7 +379,8 @@ final class InMemoryUploadLedger: UploadLedger {
             localStagedFileURL: record.localStagedFileURL,
             attemptCount: record.attemptCount,
             lastAttemptAt: record.lastAttemptAt,
-            lastError: record.lastError
+            lastError: record.lastError,
+            clientSyncId: record.clientSyncId
         )
     }
 }

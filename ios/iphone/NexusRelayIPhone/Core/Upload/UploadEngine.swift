@@ -56,6 +56,7 @@ final class SystemUploadEngine: UploadEngine {
                     folderId: folderId,
                     mimeType: record.mimeType,
                     fileSize: fileSize,
+                    clientSyncId: record.clientSyncId.uuidString.lowercased(),
                     progress: self.progressHandler(for: record, fileSize: fileSize)
                 )
                 uploadLogger.info(
@@ -87,7 +88,8 @@ final class SystemUploadEngine: UploadEngine {
                 folderId: folderId,
                 fileName: record.uploadedFileName,
                 totalSize: fileSize,
-                totalChunks: totalChunks
+                totalChunks: totalChunks,
+                clientSyncId: record.clientSyncId.uuidString.lowercased()
             )
         }
         let uploadId = initResponse.uploadId
