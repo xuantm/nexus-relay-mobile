@@ -58,19 +58,7 @@ final class PhotoKitAssetExporter: AssetExporter, @unchecked Sendable {
         try await withTaskCancellationHandler {
             try Task.checkCancellation()
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let fileHandle: FileHandle
-                do {
-                    fileHandle = try FileHandle(forWritingTo: outputURL)
-                } catch {
-                    continuation.resume(throwing: ExportError.writeFailed(error.localizedDescription))
-                    return
-                }
-                
-                holder.id = PHAssetResourceManager.default().requestData(for: resource, options: options, dataReceivedHandler: { data in
-                    try? fileHandle.seekToEnd()
-                    fileHandle.write(data)
-                }, completionHandler: { error in
-                    try? fileHandle.close()
+                PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options, completionHandler: { error in
                     if let error = error {
                         let nsError = error as NSError
                         if Task.isCancelled || nsError.code == NSUserCancelledError || (nsError.domain == NSCocoaErrorDomain && nsError.code == CocoaError.userCancelled.rawValue) {

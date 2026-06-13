@@ -26,19 +26,15 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
         }
 
         var candidates: [PhotoAssetCandidate] = []
-        var allAssets: [PHAsset] = []
+        var assetsToProcess: [PHAsset] = []
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         let fetchResult = PHAsset.fetchAssets(with: options)
+        
         fetchResult.enumerateObjects { asset, _, _ in
-            allAssets.append(asset)
-        }
-
-        var assetsToProcess: [PHAsset] = []
-        if let existingResources = existingResources {
-            for asset in allAssets {
+            if let existingResources = existingResources {
                 let existingKinds = existingResources[asset.localIdentifier] ?? []
                 var needsProcessing = false
                 
@@ -55,9 +51,9 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
                 if needsProcessing {
                     assetsToProcess.append(asset)
                 }
+            } else {
+                assetsToProcess.append(asset)
             }
-        } else {
-            assetsToProcess = allAssets
         }
 
         for asset in assetsToProcess {
