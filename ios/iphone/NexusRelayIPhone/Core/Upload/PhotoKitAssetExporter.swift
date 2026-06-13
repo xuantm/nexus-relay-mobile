@@ -51,39 +51,29 @@ final class PhotoKitAssetExporter: AssetExporter, @unchecked Sendable {
         options.isNetworkAccessAllowed = allowNetworkAccess
         
         try? FileManager.default.removeItem(at: outputURL)
-        FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: nil)
-        
-        let holder = RequestHolder()
 
-        try await withTaskCancellationHandler {
-            try Task.checkCancellation()
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options, completionHandler: { error in
-                    if let error = error {
-                        let nsError = error as NSError
-                        if Task.isCancelled || nsError.code == NSUserCancelledError || (nsError.domain == NSCocoaErrorDomain && nsError.code == CocoaError.userCancelled.rawValue) {
-                            try? FileManager.default.removeItem(at: outputURL)
-                            continuation.resume(throwing: CancellationError())
-                        } else if nsError.domain == "PHPhotosErrorDomain" && (nsError.code == 3053 || nsError.code == 3153) {
-                            continuation.resume(throwing: ExportError.networkAccessRequired)
-                        } else {
-                            try? FileManager.default.removeItem(at: outputURL)
-                            continuation.resume(throwing: ExportError.writeFailed(error.localizedDescription))
-                        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options, completionHandler: { error in
+                if let error = error {
+                    let nsError = error as NSError
+                    if Task.isCancelled || nsError.code == NSUserCancelledError || (nsError.domain == NSCocoaErrorDomain && nsError.code == CocoaError.userCancelled.rawValue) {
+                        try? FileManager.default.removeItem(at: outputURL)
+                        continuation.resume(throwing: CancellationError())
+                    } else if nsError.domain == "PHPhotosErrorDomain" && (nsError.code == 3053 || nsError.code == 3153) {
+                        continuation.resume(throwing: ExportError.networkAccessRequired)
                     } else {
-                        if Task.isCancelled {
-                            try? FileManager.default.removeItem(at: outputURL)
-                            continuation.resume(throwing: CancellationError())
-                        } else {
-                            continuation.resume(returning: ())
-                        }
+                        try? FileManager.default.removeItem(at: outputURL)
+                        continuation.resume(throwing: ExportError.writeFailed(error.localizedDescription))
                     }
-                })
-            }
-        } onCancel: {
-            if let id = holder.id {
-                PHAssetResourceManager.default().cancelDataRequest(id)
-            }
+                } else {
+                    if Task.isCancelled {
+                        try? FileManager.default.removeItem(at: outputURL)
+                        continuation.resume(throwing: CancellationError())
+                    } else {
+                        continuation.resume(returning: ())
+                    }
+                }
+            })
         }
     }
 }
