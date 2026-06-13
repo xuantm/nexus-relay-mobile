@@ -78,8 +78,25 @@ final class SQLiteUploadLedger: UploadLedger {
         
         try execute(sql)
         
-        // Ensure migration for existing DBs
-        try? execute("ALTER TABLE upload_ledger ADD COLUMN client_sync_id TEXT;")
+        // Ensure migration for existing DBs safely
+        var hasSyncId = false
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, "PRAGMA table_info(upload_ledger);", -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if let nameCStr = sqlite3_column_text(statement, 1) {
+                    let name = String(cString: nameCStr)
+                    if name == "client_sync_id" {
+                        hasSyncId = true
+                        break
+                    }
+                }
+            }
+        }
+        sqlite3_finalize(statement)
+
+        if !hasSyncId {
+            try? execute("ALTER TABLE upload_ledger ADD COLUMN client_sync_id TEXT;")
+        }
     }
 
     private func execute(_ sql: String) throws {
