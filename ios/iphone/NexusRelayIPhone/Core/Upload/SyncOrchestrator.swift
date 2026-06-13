@@ -278,16 +278,24 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
         let uploadConcurrency = max(policy.recordUploadConcurrency, 1)
 
         try await withThrowingTaskGroup(of: Bool.self) { group in
-            for _ in 0..<uploadConcurrency {
+            var activeTasks = 0
+            
+            while true {
+                if activeTasks >= uploadConcurrency {
+                    if let didUpload = try await group.next() {
+                        activeTasks -= 1
+                        if didUpload { uploadedCount += 1 }
+                    }
+                }
+                
                 guard let item = await buffer.pop() else { break }
+                
                 group.addTask { [self] in try await self.uploadItem(item, folderId: folderId) }
+                activeTasks += 1
             }
 
             while let didUpload = try await group.next() {
                 if didUpload { uploadedCount += 1 }
-
-                guard !isCancellationRequested(), let next = await buffer.pop() else { continue }
-                group.addTask { [self] in try await self.uploadItem(next, folderId: folderId) }
             }
         }
 
