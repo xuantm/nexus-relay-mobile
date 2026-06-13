@@ -9,7 +9,6 @@ struct LibrarySyncDashboardState: Equatable {
     let speedText: String
     let remainingText: String
     let scannedText: String
-    let exportingText: String
     let uploadingText: String
     let uploadedText: String
     let waitingText: String
@@ -32,7 +31,6 @@ struct LibrarySyncDashboardState: Equatable {
         speedText: "-- MB/s",
         remainingText: "0 MB",
         scannedText: "0",
-        exportingText: "0",
         uploadingText: "0",
         uploadedText: "0",
         waitingText: "0",

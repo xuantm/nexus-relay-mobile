@@ -141,7 +141,6 @@ final class LibrarySyncViewModel: ObservableObject {
             speedText: speedText,
             remainingText: LibrarySyncDashboardFormatter.bytes(runtime.ledgerSummary.remainingBytes),
             scannedText: LibrarySyncDashboardFormatter.count(runtime.scannedAssetCount ?? total),
-            exportingText: LibrarySyncDashboardFormatter.count(counts.exporting),
             uploadingText: LibrarySyncDashboardFormatter.count(counts.uploading),
             uploadedText: LibrarySyncDashboardFormatter.count(counts.uploaded),
             waitingText: LibrarySyncDashboardFormatter.count(counts.queued),

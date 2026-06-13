@@ -73,7 +73,6 @@ struct SyncStageCards: View {
     var body: some View {
         HStack(spacing: 12) {
             SyncStageCard(icon: "checkmark.circle", title: "Scanned", value: dashboard.scannedText, subtitle: "assets found", tint: .green)
-            SyncStageCard(icon: "arrow.up.circle", title: "Exporting", value: dashboard.exportingText, subtitle: "readying files", tint: .orange)
             SyncStageCard(icon: "icloud.and.arrow.up", title: "Uploading", value: dashboard.uploadingText, subtitle: "active transfers", tint: .blue)
         }
     }
