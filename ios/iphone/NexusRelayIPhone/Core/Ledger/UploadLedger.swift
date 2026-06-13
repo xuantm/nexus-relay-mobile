@@ -40,6 +40,7 @@ protocol UploadLedger: AnyObject {
     func getLedgerCounts() async throws -> LedgerCounts
     func getDashboardSummary(nextBatchLimit: Int) async throws -> LedgerDashboardSummary
     func clearAllRecords() async throws
+    func getDiscoveredAssetResources() async throws -> [String: Set<PhotoResourceKind>]
 }
 
 final class InMemoryUploadLedger: UploadLedger {
@@ -52,6 +53,20 @@ final class InMemoryUploadLedger: UploadLedger {
         lock.lock()
         defer { lock.unlock() }
         records.removeAll()
+    }
+    
+    func getDiscoveredAssetResources() async throws -> [String: Set<PhotoResourceKind>] {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        var result: [String: Set<PhotoResourceKind>] = [:]
+        for record in records.values {
+            if result[record.assetLocalIdentifier] == nil {
+                result[record.assetLocalIdentifier] = Set()
+            }
+            result[record.assetLocalIdentifier]?.insert(record.resourceKind)
+        }
+        return result
     }
 
     func upsertDiscovered(_ candidates: [PhotoAssetCandidate], folderId: UUID) async throws {

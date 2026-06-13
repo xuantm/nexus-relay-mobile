@@ -58,7 +58,7 @@ final class ReconciliationService {
         }
         
         // 2. Scan local Photos candidates
-        let candidates = try await photosScanner.fetchCandidates(includeVideos: true, includeLivePhotoVideo: false)
+        let candidates = try await photosScanner.fetchCandidates(includeVideos: true, includeLivePhotoVideo: false, existingResources: nil)
         
         // 3. Register discovered candidates in local database
         try await ledger.upsertDiscovered(candidates, folderId: folderId)

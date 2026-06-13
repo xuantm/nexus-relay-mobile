@@ -12,5 +12,5 @@ enum PhotoLibraryAuthorizationStatus {
 protocol PhotoLibraryClient {
     func authorizationStatus() -> PhotoLibraryAuthorizationStatus
     func requestAuthorization() async -> PhotoLibraryAuthorizationStatus
-    func fetchCandidates(includeVideos: Bool, includeLivePhotoVideo: Bool) async throws -> [PhotoAssetCandidate]
+    func fetchCandidates(includeVideos: Bool, includeLivePhotoVideo: Bool, existingResources: [String: Set<PhotoResourceKind>]?) async throws -> [PhotoAssetCandidate]
 }

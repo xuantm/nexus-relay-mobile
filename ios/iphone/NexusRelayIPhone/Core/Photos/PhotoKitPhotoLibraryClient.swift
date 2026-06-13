@@ -20,23 +20,47 @@ final class PhotoKitPhotoLibraryClient: PhotoLibraryClient {
         return mapStatus(status)
     }
 
-    func fetchCandidates(includeVideos: Bool, includeLivePhotoVideo: Bool) async throws -> [PhotoAssetCandidate] {
+    func fetchCandidates(includeVideos: Bool, includeLivePhotoVideo: Bool, existingResources: [String: Set<PhotoResourceKind>]? = nil) async throws -> [PhotoAssetCandidate] {
         guard authorizationStatus() == .authorized || authorizationStatus() == .limited else {
             return []
         }
 
         var candidates: [PhotoAssetCandidate] = []
-        var assets: [PHAsset] = []
+        var allAssets: [PHAsset] = []
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         let fetchResult = PHAsset.fetchAssets(with: options)
         fetchResult.enumerateObjects { asset, _, _ in
-            assets.append(asset)
+            allAssets.append(asset)
         }
 
-        for asset in assets {
+        var assetsToProcess: [PHAsset] = []
+        if let existingResources = existingResources {
+            for asset in allAssets {
+                let existingKinds = existingResources[asset.localIdentifier] ?? []
+                var needsProcessing = false
+                
+                if !existingKinds.contains(.image) && (asset.mediaType == .image || asset.mediaSubtypes.contains(.photoLive)) {
+                    needsProcessing = true
+                }
+                if includeVideos && asset.mediaType == .video && !existingKinds.contains(.video) {
+                    needsProcessing = true
+                }
+                if includeLivePhotoVideo && asset.mediaSubtypes.contains(.photoLive) && !existingKinds.contains(.livePhotoVideo) {
+                    needsProcessing = true
+                }
+                
+                if needsProcessing {
+                    assetsToProcess.append(asset)
+                }
+            }
+        } else {
+            assetsToProcess = allAssets
+        }
+
+        for asset in assetsToProcess {
             if asset.mediaType == .video && !includeVideos {
                 continue
             }

@@ -111,9 +111,11 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
 
         // 2. Scan and register new files
         let scanStart = Date()
+        let existingResources = try? await ledger.getDiscoveredAssetResources()
         let candidates = try await photosScanner.fetchCandidates(
             includeVideos: settings.includeVideos,
-            includeLivePhotoVideo: settings.includeLivePhotoVideo
+            includeLivePhotoVideo: settings.includeLivePhotoVideo,
+            existingResources: existingResources
         )
         syncLogger.info(
             "sync.scan.completed count=\(candidates.count) elapsedMs=\(self.loggingMilliseconds(since: scanStart)) itemsPerSec=\(self.loggingItemsPerSecond(count: candidates.count, since: scanStart))"

@@ -514,7 +514,37 @@ final class SQLiteUploadLedger: UploadLedger {
     func clearAllRecords() async throws {
         lock.lock()
         defer { lock.unlock() }
-        try execute("DELETE FROM upload_ledger;")
+
+        let sql = "DELETE FROM upload_ledger;"
+        try execute(sql)
+    }
+    
+    func getDiscoveredAssetResources() async throws -> [String: Set<PhotoResourceKind>] {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        let sql = "SELECT asset_local_identifier, resource_kind FROM upload_ledger;"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) != SQLITE_OK {
+            throw DatabaseError.executionFailed("Failed to prepare statement for getDiscoveredAssetResources")
+        }
+        defer { sqlite3_finalize(statement) }
+
+        var result: [String: Set<PhotoResourceKind>] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let idCStr = sqlite3_column_text(statement, 0),
+               let kindCStr = sqlite3_column_text(statement, 1) {
+                let id = String(cString: idCStr)
+                let kindStr = String(cString: kindCStr)
+                if let kind = PhotoResourceKind(rawValue: kindStr) {
+                    if result[id] == nil {
+                        result[id] = Set()
+                    }
+                    result[id]?.insert(kind)
+                }
+            }
+        }
+        return result
     }
 
     private func errorMessage() -> String {
