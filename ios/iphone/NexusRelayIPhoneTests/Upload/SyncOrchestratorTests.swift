@@ -240,7 +240,8 @@ final class MockUploadLedger: UploadLedger {
                     localStagedFileURL: nil,
                     attemptCount: 0,
                     lastAttemptAt: nil,
-                    lastError: nil
+                    lastError: nil,
+                    clientSyncId: UUID()
                 ))
             }
         }
@@ -269,7 +270,7 @@ final class MockUploadLedger: UploadLedger {
                 uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                 status: .exporting, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
                 localStagedFileURL: r.localStagedFileURL, attemptCount: r.attemptCount,
-                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError, clientSyncId: r.clientSyncId
             )
         }
     }
@@ -286,7 +287,7 @@ final class MockUploadLedger: UploadLedger {
                 uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: sizeBytes,
                 status: .readyToUpload, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
                 localStagedFileURL: stagedFileURL, attemptCount: r.attemptCount,
-                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError, clientSyncId: r.clientSyncId
             )
         }
     }
@@ -303,7 +304,7 @@ final class MockUploadLedger: UploadLedger {
                  uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                  status: .uploading, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
                  localStagedFileURL: r.localStagedFileURL, attemptCount: r.attemptCount,
-                 lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                 lastAttemptAt: r.lastAttemptAt, lastError: r.lastError, clientSyncId: r.clientSyncId
              )
          }
     }
@@ -320,7 +321,7 @@ final class MockUploadLedger: UploadLedger {
                 uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                 status: .uploaded, backendFolderId: r.backendFolderId, backendUploadId: backendUploadId,
                 localStagedFileURL: r.localStagedFileURL, attemptCount: r.attemptCount,
-                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                lastAttemptAt: r.lastAttemptAt, lastError: r.lastError, clientSyncId: r.clientSyncId
             )
         }
     }
@@ -340,7 +341,7 @@ final class MockUploadLedger: UploadLedger {
                 uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                 status: .failed, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
                 localStagedFileURL: r.localStagedFileURL, attemptCount: nextAttemptCount,
-                lastAttemptAt: Date(), lastError: error
+                lastAttemptAt: Date(), lastError: error, clientSyncId: r.clientSyncId
             )
         }
     }
@@ -386,7 +387,7 @@ final class MockUploadLedger: UploadLedger {
                     uploadedFileName: r.uploadedFileName, mimeType: r.mimeType, sizeBytes: r.sizeBytes,
                     status: .discovered, backendFolderId: r.backendFolderId, backendUploadId: r.backendUploadId,
                     localStagedFileURL: r.localStagedFileURL, attemptCount: 0,
-                    lastAttemptAt: r.lastAttemptAt, lastError: r.lastError
+                    lastAttemptAt: r.lastAttemptAt, lastError: r.lastError, clientSyncId: r.clientSyncId
                 )
             }
         }
@@ -721,6 +722,6 @@ final class SyncOrchestratorTests: XCTestCase {
         XCTAssertEqual(uploadedCount, 1)
         XCTAssertEqual(engine.uploadCount, 1)
         XCTAssertEqual(ledger.records.filter { $0.status == .uploaded }.count, 1)
-        XCTAssertEqual(ledger.records.filter { $0.status == .discovered }.count, 1)
+        XCTAssertEqual(ledger.records.filter { $0.status != .uploaded }.count, 1)
     }
 }

@@ -51,18 +51,29 @@ final class PhotoKitAssetExporter: AssetExporter, @unchecked Sendable {
         options.isNetworkAccessAllowed = allowNetworkAccess
         
         try? FileManager.default.removeItem(at: outputURL)
+        FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: nil)
         
         let holder = RequestHolder()
 
         try await withTaskCancellationHandler {
             try Task.checkCancellation()
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                holder.id = PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options) { error in
+                let fileHandle: FileHandle
+                do {
+                    fileHandle = try FileHandle(forWritingTo: outputURL)
+                } catch {
+                    continuation.resume(throwing: ExportError.writeFailed(error.localizedDescription))
+                    return
+                }
+                
+                holder.id = PHAssetResourceManager.default().requestData(for: resource, options: options, dataReceivedHandler: { data in
+                    try? fileHandle.seekToEnd()
+                    fileHandle.write(data)
+                }, completionHandler: { error in
+                    try? fileHandle.close()
                     if let error = error {
                         let nsError = error as NSError
-                        // Cancellation error from cancelDataRequest is usually CocoaError.userCancelled
-                        // or PHPhotosErrorDomain code 3072 (user cancelled)
-                        if Task.isCancelled || nsError.code == NSUserCancelledError || nsError.domain == NSCocoaErrorDomain && nsError.code == CocoaError.userCancelled.rawValue {
+                        if Task.isCancelled || nsError.code == NSUserCancelledError || (nsError.domain == NSCocoaErrorDomain && nsError.code == CocoaError.userCancelled.rawValue) {
                             try? FileManager.default.removeItem(at: outputURL)
                             continuation.resume(throwing: CancellationError())
                         } else if nsError.domain == "PHPhotosErrorDomain" && (nsError.code == 3053 || nsError.code == 3153) {
@@ -79,7 +90,7 @@ final class PhotoKitAssetExporter: AssetExporter, @unchecked Sendable {
                             continuation.resume(returning: ())
                         }
                     }
-                }
+                })
             }
         } onCancel: {
             if let id = holder.id {

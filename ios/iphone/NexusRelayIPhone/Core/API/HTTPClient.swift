@@ -327,7 +327,7 @@ final class SystemHTTPClient: HTTPClient {
                         self.saveCookies(from: httpResponse)
                     }
                     self.clearCSRFToken()
-                } else if statusCode == 401 || statusCode == 403 {
+                } else if statusCode >= 400 && statusCode < 500 {
                     self.clearSessionArtifacts()
                 }
                 

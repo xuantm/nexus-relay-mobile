@@ -393,6 +393,7 @@ final class NexusRelayAPIClientTests: XCTestCase {
             folderId: UUID(),
             mimeType: "image/heic",
             fileSize: 12_345,
+            clientSyncId: UUID().uuidString,
             progress: { progress in
                 await recorder.record(progress)
             }

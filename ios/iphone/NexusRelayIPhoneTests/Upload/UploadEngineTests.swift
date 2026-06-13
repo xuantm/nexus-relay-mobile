@@ -30,6 +30,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
         folderId: UUID,
         mimeType: String,
         fileSize: Int64,
+        clientSyncId: String,
         progress: HTTPUploadProgressHandler?
     ) async throws -> StreamUploadResponse {
         streamUploadCount += 1
@@ -37,7 +38,7 @@ final class MockNexusRelayAPI: NexusRelayAPI {
         return try streamUploadResult.get()
     }
 
-    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int) async throws -> InitUploadResponse {
+    func initUpload(folderId: UUID, fileName: String, totalSize: Int64, totalChunks: Int, clientSyncId: String) async throws -> InitUploadResponse {
         initUploadCount += 1
         return try initUploadResult.get()
     }
@@ -129,7 +130,8 @@ final class UploadEngineTests: XCTestCase {
             localStagedFileURL: tempFileURL,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: nil
+            lastError: nil,
+            clientSyncId: UUID()
         )
 
         let uploadId = try await engine.upload(record: record, folderId: UUID())
@@ -156,7 +158,8 @@ final class UploadEngineTests: XCTestCase {
             localStagedFileURL: tempFileURL,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: nil
+            lastError: nil,
+            clientSyncId: UUID()
         )
 
         let uploadId = try await engine.upload(record: record, folderId: UUID())
@@ -185,7 +188,8 @@ final class UploadEngineTests: XCTestCase {
             localStagedFileURL: tempFileURL,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: nil
+            lastError: nil,
+            clientSyncId: UUID()
         )
 
         // Force failures for first two attempts, succeed on third
@@ -222,7 +226,8 @@ final class UploadEngineTests: XCTestCase {
             localStagedFileURL: tempFileURL,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: nil
+            lastError: nil,
+            clientSyncId: UUID()
         )
 
         // APIError.requestFailed with 400 Bad Request
@@ -264,7 +269,8 @@ final class UploadEngineTests: XCTestCase {
             localStagedFileURL: tempFileURL,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: nil
+            lastError: nil,
+            clientSyncId: UUID()
         )
 
         _ = try await engine.upload(record: record, folderId: UUID())

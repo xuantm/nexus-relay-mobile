@@ -51,7 +51,8 @@ final class UploadQueueViewModelTests: XCTestCase {
             localStagedFileURL: nil,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: lastError
+            lastError: lastError,
+            clientSyncId: UUID()
         )
     }
 
@@ -136,7 +137,8 @@ final class UploadQueueViewModelTests: XCTestCase {
             localStagedFileURL: nil,
             attemptCount: 0,
             lastAttemptAt: nil,
-            lastError: status == .failed ? "Upload failed" : nil
+            lastError: status == .failed ? "Upload failed" : nil,
+            clientSyncId: UUID()
         )
     }
 }

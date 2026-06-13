@@ -422,3 +422,77 @@ enum SyncError: Error, LocalizedError {
         }
     }
 }
+
+struct ExportedItem: Sendable {
+    let record: UploadLedgerRecord
+    let stagedFileURL: URL
+    let actualSizeBytes: Int64
+}
+
+actor BoundedAsyncBuffer {
+    private let maxCapacity: Int
+    private let maxBytes: Int64
+    
+    private var buffer: [ExportedItem] = []
+    private var currentBytes: Int64 = 0
+    private var isFinished = false
+    
+    private var waitingProducers: [CheckedContinuation<Void, Never>] = []
+    private var waitingConsumers: [CheckedContinuation<ExportedItem?, Never>] = []
+    
+    init(maxCapacity: Int = 32, maxBytes: Int64 = 1_000_000_000) { // 1GB default
+        self.maxCapacity = maxCapacity
+        self.maxBytes = maxBytes
+    }
+    
+    var count: Int { buffer.count }
+    var totalBytes: Int64 { currentBytes }
+    
+    func push(_ item: ExportedItem) async {
+        if isFinished { return }
+        if buffer.count >= maxCapacity || currentBytes >= maxBytes {
+            await withCheckedContinuation { continuation in
+                waitingProducers.append(continuation)
+            }
+            if isFinished { return }
+        }
+        buffer.append(item)
+        currentBytes += item.actualSizeBytes
+        
+        if !waitingConsumers.isEmpty {
+            let consumerContinuation = waitingConsumers.removeFirst()
+            let poppedItem = buffer.removeFirst()
+            currentBytes -= poppedItem.actualSizeBytes
+            resumeProducersIfPossible()
+            consumerContinuation.resume(returning: poppedItem)
+        }
+    }
+    
+    func pop() async -> ExportedItem? {
+        if !buffer.isEmpty {
+            let item = buffer.removeFirst()
+            currentBytes -= item.actualSizeBytes
+            resumeProducersIfPossible()
+            return item
+        }
+        if isFinished { return nil }
+        return await withCheckedContinuation { continuation in
+            waitingConsumers.append(continuation)
+        }
+    }
+    
+    func finish() {
+        isFinished = true
+        for consumer in waitingConsumers { consumer.resume(returning: nil) }
+        waitingConsumers.removeAll()
+        for producer in waitingProducers { producer.resume() }
+        waitingProducers.removeAll()
+    }
+    
+    private func resumeProducersIfPossible() {
+        while !waitingProducers.isEmpty && buffer.count < maxCapacity && currentBytes < maxBytes {
+            let producerContinuation = waitingProducers.removeFirst()
+            producerContinuation.resume()
+        }
+    }
+}
