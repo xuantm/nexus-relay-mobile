@@ -18,7 +18,7 @@ struct UploadPolicy: Equatable {
         maxRetries: 3,
         foregroundChunkConcurrency: 2,
         backgroundChunkConcurrency: 1,
-        recordUploadConcurrency: 8,
+        recordUploadConcurrency: 3,
         progressThrottleMilliseconds: 300,
         chunkCopyBufferSize: 1024 * 1024
     )
