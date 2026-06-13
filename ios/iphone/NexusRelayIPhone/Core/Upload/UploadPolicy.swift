@@ -13,7 +13,7 @@ struct UploadPolicy: Equatable {
 
     static let nexusRelayDefault = UploadPolicy(
         multipartStreamMaxBytes: 5 * 1024 * 1024,
-        directStreamMaxBytes: 20 * 1024 * 1024,
+        directStreamMaxBytes: 90 * 1024 * 1024,
         chunkSizeBytes: 16 * 1024 * 1024,
         maxRetries: 3,
         foregroundChunkConcurrency: 2,
