@@ -269,12 +269,15 @@ final class SyncStatusViewModel: ObservableObject {
         self.refreshTask?.cancel()
         self.refreshTask = nil
         
-        // Explicitly clear references to trigger deinit / database close before file removal
+        // Explicitly clear references
+        let oldLedger = self.ledger
         self.orchestrator = nil
         self.reconciliationService = nil
         self.ledger = nil
         
-        try? FileManager.default.removeItem(at: dbURL)
+        Task {
+            try? await oldLedger?.clearAllRecords()
+        }
         
         self.serverURLString = ""
         self.folderName = ""
