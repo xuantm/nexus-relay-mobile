@@ -208,7 +208,7 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
     ) async {
         await withTaskGroup(of: Void.self) { group in
             var iterator = records.makeIterator()
-            let exportConcurrency = 2
+            let exportConcurrency = 4 // Tăng lên 4 để nạp file nhanh hơn
 
             for _ in 0..<exportConcurrency {
                 guard !isCancellationRequested(), let record = iterator.next() else { break }
@@ -287,6 +287,8 @@ final class SystemSyncOrchestrator: SyncOrchestrator {
                         if didUpload { uploadedCount += 1 }
                     }
                 }
+                
+                if isCancellationRequested() { break }
                 
                 guard let item = await buffer.pop() else { break }
                 
